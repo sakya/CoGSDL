@@ -1,31 +1,19 @@
-#ifndef COG_SDL_H__
-#define COG_SDL_H__
+#ifndef COGSDL_H__
+#define COGSDL_H__
 
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_ttf.h"
-#include "signal.h"
-
-#include "KeyMap.h"
+#include "SDL2/SDL_image.h"
 
 struct CoGSDL {
+  int quit;
   int32_t DISPLAY_WIDTH;
   int32_t DISPLAY_HEIGHT;
   SDL_Window *window;
   SDL_Renderer *renderer;
-
-  TTF_Font *defaultFont;
-  int defaultFontSize;
-
-  int quit;
 } typedef CoGSDL;
 
-extern CoGSDL _G;
+extern CoGSDL _Globals;
 
 int init();
-int init_display_Resolution();
-int draw_loop();
-void pollevent();
-int handle_key();
-void dispose();
-
 #endif

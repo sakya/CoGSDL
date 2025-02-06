@@ -1,6 +1,0 @@
-{
-  "label": "CoGSDL",
-  "icon": "icon/icon.png",
-  "launch": "launch.sh",
-  "description": "Choice of Games interpreter"
-}
