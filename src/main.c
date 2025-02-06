@@ -11,7 +11,11 @@ void quit(int exitcode) {
   exit(exitcode);
 }
 
-int main() {
+int WinMain(int argc, char *argv[]) {
+  return main(argc, argv);
+}
+
+int main(int argc, char *argv[]) {
   int ret = EXIT_SUCCESS;
   signal(SIGTERM, quit);
   signal(SIGSEGV, quit);
