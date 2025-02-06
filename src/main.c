@@ -22,7 +22,7 @@ int main() {
   }
 
   if (draw_loop() < 0) {
-    printf("draw_lopp failed\n");
+    printf("draw_loop failed\n");
     ret = EXIT_FAILURE;
   }
 

@@ -1,33 +1,21 @@
-#include "CoGSDL.h.h"
+#include "CoGSDL.h"
 
-void destroy() {
+void dispose() {
   printf("##Start dispose\n");
 
   if (_G.renderer != NULL) {
     printf("\tdisposing renderer...\n");
-#if defined SDL && SDL == 1
-    SDL_FreeSurface(_G.renderer);
-#else
     SDL_DestroyRenderer(_G.renderer);
-#endif
   }
 
   if (_G.window != NULL) {
     printf("\tdisposing window...\n");
-#if defined SDL && SDL == 1
-    SDL_FreeSurface(_G.window);
-#else
     SDL_DestroyWindow(_G.window);
-#endif
   }
 
-  if (_G.timeFont != NULL) {
+  if (_G.defaultFont != NULL) {
     printf("\tClosing font...\n");
-    TTF_CloseFont(_G.timeFont);
-  }
-  if (_G.ampmFont != NULL) {
-    printf("\tClosing smFont...\n");
-    TTF_CloseFont(_G.ampmFont);
+    TTF_CloseFont(_G.defaultFont);
   }
 
   TTF_Quit();

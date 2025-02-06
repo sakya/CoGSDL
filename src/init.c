@@ -1,4 +1,4 @@
-#include "CoGSDL.h.h"
+#include "CoGSDL.h"
 
 int init() {
   printf("##Start initialization\n");
@@ -18,8 +18,10 @@ int init() {
   }
   printf("\tDisplay Resolution: %dx%d\n", _G.DISPLAY_WIDTH, _G.DISPLAY_HEIGHT);
 
+  _G.quit = 0;
+
   const char *FONT_LOCATION = "./fonts/Oswald-Bold.ttf";
-  _G.defaultFont = TTF_OpenFont(FONT_LOCATION, _G.TIME_SIZE);
+  _G.defaultFont = TTF_OpenFont(FONT_LOCATION, _G.defaultFontSize);
 
   _G.window = SDL_CreateWindow("Choice of Games Interpreter", SDL_WINDOWPOS_UNDEFINED,
                                SDL_WINDOWPOS_UNDEFINED, _G.DISPLAY_WIDTH,

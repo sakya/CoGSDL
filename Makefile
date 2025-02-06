@@ -2,7 +2,6 @@ TARGET=coGSDL
 VERSION=1.0
 
 CC=$(CROSS_COMPILE)gcc
-# CFLAGS+=-I$(INC_DIR) -Werror
 CFLAGS+=-I$(INC_DIR)
 
 ifeq ($(MIYOOMINI),1)
