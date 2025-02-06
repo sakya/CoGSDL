@@ -9,6 +9,16 @@ CoGSDL _Globals = {
 
 int main(int argc, char* argv[])
 {
-  init();
+  if (init() < 0) {
+    printf("init failed\n");
+    return -1;
+  }
+
+  draw();
+
+  SDL_DestroyRenderer(_Globals.renderer);
+  SDL_DestroyWindow(_Globals.window);
+  SDL_Quit();
+
   return 0;
 }

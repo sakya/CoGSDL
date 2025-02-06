@@ -3,7 +3,7 @@ VERSION=1.0
 
 CC=gcc
 SDL2FLAGS=$(shell pkg-config --cflags --libs sdl2 sdl2_image sdl2_ttf)
-CFLAGS+=-I$(INC_DIR)
+CFLAGS+=-I$(INC_DIR) -Wall
 
 RM=rm
 RMFLAGS=-rf
@@ -27,7 +27,7 @@ clean:
 	$(RM) $(RMFLAGS) $(OBJS) $(TARGET) CoGSDL-v$(VERSION).zip
 
 $(TARGET): ${OBJS}
-	$(CC) $(LDFLAGS) $(LDLIBS) $(SDL2FLAGS) $(OBJS) -o $(TARGET)
+	$(CC) $(OBJS) $(LDFLAGS) $(LDLIBS) $(SDL2FLAGS) -o $(TARGET)
 
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
