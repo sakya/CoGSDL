@@ -1,6 +1,7 @@
 #ifndef COGSDL_H__
 #define COGSDL_H__
 
+#include <locale.h>
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_image.h"
@@ -11,12 +12,19 @@ struct CoGSDL {
   int quit;
   int32_t DISPLAY_WIDTH;
   int32_t DISPLAY_HEIGHT;
+  int32_t WINDOW_WIDTH;
+  int32_t WINDOW_HEIGHT;
   SDL_Window *window;
   SDL_Renderer *renderer;
 
   TTF_Font *defaultFont;
   int defaultFontSize;
 } typedef CoGSDL;
+
+struct Scene
+{
+  char* title;
+} typedef Scene;
 
 extern CoGSDL _Globals;
 
@@ -29,4 +37,6 @@ int draw();
 // events.c
 int manageEvents();
 
+// scene.c
+int loadScene(char* path, Scene* scene);
 #endif
