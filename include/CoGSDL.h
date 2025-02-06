@@ -6,6 +6,7 @@
 #include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_image.h"
 
+#include "scene.h"
 #include "KeyMap.h"
 
 struct CoGSDL {
@@ -21,11 +22,6 @@ struct CoGSDL {
   int defaultFontSize;
 } typedef CoGSDL;
 
-struct Scene
-{
-  char* title;
-} typedef Scene;
-
 extern CoGSDL _Globals;
 
 // init.c
@@ -39,4 +35,10 @@ int manageEvents();
 
 // scene.c
 int loadScene(char* path, Scene* scene);
+
+// utils.c
+int indexOf(const char *string, char separator);
+int startsWith(const char *pre, const char *str);
+void subString(const char *source, char *target, int pos, int length);
+
 #endif

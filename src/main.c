@@ -16,6 +16,8 @@ int main(int argc, char* argv[])
     return -1;
   }
 
+  Scene scene;
+  loadScene("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\Vampire - Night Road\\scenes\\startup.txt", &scene);
   draw();
 
   SDL_DestroyRenderer(_Globals.renderer);
