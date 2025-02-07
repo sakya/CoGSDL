@@ -16,7 +16,7 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  Game game;
+  game game;
   loadGame("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\Vampire - Night Road", &game);
   draw();
 

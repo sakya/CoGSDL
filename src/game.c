@@ -1,6 +1,6 @@
 #include "CoGSDL.h"
 
-int loadGame(char* path, Game* game)
+int loadGame(char* path, game* game)
 {
   if (game == NULL)
     return -1;
@@ -35,6 +35,7 @@ int loadGame(char* path, Game* game)
   int sceneIdx = -1;
   int varIdx = 0;
   int achIdx = 0;
+  int lblIdx = 0;
   while (fgets(line, sizeof(line), fp)) {
     line[strcspn(line, "\n")] = '\0';
     if (startsWith("*comment ", line)) {
@@ -52,11 +53,11 @@ int loadGame(char* path, Game* game)
     } else if (startsWith("*title ", line)) {
       game->title = (char*)malloc(strlen(line) - 7 + 1);
       subString(line, game->title, 7, strlen(line) - 7);
-      printf("\tTitle: %s\n", game->title);
+      printf("Title: %s\n", game->title);
     } else if (startsWith("*author ", line)) {
       game->author = malloc(strlen(line) - 8 + 1);
       subString(line, game->author, 8, strlen(line) - 8);
-      printf("\tAuthor: %s\n", game->author);
+      printf("Author: %s\n", game->author);
     } else if (startsWith("*create ", line)) {
       // Variable definition
       int idx = indexOf(line, ' ', 8);
@@ -87,6 +88,13 @@ int loadGame(char* path, Game* game)
       achievement = &game->achievements[achIdx];
       printf("ACH name=%s, title=%s, points=%i, visible=%i\n", game->achievements[achIdx].name, game->achievements[achIdx].title, game->achievements[achIdx].points, game->achievements[achIdx].visible);
       achIdx++;
+    } else if (startsWith("*label ", line)) {
+      game->labels[lblIdx].name = (char*)malloc(strlen(line) - 7);
+      subString(line, game->labels[lblIdx].name, 7, strlen(line) - 7);
+
+      game->labels[lblIdx].position = ftell(fp);
+      printf("Label name=%s, position=%li\n", game->labels[lblIdx].name, game->labels[lblIdx].position);
+      lblIdx++;
     } else {
       if (achievement != NULL) {
         trim(line);
@@ -106,5 +114,13 @@ int loadGame(char* path, Game* game)
   }
 
   fclose(fp);
+  return 0;
+}
+
+int loadSection(char* path, section* section)
+{
+  if (section == NULL)
+    return -1;
+
   return 0;
 }

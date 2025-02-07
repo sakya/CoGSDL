@@ -25,21 +25,42 @@ struct CoGSDL {
 
 extern CoGSDL _Globals;
 
-// init.c
+/* init.c */
+/// @brief Initialize SDL
+/// @return
 int init();
 
-// draw.c
+/* draw.c */
 int draw();
 
-// events.c
+/* events.c */
+/// @brief Manage SDL events
+/// @return 0 on success
 int manageEvents();
 
-// scene.c
-// Loads a game from a folder (read the file scenes/startup.txt)
-int loadGame(char* path, Game* scene);
+/* scene.c */
+/// @brief Loads a game from a folder (read the file scenes/startup.txt)
+/// @param path Path to the folder containing the game
+/// @param game The game
+/// @return 0 on success
+int loadGame(char* path, game* game);
+/// @brief Load a game section
+/// @param path The path to the section file
+/// @param section The section
+/// @return 0 on success
+int loadSection(char* path, section* section);
 
-// utils.c
-int indexOf(const char *string, char separator, int startFrom);
+/* utils.c */
+/// @brief Get the position of a char in a string
+/// @param string The string
+/// @param character The character to find
+/// @param startFrom The start position
+/// @return The position or -1
+int indexOf(const char *string, char character, int startFrom);
+/// @brief Check if a string starts with the given string
+/// @param prefix The prefix to check
+/// @param string The string
+/// @return 1 if string starts with prefix
 int startsWith(const char *prefix, const char *string);
 void subString(const char *source, char *target, int pos, int length);
 void trim(char *string);

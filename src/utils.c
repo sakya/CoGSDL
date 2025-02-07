@@ -1,14 +1,14 @@
 #include "CoGSDL.h"
 
-int indexOf(const char *string, char separator, int startFrom)
+int indexOf(const char *string, char character, int startFrom)
 {
-  if (!string || separator == '\0')
+  if (!string || character == '\0')
       return -1;
 
   int idx = startFrom;
   string += startFrom;
   for (;*string; string++) {
-    if (*string == separator)
+    if (*string == character)
         return idx;
     idx++;
   }
@@ -17,7 +17,7 @@ int indexOf(const char *string, char separator, int startFrom)
 
 int startsWith(const char *prefix, const char *string)
 {
-    return strncmp(prefix, string, strlen(prefix)) == 0;
+    return strncmp(prefix, string, strlen(prefix)) == 0 ? 1 : 0;
 }
 
 void subString(const char *source, char *target, int pos, int length) {

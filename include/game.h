@@ -5,6 +5,12 @@ struct variable
 
 } typedef variable;
 
+struct label
+{
+  char* name;
+  long position;
+} typedef label;
+
 struct achievement
 {
   char* name;
@@ -16,7 +22,7 @@ struct achievement
 
 } typedef achievement;
 
-struct Game
+struct game
 {
   char path[255];
   char icon[255];
@@ -26,4 +32,12 @@ struct Game
   char scene_list[1024][1024];
   variable variables[1024];
   achievement achievements[1024];
-} typedef Game;
+  label labels[1024];
+} typedef game;
+
+struct section
+{
+  char path[255];
+
+  label labels[1024];
+} typedef section;
