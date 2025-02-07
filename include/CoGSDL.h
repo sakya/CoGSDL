@@ -5,6 +5,7 @@
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_image.h"
+#include <sys/stat.h>
 
 #include "game.h"
 #include "KeyMap.h"
@@ -42,5 +43,7 @@ int indexOf(const char *string, char separator, int startFrom);
 int startsWith(const char *prefix, const char *string);
 void subString(const char *source, char *target, int pos, int length);
 void trim(char *string);
+
+int file_exists (char *filename);
 
 #endif

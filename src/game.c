@@ -7,6 +7,19 @@ int loadGame(char* path, Game* game)
 
   printf("Loading game from: %s\n", path);
   strcpy(game->path, path);
+
+  char iconPath[255];
+  strcpy(iconPath, path);
+  strcat(iconPath, "/icon.png");
+  if (file_exists(iconPath)) {
+    strcpy(game->icon, iconPath);
+  } else {
+    strcpy(iconPath, path);
+    strcat(iconPath, "/icon.jpg");
+    if (file_exists(iconPath)) {
+      strcpy(game->icon, iconPath);
+    }
+  }
   char filePath[255];
   strcpy(filePath, path);
   strcat(filePath, "/scenes/startup.txt");
