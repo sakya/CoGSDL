@@ -1,11 +1,12 @@
 #include "CoGSDL.h"
 
-int indexOf(const char *string, char separator)
+int indexOf(const char *string, char separator, int startFrom)
 {
   if (!string || separator == '\0')
       return -1;
 
-  int idx = 0;
+  int idx = startFrom;
+  string += startFrom;
   for (;*string; string++) {
     if (*string == separator)
         return idx;
@@ -14,9 +15,9 @@ int indexOf(const char *string, char separator)
   return -1;
 }
 
-int startsWith(const char *pre, const char *str)
+int startsWith(const char *prefix, const char *string)
 {
-    return strncmp(pre, str, strlen(pre)) == 0;
+    return strncmp(prefix, string, strlen(prefix)) == 0;
 }
 
 void subString(const char *source, char *target, int pos, int length) {
@@ -28,4 +29,24 @@ void subString(const char *source, char *target, int pos, int length) {
     }
 
     target[i] = '\0';
+}
+
+void trim(char *string) {
+  int start = 0, end = strlen(string) - 1;
+
+  // Remove leading whitespace
+  while (isspace(string[start])) {
+    start++;
+  }
+
+  // Remove trailing whitespace
+  while (end > start && isspace(string[end])) {
+    end--;
+  }
+
+  // If the string was trimmed, adjust the null terminator
+  if (start > 0 || end < (strlen(string) - 1)) {
+    memmove(string, string + start, end - start + 1);
+    string[end - start + 1] = '\0';
+  }
 }

@@ -1,12 +1,12 @@
 #ifndef COGSDL_H__
 #define COGSDL_H__
 
-#include <locale.h>
+#include "locale.h"
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_image.h"
 
-#include "scene.h"
+#include "game.h"
 #include "KeyMap.h"
 
 struct CoGSDL {
@@ -34,11 +34,13 @@ int draw();
 int manageEvents();
 
 // scene.c
-int loadScene(char* path, Scene* scene);
+// Loads a game from a folder (read the file startup.txt)
+int loadGame(char* path, Game* scene);
 
 // utils.c
-int indexOf(const char *string, char separator);
-int startsWith(const char *pre, const char *str);
+int indexOf(const char *string, char separator, int startFrom);
+int startsWith(const char *prefix, const char *string);
 void subString(const char *source, char *target, int pos, int length);
+void trim(char *string);
 
 #endif

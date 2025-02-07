@@ -3,7 +3,7 @@ VERSION=1.0
 
 CC=gcc
 SDL2FLAGS=$(shell pkg-config --cflags --libs sdl2 sdl2_image sdl2_ttf)
-CFLAGS+=-I$(INC_DIR) -Wall
+CFLAGS+=-I$(INC_DIR) -Wall -g
 
 RM=rm
 RMFLAGS=-rf
