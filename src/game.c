@@ -11,12 +11,12 @@ int loadGame(char* path, Game* game)
   char iconPath[255];
   strcpy(iconPath, path);
   strcat(iconPath, "/icon.png");
-  if (file_exists(iconPath)) {
+  if (fileExists(iconPath)) {
     strcpy(game->icon, iconPath);
   } else {
     strcpy(iconPath, path);
     strcat(iconPath, "/icon.jpg");
-    if (file_exists(iconPath)) {
+    if (fileExists(iconPath)) {
       strcpy(game->icon, iconPath);
     }
   }
@@ -31,16 +31,25 @@ int loadGame(char* path, Game* game)
       return -1;
 
   achievement* achievement = NULL;
+
+  int sceneIdx = -1;
   int varIdx = 0;
   int achIdx = 0;
   while (fgets(line, sizeof(line), fp)) {
     line[strcspn(line, "\n")] = '\0';
-    if (startsWith("*comment ", line) || strlen(line) == 0) {
-      // Skip comments and empty lines
+    if (startsWith("*comment ", line)) {
+      // Skip comments
+      continue;
+    }
+    if (strlen(line) == 0) {
+      // Skip empty lines
+      sceneIdx = -1;
       continue;
     }
 
-    if (startsWith("*title ", line)) {
+    if (strcmp(line, "*scene_list") == 0) {
+      sceneIdx = 0;
+    } else if (startsWith("*title ", line)) {
       game->title = (char*)malloc(strlen(line) - 7 + 1);
       subString(line, game->title, 7, strlen(line) - 7);
       printf("\tTitle: %s\n", game->title);
@@ -87,6 +96,11 @@ int loadGame(char* path, Game* game)
           achievement->postEarnedDescription = line;
           achievement = NULL;
         }
+      } else if (sceneIdx != -1) {
+        trim(line);
+        strcpy(game->scene_list[sceneIdx], line);
+        printf("scene: %s\n", game->scene_list[sceneIdx]);
+        sceneIdx++;
       }
     }
   }

@@ -35,7 +35,7 @@ int draw();
 int manageEvents();
 
 // scene.c
-// Loads a game from a folder (read the file startup.txt)
+// Loads a game from a folder (read the file scenes/startup.txt)
 int loadGame(char* path, Game* scene);
 
 // utils.c
@@ -44,6 +44,7 @@ int startsWith(const char *prefix, const char *string);
 void subString(const char *source, char *target, int pos, int length);
 void trim(char *string);
 
-int file_exists (char *filename);
+// Return 1 if the given file exists
+int fileExists(char *filename);
 
 #endif
