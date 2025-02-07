@@ -29,9 +29,16 @@ struct game
   char* title;
   char* author;
 
-  char scene_list[1024][1024];
+  int scenesCount;
+  char scenes[1024][256];
+
+  int variablesCount;
   variable variables[1024];
+
+  int achievementsCount;
   achievement achievements[1024];
+
+  int labelsCount;
   label labels[1024];
 } typedef game;
 

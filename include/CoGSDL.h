@@ -6,6 +6,8 @@
 #include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_image.h"
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include "game.h"
 #include "KeyMap.h"
@@ -38,9 +40,9 @@ int draw();
 /// @return 0 on success
 int manageEvents();
 
-/* scene.c */
-/// @brief Loads a game from a folder (read the file scenes/startup.txt)
-/// @param path Path to the folder containing the game
+/* game.c */
+/// @brief Loads a game from a directory (read the file scenes/startup.txt)
+/// @param path Path to the directory containing the game
 /// @param game The game
 /// @return 0 on success
 int loadGame(char* path, game* game);
@@ -49,6 +51,16 @@ int loadGame(char* path, game* game);
 /// @param section The section
 /// @return 0 on success
 int loadSection(char* path, section* section);
+/// @brief List all games in a directory
+/// @param path The directory path
+/// @param games A pointer to an array of games
+/// @return The number of games found
+int listGames(char* path, game (*games)[0]);
+/// @brief Get a variable value
+/// @param varName The variable name
+/// @param game The game
+/// @return The variable value or NULL
+char* getVarValue(char *varName, game* game);
 
 /* utils.c */
 /// @brief Get the position of a char in a string
@@ -56,16 +68,21 @@ int loadSection(char* path, section* section);
 /// @param character The character to find
 /// @param startFrom The start position
 /// @return The position or -1
-int indexOf(const char *string, char character, int startFrom);
+int indexOf(const char *string, const char character, const int startFrom);
+/// @brief Get the position of a word break char (space or tab) in a string
+/// @param string The string
+/// @param startFrom The start position
+/// @return The position or -1
+int indexOfWordBreak(const char *string, const int startFrom);
 /// @brief Check if a string starts with the given string
 /// @param prefix The prefix to check
 /// @param string The string
 /// @return 1 if string starts with prefix
 int startsWith(const char *prefix, const char *string);
-void subString(const char *source, char *target, int pos, int length);
+void subString(const char *source, char *target, const int pos, const int length);
 void trim(char *string);
 
 // Return 1 if the given file exists
-int fileExists(char *filename);
+int fileExists(const char *filename);
 
 #endif

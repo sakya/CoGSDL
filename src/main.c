@@ -16,8 +16,12 @@ int main(int argc, char* argv[])
     return -1;
   }
 
+  //game games[0];
+  //listGames("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\", &games);
+
   game game;
-  loadGame("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\Vampire - Night Road", &game);
+  loadGame("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\Vampire - Parliament of Knives", &game);
+
   draw();
 
   SDL_DestroyRenderer(_Globals.renderer);
