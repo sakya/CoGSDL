@@ -2,11 +2,12 @@
 
 int indexOfWordBreak(const char *string, const int startFrom)
 {
-  int idx = indexOf(string, ' ', startFrom);
-  if (idx != -1)
-    return idx;
+  int wIdx = indexOf(string, ' ', startFrom);
+  int tIdx = indexOf(string, '\t', startFrom);
+  if (tIdx == -1)
+    return wIdx;
 
-  return indexOf(string, '\t', startFrom);
+  return wIdx < tIdx ? wIdx : tIdx;
 }
 
 int indexOf(const char *string, const char character, const int startFrom)
@@ -15,12 +16,13 @@ int indexOf(const char *string, const char character, const int startFrom)
       return -1;
 
   int idx = startFrom;
-  string += startFrom;
-  for (;*string; string++) {
-    if (*string == character)
-        return idx;
+  int len = strlen(string);
+  while (idx < len) {
+    if (string[idx] == character)
+      return idx;
     idx++;
   }
+
   return -1;
 }
 
@@ -31,13 +33,16 @@ int startsWith(const char *prefix, const char *string)
 
 void subString(const char *source, char *target, const int pos, const int length) {
   int i = 0;
+  int sourceLen = strlen(source);
+  while (i < length) {
+    if (pos + i >= sourceLen)
+      break;
 
-    while (i < length) {
-        target[i] = source[pos + i];
-        i++;
-    }
+    target[i] = source[pos + i];
+    i++;
+  }
 
-    target[i] = '\0';
+  target[i] = '\0';
 }
 
 void trim(char *string) {
@@ -58,6 +63,17 @@ void trim(char *string) {
     memmove(string, string + start, end - start + 1);
     string[end - start + 1] = '\0';
   }
+}
+
+int isEmpty(const char *string)
+{
+  int start = 0, end = strlen(string) - 1;
+  while(start < end) {
+    if (!isspace(string[start]))
+      return 0;
+    start++;
+  }
+  return 1;
 }
 
 int fileExists (const char *filename) {

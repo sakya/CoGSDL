@@ -12,15 +12,15 @@ CoGSDL _Globals = {
 int main(int argc, char* argv[])
 {
   if (init() < 0) {
-    printf("init failed\n");
+    logInfo("init failed\n");
     return -1;
   }
 
-  //game games[0];
-  //listGames("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\", &games);
+  game games[0];
+  listGames("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\", &games);
 
-  game game;
-  loadGame("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\Vampire - Parliament of Knives", &game);
+  //game game;
+  //loadGame("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\Vampire - Parliament of Knives", &game);
 
   draw();
 

@@ -45,24 +45,28 @@ int manageEvents();
 /// @param path Path to the directory containing the game
 /// @param game The game
 /// @return 0 on success
-int loadGame(char* path, game* game);
+int loadGame(const char* path, game* game);
 /// @brief Load a game section
 /// @param path The path to the section file
 /// @param section The section
 /// @return 0 on success
-int loadSection(char* path, section* section);
+int loadSection(const char* path, section* section);
 /// @brief List all games in a directory
 /// @param path The directory path
 /// @param games A pointer to an array of games
 /// @return The number of games found
-int listGames(char* path, game (*games)[0]);
+int listGames(const char* path, game (*games)[0]);
 /// @brief Get a variable value
 /// @param varName The variable name
 /// @param game The game
 /// @return The variable value or NULL
-char* getVarValue(char *varName, game* game);
+char* getVarValue(const char *varName, game* game);
 
 /* utils.c */
+/// @brief Check if a string is empty or all whitespaces
+/// @param string The string
+/// @return 1 if the string is empty
+int isEmpty(const char *string);
 /// @brief Get the position of a char in a string
 /// @param string The string
 /// @param character The character to find
@@ -85,4 +89,7 @@ void trim(char *string);
 // Return 1 if the given file exists
 int fileExists(const char *filename);
 
+/* log.c */
+int logInit(const char* filePath);
+void logInfo(const char *format, ...);
 #endif

@@ -2,7 +2,6 @@ struct variable
 {
   char* name;
   char* value;
-
 } typedef variable;
 
 struct label
@@ -19,7 +18,6 @@ struct achievement
   char* title;
   char* preEarnedDescription;
   char* postEarnedDescription;
-
 } typedef achievement;
 
 struct game
@@ -33,13 +31,13 @@ struct game
   char scenes[1024][256];
 
   int variablesCount;
-  variable variables[1024];
+  variable variables[4096];
 
   int achievementsCount;
-  achievement achievements[1024];
+  achievement achievements[4096];
 
   int labelsCount;
-  label labels[1024];
+  label labels[4096];
 } typedef game;
 
 struct section

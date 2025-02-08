@@ -2,26 +2,26 @@
 
 int init()
 {
-  setvbuf(stdout, NULL, _IONBF, 0);
-  printf("##Start initialization\n");
+  logInit("CoGSDL.log");
+  logInfo("Initializing\n");
 
   char *locale;
   locale = setlocale(LC_ALL, "");
-  printf("\tLocale: %s\n", locale);
+  logInfo("\tLocale: %s\n", locale);
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-    printf("\tSDL_Init Fail: %s\n", SDL_GetError());
+    logInfo("\tSDL_Init Fail: %s\n", SDL_GetError());
     return -1;
   }
 
   if (TTF_Init() < 0) {
-    printf("\tTTF_Init Fail: %s\n", TTF_GetError());
+    logInfo("\tTTF_Init Fail: %s\n", TTF_GetError());
     return -1;
   }
 
   SDL_DisplayMode mode;
   if (SDL_GetDesktopDisplayMode(0, &mode)) {
-    printf("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
+    logInfo("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
     return -1;
   }
   _Globals.DISPLAY_WIDTH = mode.w;
@@ -29,7 +29,7 @@ int init()
   _Globals.WINDOW_WIDTH = 640;
   _Globals.WINDOW_HEIGHT = 480;
 
-  printf("\tDisplay Resolution: %dx%d\n", _Globals.DISPLAY_WIDTH, _Globals.DISPLAY_HEIGHT);
+  logInfo("\tDisplay Resolution: %dx%d\n", _Globals.DISPLAY_WIDTH, _Globals.DISPLAY_HEIGHT);
 
   const char *FONT_LOCATION = "./fonts/Roboto-Regular.ttf";
    _Globals.defaultFont = TTF_OpenFont(FONT_LOCATION, _Globals.defaultFontSize);
@@ -40,13 +40,13 @@ int init()
                                _Globals.WINDOW_HEIGHT > 0 ? _Globals.WINDOW_HEIGHT : _Globals.DISPLAY_HEIGHT,
                                SDL_WINDOW_SHOWN);
   if (_Globals.window == NULL) {
-    printf("\tSDL_CreateWindow Fail: %s\n", SDL_GetError());
+    logInfo("\tSDL_CreateWindow Fail: %s\n", SDL_GetError());
     return -1;
   }
 
   _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_SOFTWARE);
   if (_Globals.renderer == NULL) {
-    printf("\tSDL_CreateRenderer Fail: %s\n", SDL_GetError());
+    logInfo("\tSDL_CreateRenderer Fail: %s\n", SDL_GetError());
     return -1;
   }
 
