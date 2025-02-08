@@ -1,3 +1,6 @@
+#ifndef GAME_H__
+#define GAME_H__
+
 struct variable
 {
   char* name;
@@ -46,3 +49,5 @@ struct section
 
   label labels[4096];
 } typedef section;
+
+#endif

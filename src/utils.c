@@ -80,3 +80,48 @@ int fileExists (const char *filename) {
   struct stat buffer;
   return (stat (filename, &buffer) == 0) ? 1 : 0;
 }
+
+void sdlWriteText(char* text, int x, int y, int maxWidth, int maxHeight)
+{
+  SDL_Color white = {255, 255, 255};
+  SDL_Surface* surface = TTF_RenderUTF8_Blended(_Globals.defaultFont, text, white);
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
+
+  SDL_Rect rect;
+  rect.x = x;
+  rect.y = y;
+  rect.w = maxWidth > 0 && maxWidth < surface->w ? maxWidth : surface->w;
+  rect.h = maxHeight > 0 && maxHeight < surface->h ? maxHeight : surface->h;
+
+  SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
+
+  SDL_FreeSurface(surface);
+  SDL_DestroyTexture(texture);
+}
+
+void sdlBlitImage(char* image, int x, int y, int maxWidth, int maxHeight)
+{
+  SDL_Surface *surface = IMG_Load(image);
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
+
+  SDL_Rect rect;
+  rect.x = x;
+  rect.y = y;
+  rect.w = surface->w;
+  rect.h = surface->h;
+
+  float ratio = rect.w / rect.h;
+  if (rect.w > maxWidth) {
+    rect.w = maxWidth;
+    rect.h = rect.w / ratio;
+  }
+  if (rect.h > maxHeight) {
+    rect.h = maxHeight;
+    rect.w = rect.h * ratio;
+  }
+
+  SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
+
+  SDL_FreeSurface(surface);
+  SDL_DestroyTexture(texture);
+}

@@ -13,6 +13,12 @@
 #include "game.h"
 #include "KeyMap.h"
 
+enum status
+{
+  MainMenu = 0,
+  Game = 1
+};
+
 struct CoGSDL {
   int quit;
   int32_t DISPLAY_WIDTH;
@@ -21,6 +27,11 @@ struct CoGSDL {
   int32_t WINDOW_HEIGHT;
   SDL_Window *window;
   SDL_Renderer *renderer;
+
+  int gamesCount;
+  game games[255];
+
+  enum status status;
 
   TTF_Font *defaultFont;
   int defaultFontSize;
@@ -56,7 +67,7 @@ int loadSection(const char* path, section* section);
 /// @param path The directory path
 /// @param games A pointer to an array of games
 /// @return The number of games found
-int listGames(const char* path, game (*games)[0]);
+int listGames(const char* path, game *games);
 /// @brief Get a variable value
 /// @param varName The variable name
 /// @param game The game
@@ -86,11 +97,18 @@ int indexOfWordBreak(const char *string, const int startFrom);
 int startsWith(const char *prefix, const char *string);
 void subString(const char *source, char *target, const int pos, const int length);
 void trim(char *string);
-
-// Return 1 if the given file exists
+/// @brief Check if a file exists
+/// @param filename The path to the file
+/// @return 1 if the file exists
 int fileExists(const char *filename);
+
+void sdlWriteText(char* text, int x, int y, int maxWidth, int maxHeight);
+void sdlBlitImage(char* image, int x, int y, int maxWidth, int maxHeight);
 
 /* log.c */
 int logInit(const char* filePath);
 void logInfo(const char *format, ...);
+
+/* mainmenu.c */
+void drawMainMenu();
 #endif

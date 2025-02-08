@@ -19,6 +19,11 @@ int init()
     return -1;
   }
 
+  if (IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG) < 0) {
+    logInfo("\tIMG_Init Fail: %s\n", TTF_GetError());
+    return -1;
+  }
+
   SDL_DisplayMode mode;
   if (SDL_GetDesktopDisplayMode(0, &mode)) {
     logInfo("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
@@ -31,6 +36,7 @@ int init()
 
   logInfo("\tDisplay Resolution: %dx%d\n", _Globals.DISPLAY_WIDTH, _Globals.DISPLAY_HEIGHT);
 
+  _Globals.defaultFontSize = 18;
   const char *FONT_LOCATION = "./fonts/Roboto-Regular.ttf";
    _Globals.defaultFont = TTF_OpenFont(FONT_LOCATION, _Globals.defaultFontSize);
 
@@ -50,5 +56,6 @@ int init()
     return -1;
   }
 
+  _Globals.status = MainMenu;
   return 0;
 }

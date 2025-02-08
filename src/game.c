@@ -144,12 +144,18 @@ int loadGame(const char* path, game* game)
   game->variables[game->variablesCount].value = "true";
   game->variablesCount++;
 
+  // Add skip_description var
+  game->variables[game->variablesCount].name = "skip_description";
+  game->variables[game->variablesCount].value = "true";
+  game->variablesCount++;
+
   fclose(fp);
 
   logInfo("\tScenes      : %i\n", game->scenesCount);
   logInfo("\tVariables   : %i\n", game->variablesCount);
   logInfo("\tAchievements: %i\n", game->achievementsCount);
   logInfo("\tLabels      : %i\n", game->labelsCount);
+
   return 0;
 }
 
@@ -161,18 +167,18 @@ int loadSection(const char* path, section* section)
   return 0;
 }
 
-int listGames(const char* path, game (*games)[0])
+int listGames(const char* path, game *games)
 {
   struct dirent *entry;
   DIR *dir = opendir(path);
   if (dir == NULL)
       return 0;
 
+  int count = 0;
   while ((entry = readdir(dir)) != NULL) {
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
       continue;
 
-    int count = 0;
     char subDirPath[255];
     strcpy(subDirPath, path);
     strcat(subDirPath, entry->d_name);
@@ -182,16 +188,15 @@ int listGames(const char* path, game (*games)[0])
         continue;
     closedir(subDir);
 
-    game game;
-    if (loadGame(subDirPath, &game)) {
-      games = realloc(games, count + 1);
-      *games[count] = game;
+    game g;
+    if (!loadGame(subDirPath, &g)) {
+      games[count] = g;
       count++;
     }
   }
 
   closedir(dir);
-  return 0;
+  return count;
 }
 
 char* getVarValue(const char *varName, game* game)
