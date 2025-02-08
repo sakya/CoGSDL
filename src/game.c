@@ -20,6 +20,7 @@ int loadGame(const char* path, game* game)
       strcpy(game->icon, iconPath);
     }
   }
+  logInfo("\tIcon: %s\n", game->icon);
   char filePath[255];
   strcpy(filePath, path);
   strcat(filePath, "/scenes/startup.txt");
@@ -27,8 +28,10 @@ int loadGame(const char* path, game* game)
   char line[4096];
 
   fp = fopen(filePath, "r");
-  if (fp == NULL)
-      return -1;
+  if (fp == NULL) {
+    logInfo("\tFile %s not found", filePath);
+    return -1;
+  }
 
   achievement* ach = NULL;
 
@@ -144,7 +147,7 @@ int loadGame(const char* path, game* game)
   fclose(fp);
 
   logInfo("\tScenes      : %i\n", game->scenesCount);
-  logInfo("\tVaribales   : %i\n", game->variablesCount);
+  logInfo("\tVariables   : %i\n", game->variablesCount);
   logInfo("\tAchievements: %i\n", game->achievementsCount);
   logInfo("\tLabels      : %i\n", game->labelsCount);
   return 0;

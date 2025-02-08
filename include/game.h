@@ -44,5 +44,5 @@ struct section
 {
   char path[255];
 
-  label labels[1024];
+  label labels[4096];
 } typedef section;

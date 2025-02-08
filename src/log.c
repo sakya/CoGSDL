@@ -15,15 +15,24 @@ int logInit(const char* filePath)
 void logInfo(const char *format, ...)
 {
   char msg[1024];
+  char buffer[256];
+  time_t current_time;
+  struct tm *info;
 
   va_list args;
   va_start(args, format);
   vsnprintf(msg, sizeof(msg), format, args);
   va_end(args);
 
+  current_time = time(NULL);
+  info = localtime(&current_time);
+  strftime(buffer, sizeof(buffer), "[%Y-%m-%dT%H:%M:%S][INF]", info);
+
   if (log_fp != NULL) {
+    fwrite(buffer, sizeof(char), strlen(buffer), log_fp);
     fwrite(msg, sizeof(char), strlen(msg), log_fp);
     fflush(log_fp);
   }
+  printf(buffer);
   printf(msg);
 }
