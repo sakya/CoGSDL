@@ -25,7 +25,6 @@ void drawMainMenu()
     _Globals.input[SDL_SCANCODE_UP] = 0;
   }
 
-
   for (i = firstIdx; i < _Globals.gamesCount; i++) {
     game* g = &_Globals.games[i];
     SDL_Color color = i == selectedIdx ? selected : white;
