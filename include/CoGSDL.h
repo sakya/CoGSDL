@@ -32,9 +32,12 @@ struct CoGSDL {
   game games[255];
 
   enum status status;
+  int input[256];
 
   TTF_Font *defaultFont;
   int defaultFontSize;
+  TTF_Font *defaultSmallFont;
+  int defaultSmallFontSize;
 } typedef CoGSDL;
 
 extern CoGSDL _Globals;
@@ -102,7 +105,7 @@ void trim(char *string);
 /// @return 1 if the file exists
 int fileExists(const char *filename);
 
-void sdlWriteText(char* text, int x, int y, int maxWidth, int maxHeight);
+void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(char* image, int x, int y, int maxWidth, int maxHeight);
 
 /* log.c */

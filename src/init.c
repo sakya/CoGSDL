@@ -37,8 +37,10 @@ int init()
   logInfo("\tDisplay Resolution: %dx%d\n", _Globals.DISPLAY_WIDTH, _Globals.DISPLAY_HEIGHT);
 
   _Globals.defaultFontSize = 18;
-  const char *FONT_LOCATION = "./fonts/Roboto-Regular.ttf";
-   _Globals.defaultFont = TTF_OpenFont(FONT_LOCATION, _Globals.defaultFontSize);
+  _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
+
+  _Globals.defaultSmallFontSize = 14;
+  _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
 
   _Globals.window = SDL_CreateWindow("Choice of games interpreter",
                                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,

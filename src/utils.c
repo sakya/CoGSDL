@@ -81,10 +81,9 @@ int fileExists (const char *filename) {
   return (stat (filename, &buffer) == 0) ? 1 : 0;
 }
 
-void sdlWriteText(char* text, int x, int y, int maxWidth, int maxHeight)
+void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
 {
-  SDL_Color white = {255, 255, 255};
-  SDL_Surface* surface = TTF_RenderUTF8_Blended(_Globals.defaultFont, text, white);
+  SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
 
   SDL_Rect rect;

@@ -11,6 +11,13 @@ int manageEvents()
         return 0;
         break;
 
+      case SDL_KEYDOWN:
+        _Globals.input[event.key.keysym.scancode] = 1;
+        break;
+      case SDL_KEYUP:
+        _Globals.input[event.key.keysym.scancode] = 0;
+        break;
+
       default:
         break;
     }
