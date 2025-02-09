@@ -21,6 +21,7 @@ int draw()
         drawGameSelectMenu();
         break;
       case Game:
+        drawGame();
         break;
     }
     manageEvents();
@@ -51,7 +52,12 @@ void drawHeader()
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
   if (_Globals.status == Game && runningGame != NULL) {
-    sdlWriteText(_Globals.defaultFont, colorTitleText, runningGame->title, 5, 5, 0, 0);
+    int x = 0;
+    if (runningGameIcon != NULL) {
+      sdlBlitImage(runningGameIcon, x, 0, 30, 30);
+      x += 35;
+    }
+    sdlWriteText(_Globals.defaultFont, colorTitleText, runningGame->title, x, 5, 0, 0);
   } else {
     sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 5, 5, 0, 0);
   }

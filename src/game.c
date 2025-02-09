@@ -166,6 +166,45 @@ int loadGame(const char* path, game* game)
   return 0;
 }
 
+void freeGame(game *game)
+{
+  if (game == NULL)
+    return;
+
+  free(game->title);
+  game->title = NULL;
+  free(game->author);
+  game->author = NULL;
+
+  int i = 0;
+  for (i = 0; i < game->variablesCount; i++) {
+    free(game->variables[i].name);
+    game->variables[i].name = NULL;
+
+    free(game->variables[i].value);
+    game->variables[i].value = NULL;
+  }
+
+  for (i = 0; i < game->achievementsCount; i++) {
+    free(game->achievements[i].name);
+    game->achievements[i].name = NULL;
+
+    free(game->achievements[i].title);
+    game->achievements[i].title = NULL;
+
+    free(game->achievements[i].preEarnedDescription);
+    game->achievements[i].preEarnedDescription = NULL;
+
+    free(game->achievements[i].postEarnedDescription);
+    game->achievements[i].postEarnedDescription = NULL;
+  }
+
+  for (i = 0; i < game->labelsCount; i++) {
+    free(game->labels[i].name);
+    game->labels[i].name = NULL;
+  }
+}
+
 int loadSection(const char* path, section* section)
 {
   if (section == NULL)

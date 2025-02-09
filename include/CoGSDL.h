@@ -22,6 +22,7 @@ extern const SDL_Color colorSelectedText;
 extern const SDL_Color colorTitleText;
 
 extern game* runningGame;
+extern SDL_Surface *runningGameIcon;
 
 enum status
 {
@@ -101,6 +102,9 @@ void manageEvents();
 /// @param game The game
 /// @return 0 on success
 int loadGame(const char* path, game* game);
+/// @brief Free memory allocated by a game
+/// @param game The game
+void freeGame(game *game);
 /// @brief Load a game section
 /// @param path The path to the section file
 /// @param section The section
@@ -157,7 +161,10 @@ void logWarning(const char *format, ...);
 void logError(const char *format, ...);
 void logDispose();
 
-/* mainmenu.c */
+/* gameselectmenu.c */
 void drawGameSelectMenu();
+
+/* playgame.c */
+void drawGame();
 
 #endif

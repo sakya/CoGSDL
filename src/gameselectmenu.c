@@ -32,6 +32,9 @@ void drawGameSelectMenu()
     _Globals.status = Game;
     runningGame = malloc(sizeof(game));
     loadGame(_Globals.games[selectedIdx].path, runningGame);
+    if (strlen(runningGame->icon) > 0) {
+      runningGameIcon = IMG_Load(runningGame->icon);
+    }
   }
 
   game* selGame = &_Globals.games[selectedIdx];
