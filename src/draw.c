@@ -50,7 +50,11 @@ void drawHeader()
 
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
-  sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 5, 5, 0, 0);
+  if (_Globals.status == Game && runningGame != NULL) {
+    sdlWriteText(_Globals.defaultFont, colorTitleText, runningGame->title, 5, 5, 0, 0);
+  } else {
+    sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 5, 5, 0, 0);
+  }
 }
 
 void drawFooter()

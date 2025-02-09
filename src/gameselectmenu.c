@@ -30,6 +30,8 @@ void drawGameSelectMenu()
     _Globals.input[_Keys.KeyUp] = 0;
   } else if (_Globals.input[_Keys.KeyA] == 1) {
     _Globals.status = Game;
+    runningGame = malloc(sizeof(game));
+    loadGame(_Globals.games[selectedIdx].path, runningGame);
   }
 
   game* selGame = &_Globals.games[selectedIdx];

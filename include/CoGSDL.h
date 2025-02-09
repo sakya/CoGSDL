@@ -21,6 +21,8 @@ extern const SDL_Color colorText;
 extern const SDL_Color colorSelectedText;
 extern const SDL_Color colorTitleText;
 
+extern game* runningGame;
+
 enum status
 {
   MainMenu = 0,
@@ -66,7 +68,16 @@ struct Keys
   int KeyDown;
   int KeyA;
   int KeyB;
+  int KeyX;
+  int KeyY;
 
+  int KeyStart;
+  int KeySelect;
+
+  int KeyL1;
+  int KeyL2;
+  int KeyR1;
+  int KeyR2;
 } typedef Keys;
 
 extern Keys _Keys;

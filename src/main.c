@@ -8,6 +8,7 @@ const SDL_Color colorText = {255, 255, 255};
 const SDL_Color colorSelectedText = {95, 195, 248};
 const SDL_Color colorTitleText = {242, 238, 143};
 
+game* runningGame = NULL;
 CoGSDL _Globals = {
   0,
   0,
@@ -23,7 +24,12 @@ Keys _Keys = {
   SDL_SCANCODE_DOWN,
 
   SDL_SCANCODE_Z,
-  SDL_SCANCODE_X
+  SDL_SCANCODE_X,
+  SDL_SCANCODE_A,
+  SDL_SCANCODE_S,
+
+  SDL_SCANCODE_RETURN,
+  SDL_SCANCODE_SPACE
 };
 
 int main(int argc, char* argv[])

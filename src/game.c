@@ -1,5 +1,10 @@
 #include "CoGSDL.h"
 
+int compareByTitle(const void* a, const void* b)
+{
+  return strcmp(((struct game*)a)->title, ((struct game*)b)->title);
+}
+
 int loadGame(const char* path, game* game)
 {
   if (game == NULL)
@@ -198,6 +203,8 @@ int listGames(const char* path, game *games)
   }
 
   closedir(dir);
+
+  qsort(games, count, sizeof(struct game), compareByTitle);
   logInfo("Games found: %i", count);
   return count;
 }
