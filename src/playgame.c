@@ -6,7 +6,9 @@ void drawGame()
     _Globals.input[_Keys.KeyStart] = 0;
 
     freeGame(runningGame);
+    runningGame = NULL;
     SDL_FreeSurface(runningGameIcon);
+    runningGameIcon = NULL;
     _Globals.status = GameSelect;
   }
 }
