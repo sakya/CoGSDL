@@ -59,6 +59,6 @@ int init()
   }
 
   _Globals.logLevel = Debug;
-  _Globals.status = MainMenu;
+  _Globals.status = GameSelect;
   return 0;
 }

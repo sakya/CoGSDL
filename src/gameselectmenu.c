@@ -4,13 +4,13 @@ int firstIdx = 0;
 int selectedIdx = 0;
 SDL_Surface *iconSurface = NULL;
 
-void drawMainMenu()
+void drawGameSelectMenu()
 {
   int i = 0;
   int y = 40;
 
   const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 50;
-  if (_Globals.input[SDL_SCANCODE_DOWN] == 1 && selectedIdx + 1 < _Globals.gamesCount) {
+  if (_Globals.input[_Keys.KeyDown] == 1 && selectedIdx + 1 < _Globals.gamesCount) {
     selectedIdx++;
     if (iconSurface != NULL) {
       SDL_FreeSurface(iconSurface);
@@ -18,9 +18,8 @@ void drawMainMenu()
     }
     if (selectedIdx - firstIdx + 1 > items)
       firstIdx++;
-    _Globals.input[SDL_SCANCODE_DOWN] = 0;
-  }
-  if (_Globals.input[SDL_SCANCODE_UP] == 1 && selectedIdx > 0) {
+    _Globals.input[_Keys.KeyDown] = 0;
+  } else if (_Globals.input[_Keys.KeyUp] == 1 && selectedIdx > 0) {
     selectedIdx--;
     if (iconSurface != NULL) {
       SDL_FreeSurface(iconSurface);
@@ -28,7 +27,9 @@ void drawMainMenu()
     }
     if (selectedIdx < firstIdx)
       firstIdx = selectedIdx;
-    _Globals.input[SDL_SCANCODE_UP] = 0;
+    _Globals.input[_Keys.KeyUp] = 0;
+  } else if (_Globals.input[_Keys.KeyA] == 1) {
+    _Globals.status = Game;
   }
 
   game* selGame = &_Globals.games[selectedIdx];

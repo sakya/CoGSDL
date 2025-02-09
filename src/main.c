@@ -18,6 +18,14 @@ CoGSDL _Globals = {
   NULL
 };
 
+Keys _Keys = {
+  SDL_SCANCODE_UP,
+  SDL_SCANCODE_DOWN,
+
+  SDL_SCANCODE_Z,
+  SDL_SCANCODE_X
+};
+
 int main(int argc, char* argv[])
 {
   if (init() < 0) {

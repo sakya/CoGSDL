@@ -198,6 +198,7 @@ int listGames(const char* path, game *games)
   }
 
   closedir(dir);
+  logInfo("Games found: %i", count);
   return count;
 }
 

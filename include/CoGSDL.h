@@ -24,7 +24,8 @@ extern const SDL_Color colorTitleText;
 enum status
 {
   MainMenu = 0,
-  Game = 1
+  GameSelect = 1,
+  Game = 2
 };
 
 enum logLevel
@@ -58,6 +59,17 @@ struct CoGSDL {
 } typedef CoGSDL;
 
 extern CoGSDL _Globals;
+
+struct Keys
+{
+  int KeyUp;
+  int KeyDown;
+  int KeyA;
+  int KeyB;
+
+} typedef Keys;
+
+extern Keys _Keys;
 
 /* init.c */
 /// @brief Initialize SDL
@@ -135,6 +147,6 @@ void logError(const char *format, ...);
 void logDispose();
 
 /* mainmenu.c */
-void drawMainMenu();
+void drawGameSelectMenu();
 
 #endif
