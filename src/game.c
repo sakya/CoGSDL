@@ -127,9 +127,13 @@ int loadGame(const char* path, game* game)
       if (ach != NULL) {
         trim(line);
         if (ach->preEarnedDescription == NULL) {
-          ach->preEarnedDescription = line;
+          ach->preEarnedDescription = malloc(strlen(line));
+          strncpy(ach->preEarnedDescription, line, strlen(line));
+        } else if (ach->postEarnedDescription == NULL) {
+          ach->postEarnedDescription = malloc(strlen(line));
+          strncpy(ach->postEarnedDescription, line, strlen(line));
+          ach = NULL;
         } else {
-          ach->postEarnedDescription = line;
           ach = NULL;
         }
       } else if (sceneIdx != -1) {
@@ -147,13 +151,16 @@ int loadGame(const char* path, game* game)
   }
 
   // Add choice_is_omnibus_app var
-  game->variables[game->variablesCount].name = "choice_is_omnibus_app";
-  game->variables[game->variablesCount].value = "true";
+  game->variables[game->variablesCount].name = malloc(64);
+  strcpy(game->variables[game->variablesCount].name, "choice_is_omnibus_app");
+  game->variables[game->variablesCount].value = malloc(64);
+  strcpy(game->variables[game->variablesCount].value, "true");
   game->variablesCount++;
-
   // Add skip_description var
-  game->variables[game->variablesCount].name = "skip_description";
-  game->variables[game->variablesCount].value = "true";
+  game->variables[game->variablesCount].name = malloc(64);
+  strcpy(game->variables[game->variablesCount].name, "skip_description");
+  game->variables[game->variablesCount].value = malloc(64);
+  strcpy(game->variables[game->variablesCount].value, "true");
   game->variablesCount++;
 
   fclose(fp);
