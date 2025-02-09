@@ -1,6 +1,6 @@
 #include "CoGSDL.h"
 
-int manageEvents()
+void manageEvents()
 {
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
@@ -8,7 +8,7 @@ int manageEvents()
     {
       case SDL_QUIT:
         _Globals.quit = 1;
-        return 0;
+        return;
         break;
 
       case SDL_KEYDOWN:
@@ -22,6 +22,4 @@ int manageEvents()
         break;
     }
   }
-
-  return 0;
 }

@@ -10,23 +10,23 @@ int init()
   logInfo("\tLocale: %s\n", locale);
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-    logInfo("\tSDL_Init Fail: %s\n", SDL_GetError());
+    logError("\tSDL_Init Fail: %s\n", SDL_GetError());
     return -1;
   }
 
   if (TTF_Init() < 0) {
-    logInfo("\tTTF_Init Fail: %s\n", TTF_GetError());
+    logError("\tTTF_Init Fail: %s\n", TTF_GetError());
     return -1;
   }
 
   if (IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG) < 0) {
-    logInfo("\tIMG_Init Fail: %s\n", TTF_GetError());
+    logError("\tIMG_Init Fail: %s\n", TTF_GetError());
     return -1;
   }
 
   SDL_DisplayMode mode;
   if (SDL_GetDesktopDisplayMode(0, &mode)) {
-    logInfo("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
+    logError("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
     return -1;
   }
   _Globals.DISPLAY_WIDTH = mode.w;
@@ -48,16 +48,17 @@ int init()
                                _Globals.WINDOW_HEIGHT > 0 ? _Globals.WINDOW_HEIGHT : _Globals.DISPLAY_HEIGHT,
                                SDL_WINDOW_SHOWN);
   if (_Globals.window == NULL) {
-    logInfo("\tSDL_CreateWindow Fail: %s\n", SDL_GetError());
+    logError("\tSDL_CreateWindow Fail: %s\n", SDL_GetError());
     return -1;
   }
 
   _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_SOFTWARE);
   if (_Globals.renderer == NULL) {
-    logInfo("\tSDL_CreateRenderer Fail: %s\n", SDL_GetError());
+    logError("\tSDL_CreateRenderer Fail: %s\n", SDL_GetError());
     return -1;
   }
 
+  _Globals.logLevel = Debug;
   _Globals.status = MainMenu;
   return 0;
 }

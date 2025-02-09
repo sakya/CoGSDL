@@ -13,13 +13,30 @@
 #include "game.h"
 #include "KeyMap.h"
 
+extern const int HEADER_HEIGHT;
+
+extern const SDL_Color colorBackground;
+extern const SDL_Color colorHeaderBackground;
+extern const SDL_Color colorText;
+extern const SDL_Color colorSelectedText;
+extern const SDL_Color colorTitleText;
+
 enum status
 {
   MainMenu = 0,
   Game = 1
 };
 
+enum logLevel
+{
+  Debug = 0,
+  Info = 1,
+  Warning = 2,
+  Error = 3
+};
+
 struct CoGSDL {
+  enum logLevel logLevel;
   int quit;
   int32_t DISPLAY_WIDTH;
   int32_t DISPLAY_HEIGHT;
@@ -53,7 +70,7 @@ int draw();
 /* events.c */
 /// @brief Manage SDL events
 /// @return 0 on success
-int manageEvents();
+void manageEvents();
 
 /* game.c */
 /// @brief Loads a game from a directory (read the file scenes/startup.txt)
@@ -106,12 +123,18 @@ void trim(char *string);
 int fileExists(const char *filename);
 
 void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
-void sdlBlitImage(char* image, int x, int y, int maxWidth, int maxHeight);
+void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);
+void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight);
 
 /* log.c */
 int logInit(const char* filePath);
+void logDebug(const char *format, ...);
 void logInfo(const char *format, ...);
+void logWarning(const char *format, ...);
+void logError(const char *format, ...);
+void logDispose();
 
 /* mainmenu.c */
 void drawMainMenu();
+
 #endif

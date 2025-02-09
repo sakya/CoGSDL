@@ -13,14 +13,16 @@ int loadGame(const char* path, game* game)
   strcat(iconPath, "/icon.png");
   if (fileExists(iconPath)) {
     strcpy(game->icon, iconPath);
-  } else {
-    strcpy(iconPath, path);
-    strcat(iconPath, "/icon.jpg");
-    if (fileExists(iconPath)) {
-      strcpy(game->icon, iconPath);
-    }
   }
+
+  strcpy(iconPath, path);
+  strcat(iconPath, "/icon.jpg");
+  if (fileExists(iconPath)) {
+    strcpy(game->background, iconPath);
+  }
+
   logInfo("\tIcon: %s\n", game->icon);
+  logInfo("\tBackground: %s\n", game->background);
   char filePath[255];
   strcpy(filePath, path);
   strcat(filePath, "/scenes/startup.txt");
@@ -29,7 +31,7 @@ int loadGame(const char* path, game* game)
 
   fp = fopen(filePath, "r");
   if (fp == NULL) {
-    logInfo("\tFile %s not found", filePath);
+    logWarning("\tFile %s not found", filePath);
     return -1;
   }
 
@@ -65,7 +67,7 @@ int loadGame(const char* path, game* game)
       logInfo("\tAuthor: %s\n", game->author);
     } else if (startsWith("*create ", line)) {
       if (game->variablesCount == sizeof(game->variables) / sizeof(variable)) {
-        logInfo("Reached maximum number of variables (%i)\n", game->variablesCount);
+        logWarning("Reached maximum number of variables (%i)\n", game->variablesCount);
         continue;
       }
 
@@ -76,11 +78,11 @@ int loadGame(const char* path, game* game)
       game->variables[game->variablesCount].value = malloc(strlen(line) - idx + 1);
       subString(line, game->variables[game->variablesCount].value, idx + 1, strlen(line) - idx);
 
-      logInfo("\tVAR %s=%s\n", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value);
+      logDebug("\tVAR %s=%s\n", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value);
       game->variablesCount++;
     } else if (startsWith("*achievement ", line)) {
       if (game->achievementsCount == sizeof(game->achievements) / sizeof(achievement)) {
-        logInfo("Reached maximum number of achievements (%i)\n", game->achievementsCount);
+        logWarning("Reached maximum number of achievements (%i)\n", game->achievementsCount);
         continue;
       }
 
@@ -102,11 +104,11 @@ int loadGame(const char* path, game* game)
       subString(line, game->achievements[game->achievementsCount].title, nextIdx + 1, strlen(line) - nextIdx);
 
       ach = &game->achievements[game->achievementsCount];
-      logInfo("\tACH name=%s, title=%s, points=%i, visible=%i\n", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
+      logDebug("\tACH name=%s, title=%s, points=%i, visible=%i\n", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
       game->achievementsCount++;
     } else if (startsWith("*label ", line)) {
       if (game->labelsCount == sizeof(game->labels) / sizeof(label)) {
-        logInfo("Reached maximum number of labels (%i)\n", game->labelsCount);
+        logWarning("Reached maximum number of labels (%i)\n", game->labelsCount);
         continue;
       }
 
@@ -114,7 +116,7 @@ int loadGame(const char* path, game* game)
       subString(line, game->labels[game->labelsCount].name, 7, strlen(line) - 7);
 
       game->labels[game->labelsCount].position = ftell(fp);
-      logInfo("\tLabel name=%s, position=%li\n", game->labels[game->labelsCount].name, game->labels[game->labelsCount].position);
+      logDebug("\tLabel name=%s, position=%li\n", game->labels[game->labelsCount].name, game->labels[game->labelsCount].position);
       game->labelsCount++;
     } else {
       if (ach != NULL) {
@@ -132,7 +134,7 @@ int loadGame(const char* path, game* game)
         } else {
           strcpy(game->scenes[sceneIdx], line);
         }
-        logInfo("\tscene: %s\n", game->scenes[sceneIdx]);
+        logDebug("\tscene: %s\n", game->scenes[sceneIdx]);
         sceneIdx++;
         game->scenesCount++;
       }

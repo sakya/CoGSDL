@@ -27,6 +27,7 @@ struct game
 {
   char path[255];
   char icon[255];
+  char background[255];
   char* title;
   char* author;
 

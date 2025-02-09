@@ -98,7 +98,7 @@ void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int
   SDL_DestroyTexture(texture);
 }
 
-void sdlBlitImage(char* image, int x, int y, int maxWidth, int maxHeight)
+void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight)
 {
   SDL_Surface *surface = IMG_Load(image);
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
@@ -122,5 +122,30 @@ void sdlBlitImage(char* image, int x, int y, int maxWidth, int maxHeight)
   SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
 
   SDL_FreeSurface(surface);
+  SDL_DestroyTexture(texture);
+}
+
+void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight)
+{
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
+
+  SDL_Rect rect;
+  rect.x = x;
+  rect.y = y;
+  rect.w = surface->w;
+  rect.h = surface->h;
+
+  float ratio = rect.w / rect.h;
+  if (rect.w > maxWidth) {
+    rect.w = maxWidth;
+    rect.h = rect.w / ratio;
+  }
+  if (rect.h > maxHeight) {
+    rect.h = maxHeight;
+    rect.w = rect.h * ratio;
+  }
+
+  SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
+
   SDL_DestroyTexture(texture);
 }

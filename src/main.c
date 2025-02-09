@@ -1,6 +1,15 @@
 #include "CoGSDL.h"
 
+const int HEADER_HEIGHT = 30;
+
+const SDL_Color colorBackground = {30, 30, 30};
+const SDL_Color colorHeaderBackground = {60, 60, 60};
+const SDL_Color colorText = {255, 255, 255};
+const SDL_Color colorSelectedText = {95, 195, 248};
+const SDL_Color colorTitleText = {242, 238, 143};
+
 CoGSDL _Globals = {
+  0,
   0,
   0,
   0,
@@ -12,7 +21,7 @@ CoGSDL _Globals = {
 int main(int argc, char* argv[])
 {
   if (init() < 0) {
-    logInfo("init failed\n");
+    logError("Init failed\n");
     return -1;
   }
 
@@ -28,6 +37,7 @@ int main(int argc, char* argv[])
   SDL_DestroyRenderer(_Globals.renderer);
   SDL_DestroyWindow(_Globals.window);
   SDL_Quit();
+  logDispose();
 
   return 0;
 }
