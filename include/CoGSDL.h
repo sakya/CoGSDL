@@ -161,6 +161,9 @@ void logWarning(const char *format, ...);
 void logError(const char *format, ...);
 void logDispose();
 
+/* mainmenu.c*/
+void drawMainMenu();
+
 /* gameselectmenu.c */
 void drawGameSelectMenu();
 

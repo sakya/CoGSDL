@@ -16,6 +16,7 @@ int draw()
     switch (_Globals.status)
     {
       case MainMenu:
+        drawMainMenu();
         break;
       case GameSelect:
         drawGameSelectMenu();

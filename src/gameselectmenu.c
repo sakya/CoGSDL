@@ -6,6 +6,9 @@ SDL_Surface *iconSurface = NULL;
 
 void drawGameSelectMenu()
 {
+  if (_Globals.gamesCount == 0)
+    return;
+
   int i = 0;
   int y = 40;
 
