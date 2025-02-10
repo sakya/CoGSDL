@@ -82,6 +82,28 @@ void trim(char *string) {
   }
 }
 
+int getIndentation(const char *string)
+{
+  if (string == NULL)
+    return 0;
+
+  int start = 0;
+  int end = strlen(string);
+  int res = 0;
+  while (start < end) {
+    if (string[start] == ' ') {
+      res++;
+    } else if (string[start] == '\t') {
+      res += TAB_SIZE;
+    } else {
+      break;
+    }
+    start++;
+  }
+
+  return res;
+}
+
 int isEmpty(const char *string)
 {
   int start = 0, end = strlen(string) - 1;

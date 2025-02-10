@@ -13,6 +13,8 @@
 #include "game.h"
 #include "KeyMap.h"
 
+#define TAB_SIZE 2
+
 extern const int HEADER_HEIGHT;
 
 extern const SDL_Color colorBackground;
@@ -147,6 +149,15 @@ int startsWith(const char *prefix, const char *string);
 /// @param string The string
 /// @return 1 if string starts with prefix
 int startsWithWord(const char *prefix, const char *string);
+/// @brief Get the number of indentation characters
+/// @param string The string
+/// @return The number of indentation characters
+int getIndentation(const char *string);
+/// @brief Get a substring of a string
+/// @param source The source string
+/// @param target The destination string
+/// @param pos The starting position of the substring
+/// @param length The substring length
 void subString(const char *source, char *target, const int pos, const int length);
 void trim(char *string);
 /// @brief Check if a file exists
@@ -159,11 +170,27 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight);
 
 /* log.c */
+/// @brief Initialize log
+/// @param filePath The log file
+/// @return 1 on success
 int logInit(const char* filePath);
+/// @brief Log a debug message
+/// @param format The format
+/// @param ... The arguments
 void logDebug(const char *format, ...);
+/// @brief Log a info message
+/// @param format The format
+/// @param ... The arguments
 void logInfo(const char *format, ...);
+/// @brief Log a warning message
+/// @param format The format
+/// @param ... The arguments
 void logWarning(const char *format, ...);
+/// @brief Log an error message
+/// @param format The format
+/// @param ... The arguments
 void logError(const char *format, ...);
+/// @brief Dispose the log
 void logDispose();
 
 /* mainmenu.c*/

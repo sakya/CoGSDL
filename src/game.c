@@ -43,8 +43,11 @@ int loadGame(const char* path, game* game)
   // Skip the UTF8 BOM
   char bomBuffer[3];
   if (fread(bomBuffer, sizeof(char), sizeof(bomBuffer), fp) == sizeof(bomBuffer)) {
-    if (bomBuffer[0] != -17 || bomBuffer[1] != -69 || bomBuffer[2] != -65)
+    if (bomBuffer[0] != -17 || bomBuffer[1] != -69 || bomBuffer[2] != -65) {
       fseek(fp, 0, SEEK_SET);
+    } else {
+      logDebug("\tSkipped BOM bytes\n");
+    }
   }
 
   achievement* ach = NULL;
