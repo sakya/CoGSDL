@@ -119,6 +119,8 @@ int loadGame(const char* path, game* game)
       game->achievements[game->achievementsCount].title = malloc(strlen(line) - nextIdx + 1);
       subString(line, game->achievements[game->achievementsCount].title, nextIdx + 1, strlen(line) - nextIdx);
 
+      game->achievements[game->achievementsCount].preEarnedDescription = NULL;
+      game->achievements[game->achievementsCount].postEarnedDescription = NULL;
       ach = &game->achievements[game->achievementsCount];
       logDebug("\tACH name=%s, title=%s, points=%i, visible=%i\n", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
       game->achievementsCount++;
