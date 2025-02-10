@@ -42,6 +42,13 @@ int init()
   _Globals.defaultSmallFontSize = 14;
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
 
+  button_x = IMG_Load("images/button_x.png");
+  button_y = IMG_Load("images/button_y.png");
+  button_a = IMG_Load("images/button_a.png");
+  button_b = IMG_Load("images/button_b.png");
+  dpad = IMG_Load("images/dpad.png");
+  dpad_up_down = IMG_Load("images/dpad_up_down.png");
+
   _Globals.window = SDL_CreateWindow("Choice of games interpreter",
                                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                _Globals.WINDOW_WIDTH > 0 ? _Globals.WINDOW_WIDTH : _Globals.DISPLAY_WIDTH,
@@ -57,6 +64,8 @@ int init()
     logError("\tSDL_CreateRenderer Fail: %s\n", SDL_GetError());
     return -1;
   }
+
+  SDL_SetRenderDrawBlendMode(_Globals.renderer, SDL_BLENDMODE_BLEND);
 
   _Globals.logLevel = Debug;
   _Globals.status = GameSelect;

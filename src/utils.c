@@ -140,6 +140,8 @@ void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight)
 {
   SDL_Surface *surface = IMG_Load(image);
+  if (surface == NULL)
+    return;
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
 
   SDL_Rect rect;

@@ -8,6 +8,13 @@ const SDL_Color colorText = {255, 255, 255};
 const SDL_Color colorSelectedText = {95, 195, 248};
 const SDL_Color colorTitleText = {242, 238, 143};
 
+SDL_Surface* button_x;
+SDL_Surface* button_y;
+SDL_Surface* button_a;
+SDL_Surface* button_b;
+SDL_Surface* dpad;
+SDL_Surface* dpad_up_down;
+
 game *runningGame = NULL;
 SDL_Surface *runningGameIcon = NULL;
 

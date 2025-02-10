@@ -23,6 +23,13 @@ extern const SDL_Color colorText;
 extern const SDL_Color colorSelectedText;
 extern const SDL_Color colorTitleText;
 
+extern SDL_Surface* button_x;
+extern SDL_Surface* button_y;
+extern SDL_Surface* button_a;
+extern SDL_Surface* button_b;
+extern SDL_Surface* dpad;
+extern SDL_Surface* dpad_up_down;
+
 extern game* runningGame;
 extern SDL_Surface *runningGameIcon;
 
