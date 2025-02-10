@@ -2,6 +2,9 @@
 
 void drawHeader();
 void drawFooter();
+void drawAppIcon();
+
+double header_angle = 0;
 
 int draw()
 {
@@ -56,11 +59,11 @@ void drawHeader()
     if (runningGameIcon != NULL) {
       sdlBlitImage(runningGameIcon, 0, 0, 30, 30);
     } else {
-      sdlBlitImage(app_icon, 0, 0, 30, 30);
+      drawAppIcon();
     }
     sdlWriteText(_Globals.defaultFont, colorTitleText, runningGame->title, 35, 5, 0, 0);
-  } else {
-    sdlBlitImage(app_icon, 0, 0, 30, 30);
+  } else if (_Globals.status != MainMenu) {
+    drawAppIcon();
     sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 35, 5, 0, 0);
   }
 }
@@ -76,4 +79,19 @@ void drawFooter()
   rect.h = HEADER_HEIGHT;
 
   SDL_RenderFillRect(_Globals.renderer, &rect);
+}
+
+void drawAppIcon()
+{
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, app_icon);
+  SDL_Rect rect = {2, 2, 26, 26};
+  SDL_Rect crop = {0, 0, app_icon->w, app_icon->h};
+  SDL_Point center = { 13, 13};
+  SDL_RendererFlip flip = SDL_FLIP_NONE;
+  SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, header_angle, &center, flip);
+  SDL_DestroyTexture(texture);
+
+  header_angle += 0.5;
+  if (header_angle >= 360)
+    header_angle = 0;
 }

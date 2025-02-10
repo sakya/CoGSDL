@@ -142,7 +142,7 @@ void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int
   rect.w = maxWidth > 0 && maxWidth < surface->w ? maxWidth : surface->w;
   rect.h = maxHeight > 0 && maxHeight < surface->h ? maxHeight : surface->h;
 
-  SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
+  SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE);
 
   SDL_FreeSurface(surface);
   SDL_DestroyTexture(texture);
@@ -180,7 +180,6 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
     rect.w = rect.h * ratio;
   }
 
-  SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
-
+  SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE);
   SDL_DestroyTexture(texture);
 }
