@@ -28,7 +28,24 @@ int indexOf(const char *string, const char character, const int startFrom)
 
 int startsWith(const char *prefix, const char *string)
 {
-    return strncmp(prefix, string, strlen(prefix)) == 0 ? 1 : 0;
+  return strncmp(prefix, string, strlen(prefix)) == 0 ? 1 : 0;
+}
+
+int startsWithWord(const char *prefix, const char *string)
+{
+  char *test = malloc(strlen(prefix) + 1);
+  snprintf(test, strlen(prefix + 1), "%s ", prefix);
+  if (startsWith(test, string))
+    return 1;
+
+  snprintf(test, strlen(prefix + 1), "%s\t", prefix);
+  if (startsWith(test, string)) {
+    free(test);
+    return 1;
+  }
+
+  free(test);
+  return 0;
 }
 
 void subString(const char *source, char *target, const int pos, const int length) {

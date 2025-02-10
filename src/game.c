@@ -40,8 +40,14 @@ int loadGame(const char* path, game* game)
     return -1;
   }
 
-  achievement* ach = NULL;
+  // Skip the UTF8 BOM
+  char bomBuffer[3];
+  if (fread(bomBuffer, sizeof(char), sizeof(bomBuffer), fp) == sizeof(bomBuffer)) {
+    if (bomBuffer[0] != -17 || bomBuffer[1] != -69 || bomBuffer[2] != -65)
+      fseek(fp, 0, SEEK_SET);
+  }
 
+  achievement* ach = NULL;
   int sceneIdx = -1;
   game->scenesCount = 0;
   game->variablesCount = 0;
@@ -49,7 +55,7 @@ int loadGame(const char* path, game* game)
   game->labelsCount = 0;
   while (fgets(line, sizeof(line), fp)) {
     line[strcspn(line, "\n")] = '\0';
-    if (startsWith("*comment ", line)) {
+    if (startsWithWord("*comment", line)) {
       // Skip comments
       continue;
     }
@@ -62,15 +68,15 @@ int loadGame(const char* path, game* game)
     //logInfo("%s\n", line);
     if (strcmp(line, "*scene_list") == 0) {
       sceneIdx = 0;
-    } else if (startsWith("*title ", line)) {
+    } else if (startsWithWord("*title", line)) {
       game->title = malloc(strlen(line) - 7 + 1);
       subString(line, game->title, 7, strlen(line) - 7);
       logInfo("\tTitle: %s\n", game->title);
-    } else if (startsWith("*author ", line)) {
+    } else if (startsWithWord("*author", line)) {
       game->author = malloc(strlen(line) - 8 + 1);
       subString(line, game->author, 8, strlen(line) - 8);
       logInfo("\tAuthor: %s\n", game->author);
-    } else if (startsWith("*create ", line)) {
+    } else if (startsWithWord("*create", line)) {
       if (game->variablesCount == sizeof(game->variables) / sizeof(variable)) {
         logWarning("Reached maximum number of variables (%i)\n", game->variablesCount);
         continue;
@@ -85,7 +91,7 @@ int loadGame(const char* path, game* game)
 
       logDebug("\tVAR %s=%s\n", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value);
       game->variablesCount++;
-    } else if (startsWith("*achievement ", line)) {
+    } else if (startsWithWord("*achievement", line)) {
       if (game->achievementsCount == sizeof(game->achievements) / sizeof(achievement)) {
         logWarning("Reached maximum number of achievements (%i)\n", game->achievementsCount);
         continue;
@@ -111,7 +117,7 @@ int loadGame(const char* path, game* game)
       ach = &game->achievements[game->achievementsCount];
       logDebug("\tACH name=%s, title=%s, points=%i, visible=%i\n", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
       game->achievementsCount++;
-    } else if (startsWith("*label ", line)) {
+    } else if (startsWithWord("*label", line)) {
       if (game->labelsCount == sizeof(game->labels) / sizeof(label)) {
         logWarning("Reached maximum number of labels (%i)\n", game->labelsCount);
         continue;
@@ -127,10 +133,10 @@ int loadGame(const char* path, game* game)
       if (ach != NULL) {
         trim(line);
         if (ach->preEarnedDescription == NULL) {
-          ach->preEarnedDescription = malloc(strlen(line));
+          ach->preEarnedDescription = malloc(strlen(line) + 1);
           strncpy(ach->preEarnedDescription, line, strlen(line));
         } else if (ach->postEarnedDescription == NULL) {
-          ach->postEarnedDescription = malloc(strlen(line));
+          ach->postEarnedDescription = malloc(strlen(line) + 1);
           strncpy(ach->postEarnedDescription, line, strlen(line));
           ach = NULL;
         } else {
@@ -138,7 +144,7 @@ int loadGame(const char* path, game* game)
         }
       } else if (sceneIdx != -1) {
         trim(line);
-        if (startsWith("$ ", line)) {
+        if (startsWithWord("$", line)) {
           subString(line, game->scenes[sceneIdx], 2, strlen(line) - 2);
         } else {
           strcpy(game->scenes[sceneIdx], line);

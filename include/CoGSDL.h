@@ -142,6 +142,11 @@ int indexOfWordBreak(const char *string, const int startFrom);
 /// @param string The string
 /// @return 1 if string starts with prefix
 int startsWith(const char *prefix, const char *string);
+/// @brief Check if a string starts with the given word (use space and tab as word separator)
+/// @param prefix The prefix to check
+/// @param string The string
+/// @return 1 if string starts with prefix
+int startsWithWord(const char *prefix, const char *string);
 void subString(const char *source, char *target, const int pos, const int length);
 void trim(char *string);
 /// @brief Check if a file exists
