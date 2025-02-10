@@ -5,6 +5,7 @@
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_image.h"
+#include "SDL2/SDL_mixer.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -30,6 +31,8 @@ extern SDL_Surface* button_a;
 extern SDL_Surface* button_b;
 extern SDL_Surface* dpad;
 extern SDL_Surface* dpad_up_down;
+
+extern Mix_Chunk* sound_menu_change;
 
 extern game* runningGame;
 extern SDL_Surface *runningGameIcon;
@@ -101,6 +104,7 @@ int init();
 /* draw.c */
 int draw();
 void free_images();
+void free_sounds();
 
 /* events.c */
 /// @brief Manage SDL events

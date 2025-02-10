@@ -1,6 +1,7 @@
 #include "CoGSDL.h"
 
 void load_images();
+void load_sounds();
 
 int init()
 {
@@ -26,6 +27,11 @@ int init()
     return -1;
   }
 
+  if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+    logError("\tMix_OpenAudio Fail: %s\n", Mix_GetError());
+    return -1;
+  }
+
   SDL_DisplayMode mode;
   if (SDL_GetDesktopDisplayMode(0, &mode)) {
     logError("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
@@ -45,6 +51,7 @@ int init()
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
 
   load_images();
+  load_sounds();
 
   _Globals.window = SDL_CreateWindow("CoGSDL",
                                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -66,7 +73,7 @@ int init()
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
   _Globals.logLevel = Debug;
-  _Globals.status = GameSelect;
+  _Globals.status = MainMenu;
   return 0;
 }
 
@@ -90,4 +97,15 @@ void free_images()
   SDL_FreeSurface(button_b);
   SDL_FreeSurface(dpad);
   SDL_FreeSurface(dpad_up_down);
+}
+
+void load_sounds()
+{
+  sound_menu_change = Mix_LoadWAV("sounds/menu_change.wav");
+}
+
+void free_sounds()
+{
+  Mix_FreeChunk(sound_menu_change);
+  sound_menu_change = NULL;
 }

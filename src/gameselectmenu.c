@@ -15,6 +15,7 @@ void drawGameSelectMenu()
   const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 50;
   if (_Globals.input[_Keys.KeyDown] == 1) {
     selectedIdx++;
+    Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx == _Globals.gamesCount) {
       selectedIdx = 0;
       firstIdx = 0;
@@ -28,6 +29,7 @@ void drawGameSelectMenu()
     _Globals.input[_Keys.KeyDown] = 0;
   } else if (_Globals.input[_Keys.KeyUp] == 1) {
     selectedIdx--;
+    Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx < 0) {
       selectedIdx = _Globals.gamesCount - 1;
       firstIdx = _Globals.gamesCount - items;

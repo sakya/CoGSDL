@@ -12,7 +12,8 @@ void manageEvents()
         break;
 
       case SDL_KEYDOWN:
-        _Globals.input[event.key.keysym.scancode] = 1;
+      if (!event.key.repeat)
+          _Globals.input[event.key.keysym.scancode] = 1;
         break;
       case SDL_KEYUP:
         _Globals.input[event.key.keysym.scancode] = 0;
