@@ -34,11 +34,11 @@ int startsWith(const char *prefix, const char *string)
 int startsWithWord(const char *prefix, const char *string)
 {
   char *test = malloc(strlen(prefix) + 1);
-  snprintf(test, strlen(prefix + 1), "%s ", prefix);
+  snprintf(test, strlen(prefix) + 1, "%s ", prefix);
   if (startsWith(test, string))
     return 1;
 
-  snprintf(test, strlen(prefix + 1), "%s\t", prefix);
+  snprintf(test, strlen(prefix) + 1, "%s\t", prefix);
   if (startsWith(test, string)) {
     free(test);
     return 1;
@@ -166,6 +166,8 @@ void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight)
 
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight)
 {
+  if (surface == NULL)
+    return;
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
 
   SDL_Rect rect;
