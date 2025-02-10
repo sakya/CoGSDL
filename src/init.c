@@ -1,5 +1,7 @@
 #include "CoGSDL.h"
 
+void load_images();
+
 int init()
 {
   logInit("CoGSDL.log");
@@ -42,14 +44,9 @@ int init()
   _Globals.defaultSmallFontSize = 14;
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
 
-  button_x = IMG_Load("images/button_x.png");
-  button_y = IMG_Load("images/button_y.png");
-  button_a = IMG_Load("images/button_a.png");
-  button_b = IMG_Load("images/button_b.png");
-  dpad = IMG_Load("images/dpad.png");
-  dpad_up_down = IMG_Load("images/dpad_up_down.png");
+  load_images();
 
-  _Globals.window = SDL_CreateWindow("Choice of games interpreter",
+  _Globals.window = SDL_CreateWindow("CoGSDL",
                                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                _Globals.WINDOW_WIDTH > 0 ? _Globals.WINDOW_WIDTH : _Globals.DISPLAY_WIDTH,
                                _Globals.WINDOW_HEIGHT > 0 ? _Globals.WINDOW_HEIGHT : _Globals.DISPLAY_HEIGHT,
@@ -66,8 +63,31 @@ int init()
   }
 
   SDL_SetRenderDrawBlendMode(_Globals.renderer, SDL_BLENDMODE_BLEND);
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
   _Globals.logLevel = Debug;
   _Globals.status = GameSelect;
   return 0;
+}
+
+void load_images()
+{
+  app_icon = IMG_Load("images/icon.png");
+  button_x = IMG_Load("images/button_x.png");
+  button_y = IMG_Load("images/button_y.png");
+  button_a = IMG_Load("images/button_a.png");
+  button_b = IMG_Load("images/button_b.png");
+  dpad = IMG_Load("images/dpad.png");
+  dpad_up_down = IMG_Load("images/dpad_up_down.png");
+}
+
+void free_images()
+{
+  SDL_FreeSurface(app_icon);
+  SDL_FreeSurface(button_x);
+  SDL_FreeSurface(button_y);
+  SDL_FreeSurface(button_a);
+  SDL_FreeSurface(button_b);
+  SDL_FreeSurface(dpad);
+  SDL_FreeSurface(dpad_up_down);
 }

@@ -23,6 +23,7 @@ extern const SDL_Color colorText;
 extern const SDL_Color colorSelectedText;
 extern const SDL_Color colorTitleText;
 
+extern SDL_Surface* app_icon;
 extern SDL_Surface* button_x;
 extern SDL_Surface* button_y;
 extern SDL_Surface* button_a;
@@ -99,6 +100,7 @@ int init();
 
 /* draw.c */
 int draw();
+void free_images();
 
 /* events.c */
 /// @brief Manage SDL events

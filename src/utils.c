@@ -2,12 +2,18 @@
 
 int indexOfWordBreak(const char *string, const int startFrom)
 {
-  int wIdx = indexOf(string, ' ', startFrom);
-  int tIdx = indexOf(string, '\t', startFrom);
-  if (tIdx == -1)
-    return wIdx;
+  if (!string)
+      return -1;
 
-  return wIdx < tIdx ? wIdx : tIdx;
+  int idx = startFrom;
+  int len = strlen(string);
+  while (idx < len) {
+    if (string[idx] == ' ' || string[idx] == '\t')
+      return idx;
+    idx++;
+  }
+
+  return -1;
 }
 
 int indexOf(const char *string, const char character, const int startFrom)
@@ -35,16 +41,21 @@ int startsWithWord(const char *prefix, const char *string)
 {
   char *test = malloc(strlen(prefix) + 1);
   snprintf(test, strlen(prefix) + 1, "%s ", prefix);
-  if (startsWith(test, string))
+  if (startsWith(test, string)) {
+    free(test);
+    test = NULL;
     return 1;
+  }
 
   snprintf(test, strlen(prefix) + 1, "%s\t", prefix);
   if (startsWith(test, string)) {
     free(test);
+    test = NULL;
     return 1;
   }
 
   free(test);
+  test = NULL;
   return 0;
 }
 
@@ -142,28 +153,9 @@ void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight)
   SDL_Surface *surface = IMG_Load(image);
   if (surface == NULL)
     return;
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
 
-  SDL_Rect rect;
-  rect.x = x;
-  rect.y = y;
-  rect.w = surface->w;
-  rect.h = surface->h;
-
-  float ratio = rect.w / rect.h;
-  if (rect.w > maxWidth) {
-    rect.w = maxWidth;
-    rect.h = rect.w / ratio;
-  }
-  if (rect.h > maxHeight) {
-    rect.h = maxHeight;
-    rect.w = rect.h * ratio;
-  }
-
-  SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
-
+  sdlBlitImage(surface, x, y, maxWidth, maxHeight);
   SDL_FreeSurface(surface);
-  SDL_DestroyTexture(texture);
 }
 
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight)

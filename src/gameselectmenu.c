@@ -31,6 +31,8 @@ void drawGameSelectMenu()
     if (selectedIdx < 0) {
       selectedIdx = _Globals.gamesCount - 1;
       firstIdx = _Globals.gamesCount - items;
+      if (firstIdx < 0)
+        firstIdx = 0;
     }
     if (iconSurface != NULL) {
       SDL_FreeSurface(iconSurface);

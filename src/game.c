@@ -109,10 +109,12 @@ int loadGame(const char* path, game* game)
 
       idx = indexOfWordBreak(line, idx + 1);
       int nextIdx = indexOfWordBreak(line, idx + 1);
-      char points[20];
+      char points[20] = "0";
       if (nextIdx - idx - 1 < sizeof(points)) {
         subString(line, points, idx + 1, nextIdx - idx - 1);
         game->achievements[game->achievementsCount].points = atoi(points);
+      } else {
+        logWarning("\tPoints string too long (idx=%i, nextIdx=%i)\n", idx, nextIdx);
       }
       game->achievements[game->achievementsCount].title = malloc(strlen(line) - nextIdx + 1);
       subString(line, game->achievements[game->achievementsCount].title, nextIdx + 1, strlen(line) - nextIdx);

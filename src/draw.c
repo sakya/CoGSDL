@@ -53,14 +53,15 @@ void drawHeader()
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
   if (_Globals.status == Game && runningGame != NULL) {
-    int x = 0;
     if (runningGameIcon != NULL) {
-      sdlBlitImage(runningGameIcon, x, 0, 30, 30);
-      x += 35;
+      sdlBlitImage(runningGameIcon, 0, 0, 30, 30);
+    } else {
+      sdlBlitImage(app_icon, 0, 0, 30, 30);
     }
-    sdlWriteText(_Globals.defaultFont, colorTitleText, runningGame->title, x, 5, 0, 0);
+    sdlWriteText(_Globals.defaultFont, colorTitleText, runningGame->title, 35, 5, 0, 0);
   } else {
-    sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 5, 5, 0, 0);
+    sdlBlitImage(app_icon, 0, 0, 30, 30);
+    sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 35, 5, 0, 0);
   }
 }
 

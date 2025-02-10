@@ -8,6 +8,7 @@ const SDL_Color colorText = {255, 255, 255};
 const SDL_Color colorSelectedText = {95, 195, 248};
 const SDL_Color colorTitleText = {242, 238, 143};
 
+SDL_Surface* app_icon;
 SDL_Surface* button_x;
 SDL_Surface* button_y;
 SDL_Surface* button_a;
@@ -55,6 +56,7 @@ int main(int argc, char* argv[])
 
   draw();
 
+  free_images();
   IMG_Quit();
   TTF_Quit();
   SDL_DestroyRenderer(_Globals.renderer);
