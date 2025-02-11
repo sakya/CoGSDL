@@ -44,18 +44,22 @@ void drawGameSelectMenu()
       firstIdx = selectedIdx;
     _Globals.input[_Keys.KeyUp] = 0;
   } else if (_Globals.input[_Keys.KeyA] == 1) {
-    _Globals.status = Game;
     runningGame = malloc(sizeof(game));
     loadGame(_Globals.games[selectedIdx].path, runningGame, 0);
     if (strlen(runningGame->icon) > 0) {
       runningGameIcon = IMG_Load(runningGame->icon);
     }
+
+    _Globals.status = Game;
+    return;
   } else if (_Globals.input[_Keys.KeyB] == 1) {
-    _Globals.status = MainMenu;
     if (iconSurface != NULL) {
       SDL_FreeSurface(iconSurface);
       iconSurface = NULL;
     }
+
+    _Globals.status = MainMenu;
+    return;
   }
 
   game* selGame = &_Globals.games[selectedIdx];

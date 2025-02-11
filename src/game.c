@@ -53,7 +53,7 @@ int loadGame(const char* path, game* game, int forListing)
   char filePath[255];
   strcpy(filePath, path);
   strcat(filePath, "/scenes/startup.txt");
-  FILE * fp;
+  FILE *fp;
   char line[4096];
 
   fp = fopen(filePath, "r");
@@ -204,6 +204,7 @@ int loadGame(const char* path, game* game, int forListing)
       }
     }
   }
+  fclose(fp);
 
   if (!forListing) {
     // Add choice_is_omnibus_app var
@@ -218,14 +219,13 @@ int loadGame(const char* path, game* game, int forListing)
     game->variables[game->variablesCount].value = malloc(64);
     strcpy(game->variables[game->variablesCount].value, "true");
     game->variablesCount++;
-  }
-  fclose(fp);
 
-  logInfo("\tScenes      : %i\n", game->scenesCount);
-  logInfo("\tVariables   : %i\n", game->variablesCount);
-  logInfo("\tAchievements: %i\n", game->achievementsCount);
-  logInfo("\tLabels      : %i\n", game->labelsCount);
-  logInfo("\tStart       : %i\n", game->startPosition);
+    logInfo("\tScenes      : %i\n", game->scenesCount);
+    logInfo("\tVariables   : %i\n", game->variablesCount);
+    logInfo("\tAchievements: %i\n", game->achievementsCount);
+    logInfo("\tLabels      : %i\n", game->labelsCount);
+    logInfo("\tStart       : %i\n", game->startPosition);
+  }
 
   return 0;
 }
