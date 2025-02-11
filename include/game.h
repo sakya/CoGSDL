@@ -42,6 +42,8 @@ struct game
 
   int labelsCount;
   label labels[4096];
+
+  long startPosition;
 } typedef game;
 
 struct section

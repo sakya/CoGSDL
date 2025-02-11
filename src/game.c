@@ -5,6 +5,28 @@ int compareByTitle(const void* a, const void* b)
   return strcmp(((struct game*)a)->title, ((struct game*)b)->title);
 }
 
+int isComment(char* line)
+{
+  if (line == NULL)
+    return 0;
+
+  int end = strlen(line);
+  char* comment = "*comment";
+  int idx = 0;
+  for (int i = 0; i < end; i++) {
+    if (idx == 0 && isspace(line[i]))
+      continue;
+
+    if (line[i] != comment[idx++])
+      return 0;
+
+    if (idx == strlen(comment))
+      break;
+  }
+
+  return idx == strlen(comment) ? 1 : 0;
+}
+
 int loadGame(const char* path, game* game)
 {
   if (game == NULL)
@@ -51,20 +73,27 @@ int loadGame(const char* path, game* game)
   }
 
   achievement* ach = NULL;
+  long lineStartPosition = 0;
+  long nextLineStartPosition = 0;
   int sceneIdx = -1;
   game->scenesCount = 0;
   game->variablesCount = 0;
   game->achievementsCount = 0;
   game->labelsCount = 0;
+  game->startPosition = 0;
   while (fgets(line, sizeof(line), fp)) {
+    lineStartPosition = nextLineStartPosition;
+    nextLineStartPosition = ftell(fp);
+
     line[strcspn(line, "\n")] = '\0';
-    if (startsWithWord("*comment", line)) {
+    if (isComment(line)) {
       // Skip comments
       continue;
     }
     if (isEmpty(line)) {
       // Skip empty lines
       sceneIdx = -1;
+      ach = NULL;
       continue;
     }
 
@@ -133,9 +162,11 @@ int loadGame(const char* path, game* game)
       game->labels[game->labelsCount].name = malloc(strlen(line) - 7 + 1);
       subString(line, game->labels[game->labelsCount].name, 7, strlen(line) - 7);
 
-      game->labels[game->labelsCount].position = ftell(fp);
+      game->labels[game->labelsCount].position = lineStartPosition;
       logDebug("\tLabel name=%s, position=%li\n", game->labels[game->labelsCount].name, game->labels[game->labelsCount].position);
       game->labelsCount++;
+    } else if (startsWithWord("*product", line)) {
+      // Don't know what's this
     } else {
       if (ach != NULL) {
         trim(line);
@@ -159,6 +190,11 @@ int loadGame(const char* path, game* game)
         logDebug("\tscene: %s\n", game->scenes[sceneIdx]);
         sceneIdx++;
         game->scenesCount++;
+      } else {
+        if (game->startPosition == 0) {
+          logDebug("\tFirst line to interpret=%s\n", line);
+          game->startPosition = lineStartPosition;
+        }
       }
     }
   }
@@ -182,6 +218,7 @@ int loadGame(const char* path, game* game)
   logInfo("\tVariables   : %i\n", game->variablesCount);
   logInfo("\tAchievements: %i\n", game->achievementsCount);
   logInfo("\tLabels      : %i\n", game->labelsCount);
+  logInfo("\tStart       : %i\n", game->startPosition);
 
   return 0;
 }
@@ -223,6 +260,8 @@ void freeGame(game *game)
     free(game->labels[i].name);
     game->labels[i].name = NULL;
   }
+
+  free(game);
 }
 
 int loadSection(const char* path, section* section)
