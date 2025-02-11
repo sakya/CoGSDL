@@ -28,8 +28,9 @@ struct game
   char path[255];
   char icon[255];
   char background[255];
-  char* title;
-  char* author;
+  char *title;
+  char *author;
+  char *ifid;
 
   int scenesCount;
   char scenes[1024][256];

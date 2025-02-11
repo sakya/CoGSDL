@@ -136,6 +136,7 @@ int listGames(const char* path, game *games);
 /// @param game The game
 /// @return The variable value or NULL
 char* getVarValue(const char *varName, game* game);
+int isComment(char* line);
 
 /* utils.c */
 /// @brief Check if a string is empty or all whitespaces

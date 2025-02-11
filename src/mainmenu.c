@@ -1,7 +1,7 @@
 #include "CoGSDL.h"
 
-double mmAngle = 0;
-int mmIndex = 0;
+static double mmAngle = 0;
+static int mmIndex = 0;
 
 void drawMainMenu()
 {

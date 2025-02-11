@@ -1,11 +1,11 @@
 #include "CoGSDL.h"
 
-FILE *log_fp;
+static FILE *log_fp;
 
 int logInit(const char* filePath)
 {
   setvbuf(stdout, NULL, _IONBF, 0);
-  log_fp = fopen(filePath, "w");
+  log_fp = fopen(filePath, "wb");
   if (log_fp == NULL)
       return -1;
 

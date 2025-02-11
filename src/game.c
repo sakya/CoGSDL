@@ -56,7 +56,7 @@ int loadGame(const char* path, game* game, int forListing)
   FILE *fp;
   char line[4096];
 
-  fp = fopen(filePath, "r");
+  fp = fopen(filePath, "rb");
   if (fp == NULL) {
     logWarning("\tFile %s not found", filePath);
     return -1;
@@ -74,10 +74,11 @@ int loadGame(const char* path, game* game, int forListing)
 
   achievement* ach = NULL;
   long lineStartPosition = 0;
-  long nextLineStartPosition = 0;
+  long nextLineStartPosition = ftell(fp);
   int sceneIdx = -1;
   game->title = NULL;
   game->author = NULL;
+  game->ifid = NULL;
   game->scenesCount = 0;
   game->variablesCount = 0;
   game->achievementsCount = 0;
@@ -92,6 +93,7 @@ int loadGame(const char* path, game* game, int forListing)
     }
 
     line[strcspn(line, "\n")] = '\0';
+    line[strcspn(line, "\r")] = '\0';
     if (isComment(line)) {
       // Skip comments
       continue;
@@ -114,6 +116,10 @@ int loadGame(const char* path, game* game, int forListing)
       game->author = malloc(strlen(line) - 8 + 1);
       subString(line, game->author, 8, strlen(line) - 8);
       logInfo("\tAuthor: %s\n", game->author);
+    } else if (startsWithWord("*ifid", line)) {
+      game->ifid = malloc(strlen(line) - 8 + 1);
+      subString(line, game->ifid, 8, strlen(line) - 8);
+      logInfo("\tIfid: %s\n", game->ifid);
     } else if (startsWithWord("*create", line)) {
       if (game->variablesCount == sizeof(game->variables) / sizeof(variable)) {
         logWarning("Reached maximum number of variables (%i)\n", game->variablesCount);
@@ -239,6 +245,8 @@ void freeGame(game *game)
   game->title = NULL;
   free(game->author);
   game->author = NULL;
+  free(game->ifid);
+  game->ifid = NULL;
 
   int i = 0;
   for (i = 0; i < game->variablesCount; i++) {

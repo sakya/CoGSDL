@@ -1,8 +1,8 @@
 #include "CoGSDL.h"
 
-int firstIdx = 0;
-int selectedIdx = 0;
-SDL_Surface *iconSurface = NULL;
+static int firstIdx = 0;
+static int selectedIdx = 0;
+static SDL_Surface *iconSurface = NULL;
 
 void drawGameSelectMenu()
 {
