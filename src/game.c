@@ -92,8 +92,8 @@ int loadGame(const char* path, game* game, int forListing)
       break;
     }
 
-    line[strcspn(line, "\n")] = '\0';
     line[strcspn(line, "\r")] = '\0';
+    line[strcspn(line, "\n")] = '\0';
     if (isComment(line)) {
       // Skip comments
       continue;
@@ -105,7 +105,6 @@ int loadGame(const char* path, game* game, int forListing)
       continue;
     }
 
-    //logInfo("%s\n", line);
     if (strcmp(line, "*scene_list") == 0) {
       sceneIdx = 0;
     } else if (startsWithWord("*title", line)) {
