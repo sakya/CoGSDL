@@ -27,7 +27,7 @@ int isComment(char* line)
   return idx == strlen(comment) ? 1 : 0;
 }
 
-int loadGame(const char* path, game* game)
+int loadGame(const char* path, game* game, int forListing)
 {
   if (game == NULL)
     return -1;
@@ -76,6 +76,8 @@ int loadGame(const char* path, game* game)
   long lineStartPosition = 0;
   long nextLineStartPosition = 0;
   int sceneIdx = -1;
+  game->title = NULL;
+  game->author = NULL;
   game->scenesCount = 0;
   game->variablesCount = 0;
   game->achievementsCount = 0;
@@ -84,6 +86,10 @@ int loadGame(const char* path, game* game)
   while (fgets(line, sizeof(line), fp)) {
     lineStartPosition = nextLineStartPosition;
     nextLineStartPosition = ftell(fp);
+
+    if (forListing && game->title != NULL && game->author != NULL) {
+      break;
+    }
 
     line[strcspn(line, "\n")] = '\0';
     if (isComment(line)) {
@@ -199,19 +205,20 @@ int loadGame(const char* path, game* game)
     }
   }
 
-  // Add choice_is_omnibus_app var
-  game->variables[game->variablesCount].name = malloc(64);
-  strcpy(game->variables[game->variablesCount].name, "choice_is_omnibus_app");
-  game->variables[game->variablesCount].value = malloc(64);
-  strcpy(game->variables[game->variablesCount].value, "true");
-  game->variablesCount++;
-  // Add skip_description var
-  game->variables[game->variablesCount].name = malloc(64);
-  strcpy(game->variables[game->variablesCount].name, "skip_description");
-  game->variables[game->variablesCount].value = malloc(64);
-  strcpy(game->variables[game->variablesCount].value, "true");
-  game->variablesCount++;
-
+  if (!forListing) {
+    // Add choice_is_omnibus_app var
+    game->variables[game->variablesCount].name = malloc(64);
+    strcpy(game->variables[game->variablesCount].name, "choice_is_omnibus_app");
+    game->variables[game->variablesCount].value = malloc(64);
+    strcpy(game->variables[game->variablesCount].value, "true");
+    game->variablesCount++;
+    // Add skip_description var
+    game->variables[game->variablesCount].name = malloc(64);
+    strcpy(game->variables[game->variablesCount].name, "skip_description");
+    game->variables[game->variablesCount].value = malloc(64);
+    strcpy(game->variables[game->variablesCount].value, "true");
+    game->variablesCount++;
+  }
   fclose(fp);
 
   logInfo("\tScenes      : %i\n", game->scenesCount);
@@ -294,7 +301,7 @@ int listGames(const char* path, game *games)
     closedir(subDir);
 
     game g;
-    if (!loadGame(subDirPath, &g)) {
+    if (!loadGame(subDirPath, &g, 1)) {
       games[count] = g;
       count++;
     }

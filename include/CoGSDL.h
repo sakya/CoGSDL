@@ -115,8 +115,9 @@ void manageEvents();
 /// @brief Loads a game from a directory (read the file scenes/startup.txt)
 /// @param path Path to the directory containing the game
 /// @param game The game
+/// @param forListing If 1 only title, author, icon informations are loaded
 /// @return 0 on success
-int loadGame(const char* path, game* game);
+int loadGame(const char* path, game* game, int forListing);
 /// @brief Free memory allocated by a game
 /// @param game The game
 void freeGame(game *game);
