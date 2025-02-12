@@ -11,9 +11,21 @@ static char *pg_text = NULL;
 static char *pg_scene = NULL;
 static long pg_position = -1;
 static int lineHeight = 0;
+static int scrollY = 0;
 
 void drawGame()
 {
+  if (_Globals.input[_Keys.KeyDown] == 1) {
+    _Globals.input[_Keys.KeyDown]= 0;
+    scrollY += lineHeight;
+  }
+  if (_Globals.input[_Keys.KeyUp] == 1) {
+    _Globals.input[_Keys.KeyUp]= 0;
+    scrollY -= lineHeight;
+    if (scrollY < 0)
+      scrollY = 0;
+  }
+
   if (_Globals.input[_Keys.KeyStart] == 1) {
     _Globals.input[_Keys.KeyStart] = 0;
     pg_dispose();
@@ -103,6 +115,9 @@ void pg_renderText(char* text)
     if (x + width + TEXT_MARGIN >= _Globals.WINDOW_WIDTH) {
       y += lineHeight;
       x = TEXT_MARGIN;
+      if (y + lineHeight > _Globals.WINDOW_HEIGHT - 60) {
+        break;
+      }
     }
 
     int wordLen = strlen(word);
@@ -110,6 +125,9 @@ void pg_renderText(char* text)
       if (word[i] == '\n') {
         y += lineHeight;
         x = TEXT_MARGIN;
+        if (y + lineHeight > _Globals.WINDOW_HEIGHT - 60) {
+          break;
+        }
         continue;
       }
 
@@ -143,7 +161,8 @@ void pg_renderText(char* text)
       test[1] = '\0';
 
       TTF_MeasureUTF8(font, test, _Globals.WINDOW_WIDTH, &charWidth, &chars);
-      sdlWriteText(font, colorText, test, x, y, 0, 0);
+      if (y >= scrollY + HEADER_HEIGHT + TEXT_MARGIN)
+        sdlWriteText(font, colorText, test, x, y - scrollY, 0, 0);
       x += charWidth;
     }
 
