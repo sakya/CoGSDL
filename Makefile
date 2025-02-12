@@ -35,3 +35,8 @@ $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c | $(OBJ_DIR)
 
 $(OBJ_DIR):
 	@$(MKDIR) $(MKDIRFLAGS) $(OBJ_DIR)
+
+pack: CoGSDL-v$(VERSION).zip
+
+CoGSDL-v$(VERSION).zip: $(TARGET)
+	zip -r CoGSDL-v$(VERSION).zip fonts images sounds CoGSDL icon config.json launch.sh
