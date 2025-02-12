@@ -12,7 +12,7 @@ void drawGameSelectMenu()
   int i = 0;
   int y = 40;
 
-  const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 50;
+  const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
   if (_Globals.input[_Keys.KeyDown] == 1) {
     selectedIdx++;
     Mix_PlayChannel(-1, sound_menu_change, 0);
@@ -68,7 +68,7 @@ void drawGameSelectMenu()
     SDL_Color color = i == selectedIdx ? colorSelectedText : colorText;
     if (g != NULL) {
       sdlWriteText(_Globals.defaultFont, color, g->title, 10, y, 0, 0);
-      y += 20;
+      y += 25;
       sdlWriteText(_Globals.defaultSmallFont, color, g->author, 10, y, 0, 0);
 
       y += 25;

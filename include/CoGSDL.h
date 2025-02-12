@@ -15,6 +15,7 @@
 #include "KeyMap.h"
 
 #define TAB_SIZE 2
+#define TEXT_MARGIN 5
 
 extern const int HEADER_HEIGHT;
 
@@ -72,6 +73,9 @@ struct CoGSDL {
   int defaultFontSize;
   TTF_Font *defaultSmallFont;
   int defaultSmallFontSize;
+  TTF_Font *italicFont;
+  TTF_Font *boldFont;
+
 } typedef CoGSDL;
 
 extern CoGSDL _Globals;

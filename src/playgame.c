@@ -4,11 +4,13 @@ void pg_init();
 void pg_dispose();
 void pg_exec();
 void pg_renderText(char* text);
+int pg_indexOfWordEnd(const char *string, const int startFrom);
 
 static FILE *pg_fp = NULL;
 static char *pg_text = NULL;
 static char *pg_scene = NULL;
 static long pg_position = -1;
+static int lineHeight = 0;
 
 void drawGame()
 {
@@ -52,6 +54,11 @@ void pg_init()
     logDebug("Position set to %li\n", pg_position);
   }
   fseek(pg_fp, pg_position, SEEK_SET);
+
+  SDL_Surface* surface = TTF_RenderUTF8_Blended(_Globals.defaultFont, "H", colorText);
+  lineHeight = surface->h;
+  logDebug("Line height %li\n", lineHeight);
+  SDL_FreeSurface(surface);
 }
 
 void pg_dispose()
@@ -76,7 +83,74 @@ void pg_dispose()
 
 void pg_renderText(char* text)
 {
+  if (text == NULL || strlen(text) == 0)
+    return;
 
+  int end = strlen(text);
+  int idx = 0;
+  int x = TEXT_MARGIN;
+  int y = HEADER_HEIGHT + TEXT_MARGIN;
+  int width;
+  int chars;
+  char test[2];
+  char word[256];
+  TTF_Font *font = _Globals.defaultFont;
+  while(1) {
+    // Find the next word to print
+    int wordEnd = pg_indexOfWordEnd(text, idx);
+    subString(text, word, idx, wordEnd - idx + 1);
+    TTF_MeasureUTF8(_Globals.defaultFont, word, _Globals.WINDOW_WIDTH, &width, &chars);
+    if (x + width + TEXT_MARGIN >= _Globals.WINDOW_WIDTH) {
+      y += lineHeight;
+      x = TEXT_MARGIN;
+    }
+
+    int wordLen = strlen(word);
+    for (int i = 0; i < wordLen; i++) {
+      if (word[i] == '\n') {
+        y += lineHeight;
+        x = TEXT_MARGIN;
+        continue;
+      }
+
+      // Check font change:
+      if (word[i] == '[')  {
+        // Italic
+        if (i + 2 < wordLen && word[i + 1] == 'i' && word[i + 2] == ']') {
+          font = _Globals.italicFont;
+          i += 2;
+          continue;
+        } else if (i + 3 < wordLen && word[i + 1] == '/' && word[i + 2] == 'i' && word[i + 3] == ']') {
+          font = _Globals.defaultFont;
+          i += 3;
+          continue;
+        }
+
+        // Bold
+        if (i + 2 < wordLen && word[i + 1] == 'b' && word[i + 2] == ']') {
+          font = _Globals.boldFont;
+          i += 2;
+          continue;
+        } else if (i + 3 < wordLen && word[i + 1] == '/' && word[i + 2] == 'b' && word[i + 3] == ']') {
+          font = _Globals.defaultFont;
+          i += 3;
+          continue;
+        }
+      }
+
+      int charWidth;
+      test[0] = word[i];
+      test[1] = '\0';
+
+      TTF_MeasureUTF8(font, test, _Globals.WINDOW_WIDTH, &charWidth, &chars);
+      sdlWriteText(font, colorText, test, x, y, 0, 0);
+      x += charWidth;
+    }
+
+    idx += strlen(word);
+    if (idx >= end)
+      break;
+  }
 }
 
 void pg_exec()
@@ -120,22 +194,28 @@ void pg_exec()
             : realloc(pg_text, strlen(pg_text) + strlen(line) + 1);
           if (tmp != NULL) {
             if (needsSpace) {
-              memset(tmp + strlen(pg_text), 0, strlen(line) + 2);
+              memset(tmp + strlen(tmp), 0, strlen(line) + 2);
               strcat(tmp, " ");
             } else {
-              memset(tmp + strlen(pg_text), 0, strlen(line) + 1);
+              memset(tmp + strlen(tmp), 0, strlen(line) + 1);
             }
             strcat(tmp, line);
             pg_text = tmp;
             tmp = NULL;
+          } else {
+            logWarning("realloc failed");
+            return;
           }
         } else {
-          char *tmp = realloc(pg_text, strlen(pg_text) + 1);
+          char *tmp = realloc(pg_text, strlen(pg_text) + 3);
           if (tmp != NULL) {
-            memset(tmp + strlen(pg_text), 0, 1);
-            strcat(tmp, "\n");
+            memset(tmp + strlen(tmp), 0, 2);
+            strcat(tmp, "\n\n");
             pg_text = tmp;
             tmp = NULL;
+          } else {
+            logWarning("realloc failed");
+            return;
           }
         }
       }
@@ -145,4 +225,21 @@ void pg_exec()
   if (pg_text != NULL) {
     logDebug("Text to render: %s\n", pg_text);
   }
+}
+
+int pg_indexOfWordEnd(const char *string, const int startFrom)
+{
+  if (!string)
+      return -1;
+
+  int idx = startFrom;
+  int len = strlen(string);
+  while (idx < len) {
+    if (string[idx] == ' ' || string[idx] == '\t' || string[idx] == '\n' || string[idx] == ',' ||
+        string[idx] == '.' || string[idx] == ';' || string[idx] == ';')
+      return idx;
+    idx++;
+  }
+
+  return -1;
 }
