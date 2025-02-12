@@ -37,6 +37,17 @@ int startsWith(const char *prefix, const char *string)
   return strncmp(prefix, string, strlen(prefix)) == 0 ? 1 : 0;
 }
 
+int endsWith(const char *suffix, const char *string)
+{
+    if (!string || !suffix)
+        return 0;
+    int lenstr = strlen(string);
+    int lensuffix = strlen(suffix);
+    if (lensuffix >  lenstr)
+        return 0;
+    return strncmp(string + lenstr - lensuffix, suffix, lensuffix) == 0 ? 1 : 0;
+}
+
 int startsWithWord(const char *prefix, const char *string)
 {
   char *test = malloc(strlen(prefix) + 1);

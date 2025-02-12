@@ -164,6 +164,11 @@ int startsWith(const char *prefix, const char *string);
 /// @param string The string
 /// @return 1 if string starts with prefix
 int startsWithWord(const char *prefix, const char *string);
+/// @brief Check if a string ends with the given string
+/// @param suffix The suffix to check
+/// @param string The string
+/// @return 1 if string ends with suffix
+int endsWith(const char *suffix, const char *string);
 /// @brief Get the number of indentation characters
 /// @param string The string
 /// @return The number of indentation characters

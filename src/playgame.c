@@ -114,9 +114,17 @@ void pg_exec()
         strcpy(pg_text, line);
       } else {
         if (strlen(line)) {
-          char *tmp = realloc(pg_text, strlen(pg_text) + strlen(line) + 2);
+          int needsSpace = endsWith(".", line) ? 0 : 1;
+          char *tmp = needsSpace
+            ? realloc(pg_text, strlen(pg_text) + strlen(line) + 2)
+            : realloc(pg_text, strlen(pg_text) + strlen(line) + 1);
           if (tmp != NULL) {
-            strcat(tmp, " ");
+            if (needsSpace) {
+              memset(tmp + strlen(pg_text), 0, strlen(line) + 2);
+              strcat(tmp, " ");
+            } else {
+              memset(tmp + strlen(pg_text), 0, strlen(line) + 1);
+            }
             strcat(tmp, line);
             pg_text = tmp;
             tmp = NULL;
@@ -124,6 +132,7 @@ void pg_exec()
         } else {
           char *tmp = realloc(pg_text, strlen(pg_text) + 1);
           if (tmp != NULL) {
+            memset(tmp + strlen(pg_text), 0, 1);
             strcat(tmp, "\n");
             pg_text = tmp;
             tmp = NULL;
