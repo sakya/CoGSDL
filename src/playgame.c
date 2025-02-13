@@ -104,7 +104,7 @@ void pg_renderText(char* text)
   int y = HEADER_HEIGHT + TEXT_MARGIN;
   int width;
   int chars;
-  char test[2];
+  char test[5];
   char word[256];
   TTF_Font *font = _Globals.defaultFont;
   while(1) {
@@ -112,20 +112,21 @@ void pg_renderText(char* text)
     int wordEnd = pg_indexOfWordEnd(text, idx);
     subString(text, word, idx, wordEnd - idx + 1);
     TTF_MeasureUTF8(_Globals.defaultFont, word, _Globals.WINDOW_WIDTH, &width, &chars);
-    if (x + width + TEXT_MARGIN >= _Globals.WINDOW_WIDTH) {
+    if (x + width + TEXT_MARGIN * 2 >= _Globals.WINDOW_WIDTH) {
       y += lineHeight;
       x = TEXT_MARGIN;
-      if (y + lineHeight > _Globals.WINDOW_HEIGHT - 60) {
+      if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT * 2) {
         break;
       }
     }
 
     int wordLen = strlen(word);
-    for (int i = 0; i < wordLen; i++) {
+    int i = 0;
+    do {
       if (word[i] == '\n') {
         y += lineHeight;
         x = TEXT_MARGIN;
-        if (y + lineHeight > _Globals.WINDOW_HEIGHT - 60) {
+        if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT * 2) {
           break;
         }
         continue;
@@ -156,17 +157,17 @@ void pg_renderText(char* text)
         }
       }
 
+      int charBytes = u8seqlen(&word[i]);
+      memset(&test, 0, sizeof(test));
+      strncpy(test, &word[i], charBytes);
       int charWidth;
-      test[0] = word[i];
-      test[1] = '\0';
-
       TTF_MeasureUTF8(font, test, _Globals.WINDOW_WIDTH, &charWidth, &chars);
       if (y >= scrollY + HEADER_HEIGHT + TEXT_MARGIN)
         sdlWriteText(font, colorText, test, x, y - scrollY, 0, 0);
       x += charWidth;
-    }
+    } while (u8nextchar(word, &i));
 
-    idx += strlen(word);
+    idx += wordLen;
     if (idx >= end)
       break;
   }
@@ -184,7 +185,9 @@ void pg_exec()
   }
 
   while (fgets(line, sizeof(line), pg_fp)) {
-    int lineIndentation = getIndentation(line);
+    int lineIndentation = isEmpty(line)
+      ? indentation
+      : getIndentation(line);
     if (indentation < 0)
       indentation = lineIndentation;
 
@@ -196,6 +199,7 @@ void pg_exec()
       continue;
 
     trim(line);
+    int lineLen = strlen(line);
     if (line[0] == '*') {
       // Command
       readingText = 0;
@@ -203,22 +207,22 @@ void pg_exec()
       // Read text
       readingText = 1;
       if (pg_text == NULL) {
-        pg_text = malloc(strlen(line) + 1);
-        strcpy(pg_text, line);
+        pg_text = malloc(lineLen + 1);
+        strncpy(pg_text, line, lineLen);
       } else {
-        if (strlen(line)) {
+        if (lineLen) {
           int needsSpace = endsWith(".", line) ? 0 : 1;
           char *tmp = needsSpace
-            ? realloc(pg_text, strlen(pg_text) + strlen(line) + 2)
-            : realloc(pg_text, strlen(pg_text) + strlen(line) + 1);
+            ? realloc(pg_text, strlen(pg_text) + lineLen + 2)
+            : realloc(pg_text, strlen(pg_text) + lineLen + 1);
           if (tmp != NULL) {
             if (needsSpace) {
-              memset(tmp + strlen(tmp), 0, strlen(line) + 2);
+              memset(tmp + strlen(tmp), 0, lineLen + 2);
               strcat(tmp, " ");
             } else {
-              memset(tmp + strlen(tmp), 0, strlen(line) + 1);
+              memset(tmp + strlen(tmp), 0, lineLen + 1);
             }
-            strcat(tmp, line);
+            strncat(tmp, line, lineLen);
             pg_text = tmp;
             tmp = NULL;
           } else {
@@ -226,16 +230,25 @@ void pg_exec()
             return;
           }
         } else {
-          char *tmp = realloc(pg_text, strlen(pg_text) + 3);
+          char *tmp = realloc(pg_text, strlen(pg_text) + 2);
           if (tmp != NULL) {
             memset(tmp + strlen(tmp), 0, 2);
-            strcat(tmp, "\n\n");
+            strcat(tmp, "\n");
             pg_text = tmp;
             tmp = NULL;
           } else {
             logWarning("realloc failed");
             return;
           }
+        }
+      }
+
+      if (endsWith(".", line)) {
+        char *tmp = realloc(pg_text, strlen(pg_text) + 2);
+        if (tmp != NULL) {
+          strcat(tmp, "\n");
+          pg_text = tmp;
+          tmp = NULL;
         }
       }
     }
@@ -252,12 +265,11 @@ int pg_indexOfWordEnd(const char *string, const int startFrom)
       return -1;
 
   int idx = startFrom;
-  int len = strlen(string);
-  while (idx < len) {
+  while (u8nextchar(string, &idx)) {
     if (string[idx] == ' ' || string[idx] == '\t' || string[idx] == '\n' || string[idx] == ',' ||
-        string[idx] == '.' || string[idx] == ';' || string[idx] == ';')
+        string[idx] == '.' || string[idx] == ';' || string[idx] == ';') {
       return idx;
-    idx++;
+    }
   }
 
   return -1;

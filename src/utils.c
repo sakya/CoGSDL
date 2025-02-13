@@ -144,6 +144,8 @@ int fileExists (const char *filename) {
 
 void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
 {
+  if (!strlen(text))
+    return;
   SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
 

@@ -13,6 +13,7 @@
 
 #include "game.h"
 #include "KeyMap.h"
+#include "utf8.h"
 
 #define TAB_SIZE 2
 #define TEXT_MARGIN 5

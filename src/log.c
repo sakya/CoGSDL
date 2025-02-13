@@ -22,7 +22,7 @@ void logDispose()
 
 void logPrimitive(const char* level, const char *format, va_list args)
 {
-  char msg[1024];
+  char msg[4096];
   char timeString[256];
   char levelString[20];
   time_t current_time;
