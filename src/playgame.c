@@ -36,6 +36,9 @@ void drawGame()
   if (pg_game_status.fp == NULL) {
     pg_init();
     pg_exec();
+    if (pg_game_status.text != NULL) {
+      logDebug("Text to render:\n%s\n", pg_game_status.text);
+    }
   }
 
   if (pg_game_status.text != NULL) {
@@ -113,14 +116,27 @@ void pg_renderText(char* text)
     TTF_MeasureUTF8(font, word, _Globals.WINDOW_WIDTH, &wordWidth, NULL);
     int i = 0;
     if (x + wordWidth + TEXT_MARGIN * 2 >= _Globals.WINDOW_WIDTH) {
-      y += lineHeight;
-      x = TEXT_MARGIN;
-      if (y - pg_game_status.scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
-        break;
+      int needsNewline = 1;
+      if (word[strlen(word) - 1] == ' ') {
+        word[strlen(word) - 1] = '\0';
+        TTF_MeasureUTF8(font, word, _Globals.WINDOW_WIDTH, &wordWidth, NULL);
+        if (x + wordWidth + TEXT_MARGIN * 2 < _Globals.WINDOW_WIDTH) {
+          needsNewline = 0;
+        } else {
+          word[strlen(word)] = ' ';
+        }
       }
-      // Avoid whitespace at the beginning of the line
-      if (word[i] == ' ')
-        i++;
+
+      if (needsNewline) {
+        y += lineHeight;
+        x = TEXT_MARGIN;
+        if (y - pg_game_status.scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
+          break;
+        }
+        // Avoid whitespace at the beginning of the line
+        if (word[i] == ' ')
+          i++;
+      }
     }
 
     int wordLen = strlen(word);
@@ -222,7 +238,8 @@ void pg_exec()
       logDebug("Command=%s\n", command);
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
-        continue;
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        return;
       }
 
       if (strcmp(command, "line_break") == 0) {
@@ -280,7 +297,7 @@ void pg_exec()
         }
       }
 
-      if (endsWith(".", line)) {
+      if (endsWith(".", line) || endsWith("!", line) || endsWith("?", line)) {
         char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + 2);
         if (tmp != NULL) {
           strcat(tmp, "\n");
@@ -289,10 +306,6 @@ void pg_exec()
         }
       }
     }
-  }
-
-  if (pg_game_status.text != NULL) {
-    logDebug("Text to render:\n%s\n", pg_game_status.text);
   }
 }
 
@@ -322,7 +335,7 @@ void pg_getCommand(const char *line, char* command)
   int lineLen = strlen(line);
   if (lineLen > 0 && line[0] == '*') {
     for (int i = 1; i < lineLen; i++) {
-      if (line[i] != ' ') {
+      if (line[i] != ' ' || line[i] == '\t') {
         command[idx++] = line[i];
       }
     }
