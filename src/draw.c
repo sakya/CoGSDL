@@ -12,7 +12,7 @@ static double header_angle = 0;
 int draw()
 {
   while (_Globals.quit == 0) {
-    int start = SDL_GetPerformanceCounter();
+    Uint64 start = SDL_GetPerformanceCounter();
     if (fpsStart == 0) {
       fpsStart = start;
     }
@@ -37,7 +37,7 @@ int draw()
     manageEvents();
     SDL_RenderPresent(_Globals.renderer);
 
-    int end = SDL_GetPerformanceCounter();
+    Uint64 end = SDL_GetPerformanceCounter();
     float elapsedMs = (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
     // Cap to 60 FPS
     int toWait = floor(16.666f - elapsedMs);

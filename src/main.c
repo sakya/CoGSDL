@@ -51,11 +51,6 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  _Globals.gamesCount = listGames("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\", _Globals.games);
-
-  //game game;
-  //loadGame("d:\\paolo.iommarini\\Downloads\\ChoiceOfGames\\Vampire - Parliament of Knives", &game);
-
   draw();
 
   free_images();

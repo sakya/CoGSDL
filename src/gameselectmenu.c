@@ -1,13 +1,17 @@
 #include "CoGSDL.h"
 
 static int firstIdx = 0;
-static int selectedIdx = 0;
+static int selectedIdx = -1;
 static SDL_Surface *iconSurface = NULL;
 
 void drawGameSelectMenu()
 {
-const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
-  if (_Globals.input[_Keys.KeyDown] == 1) {
+  if (selectedIdx < 0 && _Globals.gamesCount > 0) {
+    selectedIdx = 0;
+  }
+
+  const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
+  if (_Globals.input[_Keys.KeyDown] == 1 && selectedIdx >= 0) {
     selectedIdx++;
     Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx == _Globals.gamesCount) {
@@ -21,7 +25,7 @@ const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
     if (selectedIdx - firstIdx + 1 > items)
       firstIdx++;
     _Globals.input[_Keys.KeyDown] = 0;
-  } else if (_Globals.input[_Keys.KeyUp] == 1) {
+  } else if (_Globals.input[_Keys.KeyUp] == 1 && selectedIdx >= 0) {
     selectedIdx--;
     Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx < 0) {
@@ -37,7 +41,7 @@ const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
     if (selectedIdx < firstIdx)
       firstIdx = selectedIdx;
     _Globals.input[_Keys.KeyUp] = 0;
-  } else if (_Globals.input[_Keys.KeyA] == 1) {
+  } else if (_Globals.input[_Keys.KeyA] == 1 && selectedIdx >= 0) {
     runningGame = malloc(sizeof(game));
     loadGame(_Globals.games[selectedIdx].path, runningGame, 0);
     if (strlen(runningGame->icon) > 0) {

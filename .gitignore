@@ -2,6 +2,7 @@
 .codelite/
 .cache/
 objs/
+games/
 CoGSDL
 *.log
 *.exe

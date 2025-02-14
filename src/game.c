@@ -317,7 +317,7 @@ int listGames(const char* path, game *games)
   closedir(dir);
 
   qsort(games, count, sizeof(struct game), compareByTitle);
-  logInfo("Games found: %i", count);
+  logInfo("Games found in %s: %i\n", path, count);
   return count;
 }
 
