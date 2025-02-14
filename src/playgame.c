@@ -75,6 +75,7 @@ void pg_init()
 
 void pg_dispose()
 {
+  scrollY = 0;
   pg_position = -1;
 
   free(pg_scene);
@@ -102,31 +103,44 @@ void pg_renderText(char* text)
   int idx = 0;
   int x = TEXT_MARGIN;
   int y = HEADER_HEIGHT + TEXT_MARGIN;
-  int width;
-  int chars;
+  int wordWidth;
   char test[5];
   char word[256];
   TTF_Font *font = _Globals.defaultFont;
   while(1) {
+    if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
+      break;
+    }
+
     // Find the next word to print
     int wordEnd = pg_indexOfWordEnd(text, idx);
+    if (wordEnd < 0)
+      break;
+
+    if (wordEnd - idx + 1 > sizeof(word)) {
+      logWarning("Word too long: %i chars", wordEnd - idx);
+      break;
+    }
     subString(text, word, idx, wordEnd - idx + 1);
-    TTF_MeasureUTF8(_Globals.defaultFont, word, _Globals.WINDOW_WIDTH, &width, &chars);
-    if (x + width + TEXT_MARGIN * 2 >= _Globals.WINDOW_WIDTH) {
+    TTF_MeasureUTF8(font, word, _Globals.WINDOW_WIDTH, &wordWidth, NULL);
+    int i = 0;
+    if (x + wordWidth + TEXT_MARGIN * 2 >= _Globals.WINDOW_WIDTH) {
       y += lineHeight;
       x = TEXT_MARGIN;
-      if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT * 2) {
+      if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
         break;
       }
+      // Avoid whitespace at the beginning of the line
+      if (word[i] == ' ')
+        i++;
     }
 
     int wordLen = strlen(word);
-    int i = 0;
     do {
       if (word[i] == '\n') {
         y += lineHeight;
         x = TEXT_MARGIN;
-        if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT * 2) {
+        if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
           break;
         }
         continue;
@@ -161,7 +175,7 @@ void pg_renderText(char* text)
       memset(&test, 0, sizeof(test));
       strncpy(test, &word[i], charBytes);
       int charWidth;
-      TTF_MeasureUTF8(font, test, _Globals.WINDOW_WIDTH, &charWidth, &chars);
+      TTF_MeasureUTF8(font, test, _Globals.WINDOW_WIDTH, &charWidth, NULL);
       if (y >= scrollY + HEADER_HEIGHT + TEXT_MARGIN)
         sdlWriteText(font, colorText, test, x, y - scrollY, 0, 0);
       x += charWidth;
