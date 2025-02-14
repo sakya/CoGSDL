@@ -187,6 +187,17 @@ void pg_renderText(char* text)
   }
 }
 
+void pg_expandVariables(char* text)
+{
+  if (!text)
+    return;
+
+  int idx = indexOf(text, '$', idx);
+  if (idx >= 0) {
+
+  }
+}
+
 void pg_exec()
 {
   char line[4096];
@@ -269,7 +280,7 @@ void pg_exec()
   }
 
   if (pg_text != NULL) {
-    logDebug("Text to render: %s\n", pg_text);
+    logDebug("Text to render:\n%s\n", pg_text);
   }
 }
 
