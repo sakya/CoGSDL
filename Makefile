@@ -2,9 +2,9 @@ TARGET=CoGSDL
 VERSION=1.0
 
 CC=gcc
-SDL2FLAGS=$(shell pkg-config --cflags --static --libs sdl2 sdl2_image sdl2_ttf sdl2_mixer)
+SDL2FLAGS=$(shell pkg-config --cflags --libs sdl2 SDL2_image SDL2_ttf SDL2_mixer)
 CFLAGS+=-I$(INC_DIR) -Wall -g
-LDFLAGS=-static
+LDFLAGS=-lm
 
 RM=rm
 RMFLAGS=-rf

@@ -6,13 +6,7 @@ static SDL_Surface *iconSurface = NULL;
 
 void drawGameSelectMenu()
 {
-  if (_Globals.gamesCount == 0)
-    return;
-
-  int i = 0;
-  int y = 40;
-
-  const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
+const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
   if (_Globals.input[_Keys.KeyDown] == 1) {
     selectedIdx++;
     Mix_PlayChannel(-1, sound_menu_change, 0);
@@ -62,28 +56,31 @@ void drawGameSelectMenu()
     return;
   }
 
-  game* selGame = &_Globals.games[selectedIdx];
-  for (i = firstIdx; i < _Globals.gamesCount; i++) {
-    game* g = &_Globals.games[i];
-    SDL_Color color = i == selectedIdx ? colorSelectedText : colorText;
-    if (g != NULL) {
-      sdlWriteText(_Globals.defaultFont, color, g->title, 10, y, 0, 0);
-      y += 25;
-      sdlWriteText(_Globals.defaultSmallFont, color, g->author, 10, y, 0, 0);
+  if (_Globals.gamesCount > 0) {
+    int i = 0;
+    int y = 40;
+    game* selGame = &_Globals.games[selectedIdx];
+    for (i = firstIdx; i < _Globals.gamesCount; i++) {
+      game* g = &_Globals.games[i];
+      SDL_Color color = i == selectedIdx ? colorSelectedText : colorText;
+      if (g != NULL) {
+        sdlWriteText(_Globals.defaultFont, color, g->title, 10, y, 0, 0);
+        y += 25;
+        sdlWriteText(_Globals.defaultSmallFont, color, g->author, 10, y, 0, 0);
 
-      y += 25;
-      if (i - firstIdx + 1 >= items)
-        break;
+        y += 25;
+        if (i - firstIdx + 1 >= items)
+          break;
+      }
+    }
+
+    if (strlen(selGame->icon) > 0) {
+      if (iconSurface == NULL) {
+        iconSurface = IMG_Load(selGame->icon);
+      }
+      sdlBlitImage(iconSurface, 440, 10 + HEADER_HEIGHT, 200, 300);
     }
   }
-
-  if (strlen(selGame->icon) > 0) {
-    if (iconSurface == NULL) {
-      iconSurface = IMG_Load(selGame->icon);
-    }
-    sdlBlitImage(iconSurface, 440, 10 + HEADER_HEIGHT, 200, 300);
-  }
-
   sdlBlitImage(button_a, _Globals.WINDOW_WIDTH - 35, _Globals.WINDOW_HEIGHT - 30, 30, 30);
   sdlBlitImage(button_b, _Globals.WINDOW_WIDTH - 70, _Globals.WINDOW_HEIGHT - 30, 30, 30);
   sdlBlitImage(dpad_up_down, _Globals.WINDOW_WIDTH - 105, _Globals.WINDOW_HEIGHT - 30, 30, 30);

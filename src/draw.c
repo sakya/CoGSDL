@@ -4,12 +4,18 @@ void drawHeader();
 void drawFooter();
 void drawAppIcon();
 
-double header_angle = 0;
+static int fps = 0;
+static int fpsStart = 0;
+static int fpsCount = 0;
+static double header_angle = 0;
 
 int draw()
 {
   while (_Globals.quit == 0) {
     int start = SDL_GetPerformanceCounter();
+    if (fpsStart == 0) {
+      fpsStart = start;
+    }
 
     SDL_SetRenderDrawColor(_Globals.renderer, colorBackground.r, colorBackground.g, colorBackground.b, 255);
     SDL_RenderClear(_Globals.renderer);
@@ -38,6 +44,16 @@ int draw()
     if (toWait > 0) {
       SDL_Delay(toWait);
     }
+
+    // Fps
+    if (++fpsCount == 50) {
+      end = SDL_GetPerformanceCounter();
+      elapsedMs = (end - fpsStart) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+      fps = floor(50000.0f / elapsedMs);
+
+      fpsStart = 0;
+      fpsCount = 0;
+    }
   }
 
   return 0;
@@ -65,6 +81,15 @@ void drawHeader()
   } else if (_Globals.status != MainMenu) {
     drawAppIcon();
     sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 35, 2, 0, 0);
+  }
+
+  if (fps > 0) {
+    char fpsStr[20];
+    int width;
+    snprintf(fpsStr, sizeof(fpsStr), "Fps: %i", fps);
+    TTF_MeasureUTF8(_Globals.defaultFont, fpsStr, _Globals.WINDOW_WIDTH, &width, NULL);
+
+    sdlWriteText(_Globals.defaultFont, colorTitleText, fpsStr, _Globals.WINDOW_WIDTH - width - 2, 2, 0, 0);
   }
 }
 
