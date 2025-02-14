@@ -1,29 +1,27 @@
 #include "CoGSDL.h"
+#include "playgame.h"
 
 void pg_init();
 void pg_dispose();
 void pg_exec();
 void pg_renderText(char* text);
 int pg_indexOfWordEnd(const char *string, const int startFrom);
+void pg_getCommand(const char *line, char *command) ;
 
-static FILE *pg_fp = NULL;
-static char *pg_text = NULL;
-static char *pg_scene = NULL;
-static long pg_position = -1;
+static game_status pg_game_status;
 static int lineHeight = 0;
-static int scrollY = 0;
 
 void drawGame()
 {
   if (_Globals.input[_Keys.KeyDown] == 1) {
     _Globals.input[_Keys.KeyDown]= 0;
-    scrollY += lineHeight;
+    pg_game_status.scrollY += lineHeight;
   }
   if (_Globals.input[_Keys.KeyUp] == 1) {
     _Globals.input[_Keys.KeyUp]= 0;
-    scrollY -= lineHeight;
-    if (scrollY < 0)
-      scrollY = 0;
+    pg_game_status.scrollY -= lineHeight;
+    if (pg_game_status.scrollY < 0)
+      pg_game_status.scrollY = 0;
   }
 
   if (_Globals.input[_Keys.KeyStart] == 1) {
@@ -35,14 +33,14 @@ void drawGame()
   }
 
   // Open the file
-  if (pg_fp == NULL) {
+  if (pg_game_status.fp == NULL) {
     pg_init();
     pg_exec();
   }
 
-  if (pg_text != NULL) {
+  if (pg_game_status.text != NULL) {
     // Render text
-    pg_renderText(pg_text);
+    pg_renderText(pg_game_status.text);
   }
 }
 
@@ -50,22 +48,16 @@ void pg_init()
 {
   char filePath[255];
   strcpy(filePath, runningGame->path);
-  strcat(filePath, "/scenes/");
-  if (pg_scene != NULL) {
-    strcat(filePath, pg_scene);
-  } else {
-    strcat(filePath, "startup.txt");
-  }
+  strcat(filePath, "/scenes/startup.txt");
 
-  pg_fp = fopen(filePath, "rb");
+  pg_game_status.fp = fopen(filePath, "rb");
   logDebug("Opened file %s\n", filePath);
 
-  // Check initial position
-  if (pg_position < 0) {
-    pg_position = runningGame->startPosition;
-    logDebug("Position set to %li\n", pg_position);
-  }
-  fseek(pg_fp, pg_position, SEEK_SET);
+  pg_game_status.text = NULL;
+  pg_game_status.sceneIndex = 0;
+  pg_game_status.fpPosition = runningGame->startPosition;
+  logDebug("Position set to %li\n", pg_game_status.fpPosition);
+  fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
 
   SDL_Surface* surface = TTF_RenderUTF8_Blended(_Globals.defaultFont, "H", colorText);
   lineHeight = surface->h;
@@ -75,17 +67,13 @@ void pg_init()
 
 void pg_dispose()
 {
-  scrollY = 0;
-  pg_position = -1;
+  pg_game_status.scrollY = 0;
 
-  free(pg_scene);
-  pg_scene = NULL;
+  free(pg_game_status.text);
+  pg_game_status.text = NULL;
 
-  free(pg_text);
-  pg_text = NULL;
-
-  fclose(pg_fp);
-  pg_fp = NULL;
+  fclose(pg_game_status.fp);
+  pg_game_status.fp = NULL;
 
   freeGame(runningGame);
   runningGame = NULL;
@@ -108,7 +96,7 @@ void pg_renderText(char* text)
   char word[256];
   TTF_Font *font = _Globals.defaultFont;
   while(1) {
-    if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
+    if (y - pg_game_status.scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
       break;
     }
 
@@ -127,7 +115,7 @@ void pg_renderText(char* text)
     if (x + wordWidth + TEXT_MARGIN * 2 >= _Globals.WINDOW_WIDTH) {
       y += lineHeight;
       x = TEXT_MARGIN;
-      if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
+      if (y - pg_game_status.scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
         break;
       }
       // Avoid whitespace at the beginning of the line
@@ -140,7 +128,7 @@ void pg_renderText(char* text)
       if (word[i] == '\n') {
         y += lineHeight;
         x = TEXT_MARGIN;
-        if (y - scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
+        if (y - pg_game_status.scrollY + lineHeight > _Globals.WINDOW_HEIGHT - HEADER_HEIGHT) {
           break;
         }
         continue;
@@ -176,8 +164,8 @@ void pg_renderText(char* text)
       strncpy(test, &word[i], charBytes);
       int charWidth;
       TTF_MeasureUTF8(font, test, _Globals.WINDOW_WIDTH, &charWidth, NULL);
-      if (y >= scrollY + HEADER_HEIGHT + TEXT_MARGIN)
-        sdlWriteText(font, colorText, test, x, y - scrollY, 0, 0);
+      if (y >= pg_game_status.scrollY + HEADER_HEIGHT + TEXT_MARGIN)
+        sdlWriteText(font, colorText, test, x, y - pg_game_status.scrollY, 0, 0);
       x += charWidth;
     } while (u8nextchar(word, &i));
 
@@ -204,12 +192,13 @@ void pg_exec()
   int indentation = -1;
   int readingText = 0;
 
-  if(pg_text != NULL) {
-    free(pg_text);
-    pg_text = NULL;
+  if(pg_game_status.text != NULL) {
+    free(pg_game_status.text);
+    pg_game_status.text = NULL;
   }
+  pg_game_status.showPageBreak = 0;
 
-  while (fgets(line, sizeof(line), pg_fp)) {
+  while (fgets(line, sizeof(line), pg_game_status.fp)) {
     int lineIndentation = isEmpty(line)
       ? indentation
       : getIndentation(line);
@@ -228,18 +217,41 @@ void pg_exec()
     if (line[0] == '*') {
       // Command
       readingText = 0;
+      char command[256];
+      pg_getCommand(line, command);
+      logDebug("Command=%s\n", command);
+      if (strcmp(command, "page_break") == 0) {
+        pg_game_status.showPageBreak = 1;
+        continue;
+      }
+
+      if (strcmp(command, "line_break") == 0) {
+        if (pg_game_status.text != NULL) {
+          char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + 2);
+          if (tmp != NULL) {
+            memset(tmp + strlen(tmp), 0, 2);
+            strcat(tmp, "\n");
+            pg_game_status.text = tmp;
+            tmp = NULL;
+          } else {
+            logWarning("Realloc failed");
+            return;
+          }
+        }
+        continue;
+      }
     } else {
       // Read text
       readingText = 1;
-      if (pg_text == NULL) {
-        pg_text = malloc(lineLen + 1);
-        strncpy(pg_text, line, lineLen);
+      if (pg_game_status.text == NULL) {
+        pg_game_status.text = malloc(lineLen + 1);
+        strncpy(pg_game_status.text, line, lineLen);
       } else {
         if (lineLen) {
           int needsSpace = endsWith(".", line) || endsWith("!", line) || endsWith("?", line) ? 0 : 1;
           char *tmp = needsSpace
-            ? realloc(pg_text, strlen(pg_text) + lineLen + 2)
-            : realloc(pg_text, strlen(pg_text) + lineLen + 1);
+            ? realloc(pg_game_status.text, strlen(pg_game_status.text) + lineLen + 2)
+            : realloc(pg_game_status.text, strlen(pg_game_status.text) + lineLen + 1);
           if (tmp != NULL) {
             if (needsSpace) {
               memset(tmp + strlen(tmp), 0, lineLen + 2);
@@ -248,39 +260,39 @@ void pg_exec()
               memset(tmp + strlen(tmp), 0, lineLen + 1);
             }
             strncat(tmp, line, lineLen);
-            pg_text = tmp;
+            pg_game_status.text = tmp;
             tmp = NULL;
           } else {
-            logWarning("realloc failed");
+            logWarning("Realloc failed");
             return;
           }
         } else {
-          char *tmp = realloc(pg_text, strlen(pg_text) + 2);
+          char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + 2);
           if (tmp != NULL) {
             memset(tmp + strlen(tmp), 0, 2);
             strcat(tmp, "\n");
-            pg_text = tmp;
+            pg_game_status.text = tmp;
             tmp = NULL;
           } else {
-            logWarning("realloc failed");
+            logWarning("Realloc failed");
             return;
           }
         }
       }
 
       if (endsWith(".", line)) {
-        char *tmp = realloc(pg_text, strlen(pg_text) + 2);
+        char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + 2);
         if (tmp != NULL) {
           strcat(tmp, "\n");
-          pg_text = tmp;
+          pg_game_status.text = tmp;
           tmp = NULL;
         }
       }
     }
   }
 
-  if (pg_text != NULL) {
-    logDebug("Text to render:\n%s\n", pg_text);
+  if (pg_game_status.text != NULL) {
+    logDebug("Text to render:\n%s\n", pg_game_status.text);
   }
 }
 
@@ -292,10 +304,28 @@ int pg_indexOfWordEnd(const char *string, const int startFrom)
   int idx = startFrom;
   while (u8nextchar(string, &idx)) {
     if (string[idx] == ' ' || string[idx] == '\t' || string[idx] == '\n' || string[idx] == ',' ||
-        string[idx] == '.' || string[idx] == ';' || string[idx] == ';') {
+        string[idx] == '.' || string[idx] == ';' || string[idx] == '!' || string[idx] == '?')
+    {
       return idx;
     }
   }
 
   return -1;
+}
+
+void pg_getCommand(const char *line, char* command)
+{
+  if (!line || !command)
+    return;
+
+  int idx = 0;
+  int lineLen = strlen(line);
+  if (lineLen > 0 && line[0] == '*') {
+    for (int i = 1; i < lineLen; i++) {
+      if (line[i] != ' ') {
+        command[idx++] = line[i];
+      }
+    }
+  }
+  command[idx] = '\0';
 }

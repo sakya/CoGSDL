@@ -45,9 +45,9 @@ int init()
   logInfo("\tDisplay Resolution: %dx%d\n", _Globals.DISPLAY_WIDTH, _Globals.DISPLAY_HEIGHT);
 
   _Globals.defaultFontSize = 21;
-  _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
-  _Globals.italicFont = TTF_OpenFont("./fonts/Roboto-Italic.ttf", _Globals.defaultFontSize);
-  _Globals.boldFont = TTF_OpenFont("./fonts/Roboto-Bold.ttf", _Globals.defaultFontSize);
+  _Globals.defaultFont = TTF_OpenFont("./fonts/Cardo-Regular.ttf", _Globals.defaultFontSize);
+  _Globals.italicFont = TTF_OpenFont("./fonts/Cardo-Italic.ttf", _Globals.defaultFontSize);
+  _Globals.boldFont = TTF_OpenFont("./fonts/Cardo-Bold.ttf", _Globals.defaultFontSize);
 
   _Globals.defaultSmallFontSize = 16;
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
