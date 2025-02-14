@@ -1,11 +1,14 @@
 #ifndef COGSDL_H__
 #define COGSDL_H__
 
-#include "locale.h"
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_ttf.h"
-#include "SDL2/SDL_image.h"
-#include "SDL2/SDL_mixer.h"
+#include <locale.h>
+#include <math.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
