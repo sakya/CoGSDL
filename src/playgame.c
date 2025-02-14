@@ -192,7 +192,7 @@ void pg_expandVariables(char* text)
   if (!text)
     return;
 
-  int idx = indexOf(text, '$', idx);
+  int idx = indexOf(text, '$', 0);
   if (idx >= 0) {
 
   }

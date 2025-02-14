@@ -47,11 +47,11 @@ struct game
   long startPosition;
 } typedef game;
 
-struct section
+struct scene
 {
   char path[255];
 
   label labels[4096];
-} typedef section;
+} typedef scene;
 
 #endif

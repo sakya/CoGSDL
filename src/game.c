@@ -278,9 +278,9 @@ void freeGame(game *game)
   free(game);
 }
 
-int loadSection(const char* path, section* section)
+int loadScene(const char* path, scene* scene)
 {
-  if (section == NULL)
+  if (scene == NULL)
     return -1;
 
   return 0;
@@ -290,8 +290,10 @@ int listGames(const char* path, game *games)
 {
   struct dirent *entry;
   DIR *dir = opendir(path);
-  if (dir == NULL)
-      return 0;
+  if (dir == NULL) {
+    logWarning("Directory %s not found", path);
+    return 0;
+  }
 
   int count = 0;
   while ((entry = readdir(dir)) != NULL) {

@@ -133,7 +133,7 @@ void freeGame(game *game);
 /// @param path The path to the section file
 /// @param section The section
 /// @return 0 on success
-int loadSection(const char* path, section* section);
+int loadScene(const char* path, scene* section);
 /// @brief List all games in a directory
 /// @param path The directory path
 /// @param games A pointer to an array of games

@@ -5,7 +5,7 @@ void drawFooter();
 void drawAppIcon();
 
 static int fps = 0;
-static int fpsStart = 0;
+static Uint64 fpsStart = 0;
 static int fpsCount = 0;
 static double header_angle = 0;
 
