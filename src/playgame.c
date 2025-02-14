@@ -236,7 +236,7 @@ void pg_exec()
         strncpy(pg_text, line, lineLen);
       } else {
         if (lineLen) {
-          int needsSpace = endsWith(".", line) ? 0 : 1;
+          int needsSpace = endsWith(".", line) || endsWith("!", line) || endsWith("?", line) ? 0 : 1;
           char *tmp = needsSpace
             ? realloc(pg_text, strlen(pg_text) + lineLen + 2)
             : realloc(pg_text, strlen(pg_text) + lineLen + 1);
