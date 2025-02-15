@@ -46,7 +46,8 @@ enum status
 {
   MainMenu = 0,
   GameSelect = 1,
-  Game = 2
+  Game = 2,
+  About = 3
 };
 
 enum logLevel
@@ -60,10 +61,10 @@ enum logLevel
 struct CoGSDL {
   enum logLevel logLevel;
   int quit;
-  int32_t DISPLAY_WIDTH;
-  int32_t DISPLAY_HEIGHT;
-  int32_t WINDOW_WIDTH;
-  int32_t WINDOW_HEIGHT;
+  int32_t displayWidth;
+  int32_t displayHeight;
+  int32_t windowWidth;
+  int32_t windowHeight;
   SDL_Window *window;
   SDL_Renderer *renderer;
 

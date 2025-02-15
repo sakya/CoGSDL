@@ -66,7 +66,7 @@ void drawHeader()
   SDL_Rect rect;
   rect.x = 0;
   rect.y = 0;
-  rect.w = _Globals.WINDOW_WIDTH;
+  rect.w = _Globals.windowWidth;
   rect.h = HEADER_HEIGHT;
 
   SDL_RenderFillRect(_Globals.renderer, &rect);
@@ -87,9 +87,9 @@ void drawHeader()
     char fpsStr[20];
     int width;
     snprintf(fpsStr, sizeof(fpsStr), "Fps: %i", fps);
-    TTF_MeasureUTF8(_Globals.defaultFont, fpsStr, _Globals.WINDOW_WIDTH, &width, NULL);
+    TTF_MeasureUTF8(_Globals.defaultFont, fpsStr, _Globals.windowWidth, &width, NULL);
 
-    sdlWriteText(_Globals.defaultFont, colorTitleText, fpsStr, _Globals.WINDOW_WIDTH - width - 2, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, colorTitleText, fpsStr, _Globals.windowWidth - width - 2, 2, 0, 0);
   }
 }
 
@@ -99,8 +99,8 @@ void drawFooter()
 
   SDL_Rect rect;
   rect.x = 0;
-  rect.y = _Globals.WINDOW_HEIGHT - HEADER_HEIGHT;
-  rect.w = _Globals.WINDOW_WIDTH;
+  rect.y = _Globals.windowHeight - HEADER_HEIGHT;
+  rect.w = _Globals.windowWidth;
   rect.h = HEADER_HEIGHT;
 
   SDL_RenderFillRect(_Globals.renderer, &rect);

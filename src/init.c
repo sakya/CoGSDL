@@ -37,12 +37,12 @@ int init()
     logError("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
     return -1;
   }
-  _Globals.DISPLAY_WIDTH = mode.w;
-  _Globals.DISPLAY_HEIGHT = mode.h;
-  _Globals.WINDOW_WIDTH = 640;
-  _Globals.WINDOW_HEIGHT = 480;
+  _Globals.displayWidth = mode.w;
+  _Globals.displayHeight = mode.h;
+  _Globals.windowWidth = 640;
+  _Globals.windowHeight = 480;
 
-  logInfo("\tDisplay Resolution: %dx%d\n", _Globals.DISPLAY_WIDTH, _Globals.DISPLAY_HEIGHT);
+  logInfo("\tDisplay Resolution: %dx%d\n", _Globals.displayWidth, _Globals.displayHeight);
 
   _Globals.defaultFontSize = 21;
   _Globals.defaultFont = TTF_OpenFont("./fonts/Cardo-Regular.ttf", _Globals.defaultFontSize);
@@ -57,8 +57,8 @@ int init()
 
   _Globals.window = SDL_CreateWindow("CoGSDL",
                                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                               _Globals.WINDOW_WIDTH > 0 ? _Globals.WINDOW_WIDTH : _Globals.DISPLAY_WIDTH,
-                               _Globals.WINDOW_HEIGHT > 0 ? _Globals.WINDOW_HEIGHT : _Globals.DISPLAY_HEIGHT,
+                               _Globals.windowWidth > 0 ? _Globals.windowWidth : _Globals.displayWidth,
+                               _Globals.windowHeight > 0 ? _Globals.windowHeight : _Globals.displayHeight,
                                SDL_WINDOW_SHOWN);
   if (_Globals.window == NULL) {
     logError("\tSDL_CreateWindow Fail: %s\n", SDL_GetError());

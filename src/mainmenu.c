@@ -6,7 +6,7 @@ static int mmIndex = 0;
 void drawMainMenu()
 {
   if (_Globals.input[_Keys.KeyDown] == 1) {
-    if (mmIndex < 2) {
+    if (mmIndex < 3) {
       mmIndex++;
       Mix_PlayChannel(-1, sound_menu_change, 0);
     }
@@ -25,6 +25,8 @@ void drawMainMenu()
         _Globals.status = GameSelect;
         break;
       case 2:
+        break;
+      case 3:
         _Globals.quit = 1;
         break;
     }
@@ -48,8 +50,9 @@ void drawMainMenu()
 
   sdlWriteText(_Globals.defaultFont, mmIndex == 0 ? colorSelectedText : colorText, "Continue", 30, 200, 0, 0);
   sdlWriteText(_Globals.defaultFont, mmIndex == 1 ? colorSelectedText : colorText, "Games", 30, 230, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mmIndex == 2 ? colorSelectedText : colorText, "Quit", 30, 270, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mmIndex == 2 ? colorSelectedText : colorText, "About", 30, 260, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mmIndex == 3 ? colorSelectedText : colorText, "Quit", 30, 300, 0, 0);
 
-  sdlBlitImage(button_a, _Globals.WINDOW_WIDTH - 35, _Globals.WINDOW_HEIGHT - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, _Globals.WINDOW_WIDTH - 70, _Globals.WINDOW_HEIGHT - 30, 30, 30);
+  sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(dpad_up_down, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
 }

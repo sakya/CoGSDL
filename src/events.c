@@ -1,7 +1,7 @@
 #include "CoGSDL.h"
 
 static Uint64 lastRepeat[256];
-static const int repeatMs = 100;
+static const int repeatMs = 50;
 
 void manageEvents()
 {

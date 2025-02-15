@@ -10,7 +10,7 @@ void drawGameSelectMenu()
     selectedIdx = 0;
   }
 
-  const int items = (_Globals.WINDOW_HEIGHT - HEADER_HEIGHT) / 52;
+  const int items = (_Globals.windowHeight - HEADER_HEIGHT) / 52;
   if (_Globals.input[_Keys.KeyDown] == 1 && selectedIdx >= 0) {
     selectedIdx++;
     Mix_PlayChannel(-1, sound_menu_change, 0);
@@ -85,7 +85,7 @@ void drawGameSelectMenu()
       sdlBlitImage(iconSurface, 440, 10 + HEADER_HEIGHT, 200, 300);
     }
   }
-  sdlBlitImage(button_a, _Globals.WINDOW_WIDTH - 35, _Globals.WINDOW_HEIGHT - 30, 30, 30);
-  sdlBlitImage(button_b, _Globals.WINDOW_WIDTH - 70, _Globals.WINDOW_HEIGHT - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, _Globals.WINDOW_WIDTH - 105, _Globals.WINDOW_HEIGHT - 30, 30, 30);
+  sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(dpad_up_down, _Globals.windowWidth - 105, _Globals.windowHeight - 30, 30, 30);
 }
