@@ -8,6 +8,9 @@ void pg_renderText(char* text);
 int pg_renderPageBreak();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
+void pg_goToNextScene();
+int pg_needsNewLine(const char *string);
+void pg_appendText(const char *text, int newLine);
 
 static game_status pg_game_status;
 static int lineHeight = 0;
@@ -32,6 +35,7 @@ void drawGame()
     if (pg_game_status.status == play) {
       //Next
       if (!pg_game_status.canScrollDown && pg_game_status.showPageBreak) {
+        _Globals.input[_Keys.KeyA] = 0;
         pg_exec();
       }
     }
@@ -49,9 +53,6 @@ void drawGame()
   if (pg_game_status.fp == NULL) {
     pg_init();
     pg_exec();
-    if (pg_game_status.text != NULL) {
-      logDebug("Text to render:\n%s\n", pg_game_status.text);
-    }
   }
 
   if (pg_game_status.text != NULL) {
@@ -77,7 +78,15 @@ void pg_init()
   strcat(filePath, "/scenes/startup.txt");
 
   pg_game_status.fp = fopen(filePath, "rb");
+  if (!pg_game_status.fp) {
+    logError("Failed to open file %s", filePath);
+    return;
+  }
   logDebug("Opened file %s\n", filePath);
+
+  fseek(pg_game_status.fp, 0L, SEEK_END);
+  pg_game_status.fpSize = ftell(pg_game_status.fp);
+  fseek(pg_game_status.fp, 0L, SEEK_SET);
 
   pg_game_status.status = play;
   pg_game_status.text = NULL;
@@ -263,7 +272,13 @@ void pg_exec()
     pg_game_status.text = NULL;
   }
   pg_game_status.showPageBreak = 0;
+  pg_game_status.scrollY = 0;
 
+  if (pg_game_status.fpPosition == pg_game_status.fpSize) {
+    pg_goToNextScene();
+  }
+
+  int textStarted = 0;
   while (fgets(line, sizeof(line), pg_game_status.fp)) {
     int lineIndentation = isEmpty(line)
       ? indentation
@@ -288,88 +303,70 @@ void pg_exec()
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
-        return;
+        break;
       }
 
       if (strcmp(command, "line_break") == 0) {
-        if (pg_game_status.text != NULL) {
-          char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + 2);
-          if (tmp != NULL) {
-            memset(tmp + strlen(tmp), 0, 2);
-            strcat(tmp, "\n");
-            pg_game_status.text = tmp;
-            tmp = NULL;
-          } else {
-            logWarning("Realloc failed");
-            return;
-          }
-        }
+        pg_appendText("\n", 0);
         continue;
       }
 
-      if (strcmp(command, "text_image") == 0 || strcmp(command, "image")) {
+      if (strcmp(command, "text_image") == 0 || strcmp(command, "image") == 0) {
         // Add the command to the text as it should be rendered with it
-        char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + lineLen + 2);
-        if (tmp != NULL) {
-          memset(tmp + strlen(tmp), 0, lineLen + 2);
-          strncat(tmp, line, lineLen);
-          strcat(tmp, "\n");
-          pg_game_status.text = tmp;
-          tmp = NULL;
-        } else {
-          logWarning("Realloc failed");
-          return;
-        }
+        pg_appendText(line, 1);
+        continue;
       }
     } else {
       // Read text
-      if (pg_game_status.text == NULL) {
-        pg_game_status.text = malloc(lineLen + 1);
-        strncpy(pg_game_status.text, line, lineLen);
-      } else {
-        if (lineLen) {
-          int needsSpace = endsWith(".", line) || endsWith("!", line) || endsWith("?", line) ? 0 : 1;
-          char *tmp = needsSpace
-            ? realloc(pg_game_status.text, strlen(pg_game_status.text) + lineLen + 2)
-            : realloc(pg_game_status.text, strlen(pg_game_status.text) + lineLen + 1);
-          if (tmp != NULL) {
-            if (needsSpace) {
-              memset(tmp + strlen(tmp), 0, lineLen + 2);
-              strcat(tmp, " ");
-            } else {
-              memset(tmp + strlen(tmp), 0, lineLen + 1);
-            }
-            strncat(tmp, line, lineLen);
-            pg_game_status.text = tmp;
-            tmp = NULL;
-          } else {
-            logWarning("Realloc failed");
-            return;
-          }
-        } else {
-          char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + 2);
-          if (tmp != NULL) {
-            memset(tmp + strlen(tmp), 0, 2);
-            strcat(tmp, "\n");
-            pg_game_status.text = tmp;
-            tmp = NULL;
-          } else {
-            logWarning("Realloc failed");
-            return;
-          }
-        }
-      }
-
-      if (endsWith(".", line) || endsWith("!", line) || endsWith("?", line)) {
-        char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + 2);
-        if (tmp != NULL) {
-          strcat(tmp, "\n");
-          pg_game_status.text = tmp;
-          tmp = NULL;
-        }
+      if (lineLen) {
+        pg_appendText(line, pg_needsNewLine(line));
+        textStarted = 1;
+      } else if(textStarted) {
+        pg_appendText("\n\n", 0);
       }
     }
   }
+
+  logDebug("Text to render:\n%s\n", pg_game_status.text);
+}
+
+void pg_appendText(const char *text, int newLine)
+{
+  if (!text)
+    return;
+
+  const int textLen = strlen(text);
+  const int delta = newLine ? 2 : 1;
+  if (pg_game_status.text == NULL) {
+    pg_game_status.text = malloc(textLen + delta);
+    memset(pg_game_status.text, 0, textLen + delta);
+  } else {
+    char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + textLen + delta);
+    if (tmp != NULL) {
+      memset(tmp + strlen(tmp), 0, textLen + delta);
+      pg_game_status.text = tmp;
+      tmp = NULL;
+    } else {
+      logWarning("Realloc failed");
+      return;
+    }
+  }
+
+  strncat(pg_game_status.text, text, textLen);
+  if (newLine) {
+    strcat(pg_game_status.text, "\n");
+  }
+}
+
+int pg_needsNewLine(const char *string)
+{
+  if (strlen(string) > 2) {
+    if (string[0] == -30 && string[1] == -128 && string[2] == -94) {
+      // Bullet point
+      return 1;
+    }
+  }
+  return 0;
 }
 
 int pg_indexOfWordEnd(const char *string, const int startFrom)
@@ -398,10 +395,42 @@ void pg_getCommand(const char *line, char* command)
   int lineLen = strlen(line);
   if (lineLen > 0 && line[0] == '*') {
     for (int i = 1; i < lineLen; i++) {
-      if (line[i] != ' ' || line[i] == '\t') {
-        command[idx++] = line[i];
-      }
+      if (line[i] == ' ' || line[i] == '\t')
+        break;
+      command[idx++] = line[i];
     }
   }
   command[idx] = '\0';
+}
+
+void pg_goToNextScene()
+{
+  if (pg_game_status.sceneIndex + 1 >= runningGame->scenesCount) {
+    logWarning("No next scene");
+    return;
+  }
+
+  pg_game_status.sceneIndex++;
+  pg_game_status.fpPosition = 0;
+
+  char filePath[255];
+  strcpy(filePath, runningGame->path);
+  strcat(filePath, "/scenes/");
+  strcat(filePath, runningGame->scenes[pg_game_status.sceneIndex]);
+  strcat(filePath, ".txt");
+
+  if (pg_game_status.fp) {
+    fclose(pg_game_status.fp);
+    pg_game_status.fp = NULL;
+  }
+  pg_game_status.fp = fopen(filePath, "rb");
+  if (!pg_game_status.fp) {
+    logError("Failed to open file %s", filePath);
+    return;
+  }
+  logDebug("Opened file %s\n", filePath);
+
+  fseek(pg_game_status.fp, 0L, SEEK_END);
+  pg_game_status.fpSize = ftell(pg_game_status.fp);
+  fseek(pg_game_status.fp, 0L, SEEK_SET);
 }

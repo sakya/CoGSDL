@@ -14,6 +14,8 @@ struct game_status
     enum gui_status status;
     /// @brief Startup or scene file
     FILE *fp;
+    /// @brief Size of the file we are executing
+    long fpSize;
     /// @brief Position of the file we have to execute
     long fpPosition;
     /// @brief The scene index in game.scenes we are executing
