@@ -11,7 +11,7 @@ void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
-void pg_manageImageCommand(const char *text, int start);
+int pg_manageImageCommand(const char *text, int start, int y);
 
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
@@ -179,7 +179,9 @@ void pg_renderText(const char* text)
       // Draw image
       // *text_image filename.png alignment optional text
       // *image filename.png alignment optional text
-      pg_manageImageCommand(text, idx);
+      int imagHeight = pg_manageImageCommand(text, idx, y);
+      logDebug("imagHeight=%i\n", imagHeight);
+      y += imagHeight;
       while (text[idx++] != '\n');
       continue;
     }
@@ -498,27 +500,79 @@ void pg_goToNextScene()
   fseek(pg_game_status.fp, 0L, SEEK_SET);
 }
 
-void pg_manageImageCommand(const char *text, int startFrom)
+int pg_manageImageCommand(const char *text, int startFrom, int y)
 {
+  y -= pg_game_status.scrollY;
+
   char imageName[255];
   char alignment[64];
 
   int start = indexOfWordBreak(text, startFrom);
   if (start < 0)
-    return;
+    return 0;
 
   int idx = indexOfWordBreak(text, start + 1);
   if (idx < 0)
-    return;
+    return 0;
   subString(text, imageName, start + 1, idx - start - 1);
   start = idx;
   idx = indexOfWordBreak(text, idx + 1);
   if (idx < 0)
-    return;
+    return 0;
   subString(text, alignment, start + 1, idx - start - 1);
 
   image_cache_item *image = pg_get_image_from_cache(imageName);
-  sdlBlitImage(image->surface, TEXT_MARGIN, 100, _Globals.windowWidth - 2 * TEXT_MARGIN, _Globals.windowHeight - 2 * HEADER_HEIGHT);
+  if (image->surface) {
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(_Globals.renderer, image->surface);
+
+    SDL_Rect destRect;
+    destRect.x = TEXT_MARGIN;
+    destRect.y = y;
+    destRect.w = image->surface->w;
+    destRect.h = image->surface->h;
+
+    float ratio = (float)destRect.w / (float)destRect.h;
+    if (destRect.w > _Globals.windowWidth - 2 * TEXT_MARGIN) {
+      destRect.w = _Globals.windowWidth - 2 * TEXT_MARGIN;
+      destRect.h = destRect.w / ratio;
+    }
+    if (destRect.h > _Globals.windowHeight - 2 * HEADER_HEIGHT) {
+      destRect.h = _Globals.windowHeight - 2 * HEADER_HEIGHT;
+      destRect.w = destRect.h * ratio;
+    }
+
+    SDL_Rect srcRect;
+    srcRect.x = 0;
+    srcRect.y = 0;
+    srcRect.w = image->surface->w;
+    srcRect.h = image->surface->h;
+
+    if (y < HEADER_HEIGHT - TEXT_MARGIN) {
+      int deltaY = HEADER_HEIGHT - TEXT_MARGIN - y;
+      if (deltaY >= destRect.h)
+        return 0;
+
+      int srcDeltaY = srcRect.h * deltaY / destRect.h;
+      srcRect.y += srcDeltaY;
+      srcRect.h -= srcDeltaY;
+
+      destRect.y = HEADER_HEIGHT + TEXT_MARGIN;
+      destRect.h -= deltaY;
+    }
+
+    if (y + destRect.h > _Globals.windowHeight - HEADER_HEIGHT - TEXT_MARGIN) {
+      int deltaY = y + destRect.h - (_Globals.windowHeight - HEADER_HEIGHT - TEXT_MARGIN);
+      int srcDeltaY = srcRect.h * deltaY / destRect.h;
+      srcRect.h -= srcDeltaY;
+      destRect.h -= deltaY;
+    }
+
+    SDL_RenderCopyEx(_Globals.renderer, texture, &srcRect, &destRect, 0, NULL, SDL_FLIP_NONE);
+    SDL_DestroyTexture(texture);
+
+    return destRect.h;
+  }
+  return 0;
 }
 
 void pg_clear_image_cache()
