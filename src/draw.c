@@ -33,6 +33,8 @@ int draw()
       case Game:
         drawGame();
         break;
+      case About:
+        break;
     }
     manageEvents();
     SDL_RenderPresent(_Globals.renderer);

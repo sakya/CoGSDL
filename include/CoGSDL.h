@@ -126,7 +126,7 @@ void manageEvents();
 /// @param game The game
 /// @param forListing If 1 only title, author, icon informations are loaded
 /// @return 0 on success
-int loadGame(const char* path, game* game, int forListing);
+int loadGame(const char *path, game *game, int forListing);
 /// @brief Free memory allocated by a game
 /// @param game The game
 void freeGame(game *game);
@@ -134,18 +134,25 @@ void freeGame(game *game);
 /// @param path The path to the section file
 /// @param section The section
 /// @return 0 on success
-int loadScene(const char* path, scene* section);
+int loadScene(const char *path, scene *section);
 /// @brief List all games in a directory
 /// @param path The directory path
 /// @param games A pointer to an array of games
 /// @return The number of games found
-int listGames(const char* path, game *games);
+int listGames(const char *path, game *games);
 /// @brief Get a variable value
 /// @param varName The variable name
 /// @param game The game
 /// @return The variable value or NULL
 char* getVarValue(const char *varName, game* game);
-int isComment(char* line);
+/// @brief Set a variable value
+/// @param varName The variable name
+/// @param value The variable value
+/// @param game The game
+int setVarValue(const char *varName, const char *value, game *game);
+/// @brief Check if a line of text is a comment
+/// @param line The line
+int isComment(const char *line);
 
 /* utils.c */
 /// @brief Check if a string is empty or all whitespaces

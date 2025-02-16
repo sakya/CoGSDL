@@ -9,7 +9,6 @@ int pg_renderPageBreak();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
-int pg_needsNewLine(const char *string);
 void pg_appendText(const char *text, int newLine);
 
 static game_status pg_game_status;
@@ -156,6 +155,12 @@ void pg_renderText(char* text)
       break;
     }
     subString(text, word, idx, wordEnd - idx + 1);
+    if (startsWithWord("*text_image", word) || startsWithWord("*image", word)) {
+      // Draw image
+      // *text_image filename.png alignment optional text
+      // *image filename.png alignment optional text
+    }
+
     TTF_MeasureUTF8(font, word, _Globals.windowWidth, &wordWidth, NULL);
     int i = 0;
     if (x + wordWidth + TEXT_MARGIN * 2 >= _Globals.windowWidth) {
@@ -251,10 +256,13 @@ void pg_expandVariables(char* text)
 
 int pg_renderPageBreak()
 {
-  const int buttonHeight = 30;
-  if (pg_game_status.textFullyRendered && pg_game_status.lastRenderedY + buttonHeight < _Globals.windowHeight - HEADER_HEIGHT) {
-    sdlBlitImage(button_a, _Globals.windowWidth - 35, pg_game_status.lastRenderedY, 30, 30);
-    sdlWriteText(_Globals.defaultFont, colorText, "Next", _Globals.windowWidth - 35 - 50, pg_game_status.lastRenderedY, 0, 0);
+  if (pg_game_status.textFullyRendered) {
+    sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
+
+    char next[] = "Next";
+    int width;
+    TTF_MeasureUTF8(_Globals.defaultFont, next, _Globals.windowWidth, &width, NULL);
+    sdlWriteText(_Globals.defaultFont, colorText, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 30, 0, 0);
 
     return 1;
   }
@@ -316,13 +324,40 @@ void pg_exec()
         pg_appendText(line, 1);
         continue;
       }
+
+      if (strcmp(command, "set") == 0) {
+        // *set varName value
+        int idx = 5;
+        int wordEnd = pg_indexOfWordEnd(line, idx);
+        if (wordEnd < 0) {
+          logWarning("Missing variable name\n");
+          continue;
+        }
+        char varName[255];
+        char value[255];
+        subString(line, varName, idx, wordEnd - idx);
+        idx += strlen(varName);
+        subString(line, value, idx + 1, lineLen - idx);
+        setVarValue(varName, value, runningGame);
+        continue;
+      }
+
+      if (strcmp(command, "temp") == 0) {
+        // *temp varName value
+        continue;
+      }
+
+      if (strcmp(command, "choice") == 0) {
+        // Choice
+        continue;
+      }
     } else {
       // Read text
       if (lineLen) {
-        pg_appendText(line, pg_needsNewLine(line));
+        pg_appendText(line, 1);
         textStarted = 1;
       } else if(textStarted) {
-        pg_appendText("\n\n", 0);
+        pg_appendText("\n", 0);
       }
     }
   }
@@ -348,6 +383,7 @@ void pg_appendText(const char *text, int newLine)
       tmp = NULL;
     } else {
       logWarning("Realloc failed");
+      pg_game_status.text = NULL;
       return;
     }
   }
@@ -358,17 +394,6 @@ void pg_appendText(const char *text, int newLine)
   }
 }
 
-int pg_needsNewLine(const char *string)
-{
-  if (strlen(string) > 2) {
-    if (string[0] == -30 && string[1] == -128 && string[2] == -94) {
-      // Bullet point
-      return 1;
-    }
-  }
-  return 0;
-}
-
 int pg_indexOfWordEnd(const char *string, const int startFrom)
 {
   if (!string)
@@ -377,8 +402,7 @@ int pg_indexOfWordEnd(const char *string, const int startFrom)
   int idx = startFrom;
   while (u8nextchar(string, &idx)) {
     if (string[idx] == ' ' || string[idx] == '\t' || string[idx] == '\n' || string[idx] == ',' ||
-        string[idx] == '.' || string[idx] == ';' || string[idx] == '!' || string[idx] == '?')
-    {
+        string[idx] == '.' || string[idx] == ';' || string[idx] == '!' || string[idx] == '?') {
       return idx;
     }
   }

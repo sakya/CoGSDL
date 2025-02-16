@@ -1,11 +1,11 @@
 #include "CoGSDL.h"
 
-int compareByTitle(const void* a, const void* b)
+int compareByTitle(const void *a, const void *b)
 {
   return strcmp(((struct game*)a)->title, ((struct game*)b)->title);
 }
 
-int isComment(char* line)
+int isComment(const char *line)
 {
   if (line == NULL)
     return 0;
@@ -331,4 +331,17 @@ char* getVarValue(const char *varName, game* game)
       return game->variables[i].value;
   }
   return NULL;
+}
+
+int setVarValue(const char *varName, const char *value, game *game)
+{
+  int i = 0;
+  for (i = 0; i < sizeof(game->variables) / sizeof(variable); i++) {
+    if (strcmp(game->variables[i].name, varName) == 0) {
+      strcpy(game->variables[i].value, value);
+      logDebug("Variable %s=%s\n", varName, value);
+      return 1;
+    }
+  }
+  return 0;
 }
