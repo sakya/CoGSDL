@@ -66,7 +66,7 @@ void drawGameSelectMenu()
     game* selGame = &_Globals.games[selectedIdx];
     for (i = firstIdx; i < _Globals.gamesCount; i++) {
       game* g = &_Globals.games[i];
-      SDL_Color color = i == selectedIdx ? colorSelectedText : colorText;
+      SDL_Color color = i == selectedIdx ? _theme->selectedTextColor : _theme->textColor;
       if (g != NULL) {
         sdlWriteText(_Globals.defaultFont, color, g->title, 10, y, 0, 0);
         y += 25;

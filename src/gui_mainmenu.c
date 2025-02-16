@@ -46,13 +46,13 @@ void drawMainMenu()
   if (mmAngle >= 360)
     mmAngle = 0;
 
-  sdlWriteText(_Globals.defaultFont, colorText, "CoGSDL", 140, 75, 0, 0);
-  sdlWriteText(_Globals.defaultSmallFont, colorText, "A Choice of Games interpreter", 140, 100, 0, 0);
+  sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL", 140, 75, 0, 0);
+  sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A Choice of Games interpreter", 140, 100, 0, 0);
 
-  sdlWriteText(_Globals.defaultFont, mmIndex == 0 ? colorSelectedText : colorText, "Continue", 30, 200, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mmIndex == 1 ? colorSelectedText : colorText, "Games", 30, 230, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mmIndex == 2 ? colorSelectedText : colorText, "About", 30, 260, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mmIndex == 3 ? colorSelectedText : colorText, "Quit", 30, 300, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mmIndex == 0 ? _theme->selectedTextColor : _theme->textColor, "Continue", 30, 200, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mmIndex == 1 ? _theme->selectedTextColor : _theme->textColor, "Games", 30, 230, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mmIndex == 2 ? _theme->selectedTextColor : _theme->textColor, "About", 30, 260, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mmIndex == 3 ? _theme->selectedTextColor : _theme->textColor, "Quit", 30, 300, 0, 0);
 
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);

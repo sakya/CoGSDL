@@ -17,7 +17,7 @@ int draw()
       fpsStart = start;
     }
 
-    SDL_SetRenderDrawColor(_Globals.renderer, colorBackground.r, colorBackground.g, colorBackground.b, 255);
+    SDL_SetRenderDrawColor(_Globals.renderer, _theme->backgroundColor.r, _theme->backgroundColor.g, _theme->backgroundColor.b, 255);
     SDL_RenderClear(_Globals.renderer);
 
     drawHeader();
@@ -64,7 +64,7 @@ int draw()
 
 void drawHeader()
 {
-  SDL_SetRenderDrawColor(_Globals.renderer, colorHeaderBackground.r, colorHeaderBackground.g, colorHeaderBackground.b, 255);
+  SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
 
   SDL_Rect rect;
   rect.x = 0;
@@ -80,10 +80,10 @@ void drawHeader()
     } else {
       drawAppIcon();
     }
-    sdlWriteText(_Globals.defaultFont, colorTitleText, runningGame->title, 35, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, runningGame->title, 35, 2, 0, 0);
   } else if (_Globals.status != MainMenu) {
     drawAppIcon();
-    sdlWriteText(_Globals.defaultFont, colorTitleText, "CoGSDL v.1.0", 35, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "CoGSDL v.1.0", 35, 2, 0, 0);
   }
 
   if (fps > 0) {
@@ -92,13 +92,13 @@ void drawHeader()
     snprintf(fpsStr, sizeof(fpsStr), "Fps: %i", fps);
     TTF_MeasureUTF8(_Globals.defaultFont, fpsStr, _Globals.windowWidth, &width, NULL);
 
-    sdlWriteText(_Globals.defaultFont, colorTitleText, fpsStr, _Globals.windowWidth - width - 2, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, fpsStr, _Globals.windowWidth - width - 2, 2, 0, 0);
   }
 }
 
 void drawFooter()
 {
-  SDL_SetRenderDrawColor(_Globals.renderer, colorHeaderBackground.r, colorHeaderBackground.g, colorHeaderBackground.b, 255);
+  SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
 
   SDL_Rect rect;
   rect.x = 0;

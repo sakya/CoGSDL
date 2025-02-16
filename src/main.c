@@ -2,12 +2,6 @@
 
 const int HEADER_HEIGHT = 30;
 
-const SDL_Color colorBackground = {30, 30, 30};
-const SDL_Color colorHeaderBackground = {60, 60, 60};
-const SDL_Color colorText = {255, 255, 255};
-const SDL_Color colorSelectedText = {95, 195, 248};
-const SDL_Color colorTitleText = {242, 238, 143};
-
 SDL_Surface *app_icon = NULL;
 SDL_Surface *button_x = NULL;
 SDL_Surface *button_y = NULL;
@@ -43,6 +37,16 @@ Keys _Keys = {
   SDL_SCANCODE_RETURN,
   SDL_SCANCODE_SPACE
 };
+
+const theme defaultTheme = {
+    {30, 30, 30},
+    {60, 60, 60},
+    {255, 255, 255},
+    {95, 195, 248},
+    {242, 238, 143}
+};
+
+const theme *_theme = &defaultTheme;
 
 int main(int argc, char* argv[])
 {

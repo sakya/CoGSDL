@@ -17,16 +17,13 @@
 #include "game.h"
 #include "KeyMap.h"
 #include "utf8.h"
+#include "themes.h"
 
 #define TAB_SIZE 2
 #define TEXT_MARGIN 5
 
 extern const int HEADER_HEIGHT;
 
-extern const SDL_Color colorBackground;
-extern const SDL_Color colorHeaderBackground;
-extern const SDL_Color colorText;
-extern const SDL_Color colorSelectedText;
 extern const SDL_Color colorTitleText;
 
 extern SDL_Surface* app_icon;
@@ -107,6 +104,7 @@ struct Keys
 } typedef Keys;
 
 extern Keys _Keys;
+extern const theme* _theme;
 
 /* init.c */
 /// @brief Initialize SDL

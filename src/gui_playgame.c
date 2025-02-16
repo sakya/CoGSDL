@@ -101,7 +101,7 @@ void pg_init()
   logDebug("Position set to %li\n", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
 
-  SDL_Surface* surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", colorText);
+  SDL_Surface *surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", _theme->textColor);
   lineHeight = surface->h;
   logDebug("Line height %li\n", lineHeight);
   SDL_FreeSurface(surface);
@@ -232,7 +232,7 @@ void pg_renderText(char* text)
       int charWidth;
       TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
       if (y >= pg_game_status.scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
-        sdlWriteText(font, colorText, test, x, y - pg_game_status.scrollY, 0, 0);
+        sdlWriteText(font, _theme->textColor, test, x, y - pg_game_status.scrollY, 0, 0);
         pg_game_status.lastRenderedY = y - pg_game_status.scrollY + lineHeight;
       }
       x += charWidth;
@@ -265,7 +265,7 @@ int pg_renderPageBreak()
     char next[] = "Next";
     int width;
     TTF_MeasureUTF8(_Globals.defaultFont, next, _Globals.windowWidth, &width, NULL);
-    sdlWriteText(_Globals.defaultFont, colorText, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->textColor, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
 
     return 1;
   }
