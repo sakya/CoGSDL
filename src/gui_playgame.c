@@ -82,6 +82,7 @@ void drawGame()
 
 void pg_init()
 {
+  pg_clear_image_cache();
   char filePath[256];
   strcpy(filePath, runningGame->path);
   strcat(filePath, "/scenes/startup.txt");
@@ -116,6 +117,8 @@ void pg_init()
 
 void pg_dispose()
 {
+  pg_clear_image_cache();
+
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
@@ -482,6 +485,7 @@ void pg_goToNextScene()
     fclose(pg_game_status.fp);
     pg_game_status.fp = NULL;
   }
+  pg_clear_image_cache();
   pg_game_status.fp = fopen(filePath, "rb");
   if (!pg_game_status.fp) {
     logError("Failed to open file %s", filePath);
