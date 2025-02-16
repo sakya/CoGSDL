@@ -87,5 +87,5 @@ void drawGameSelectMenu()
   }
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, _Globals.windowWidth - 105, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }

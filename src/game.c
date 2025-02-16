@@ -35,7 +35,7 @@ int loadGame(const char* path, game* game, int forListing)
   logInfo("Loading game from: %s\n", path);
   strcpy(game->path, path);
 
-  char iconPath[255];
+  char iconPath[256];
   strcpy(iconPath, path);
   strcat(iconPath, "/icon.png");
   if (fileExists(iconPath)) {
@@ -50,7 +50,7 @@ int loadGame(const char* path, game* game, int forListing)
 
   logInfo("\tIcon: %s\n", game->icon);
   logInfo("\tBackground: %s\n", game->background);
-  char filePath[255];
+  char filePath[256];
   strcpy(filePath, path);
   strcat(filePath, "/scenes/startup.txt");
   FILE *fp;
@@ -300,7 +300,7 @@ int listGames(const char* path, game *games)
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
       continue;
 
-    char subDirPath[255];
+    char subDirPath[256];
     strcpy(subDirPath, path);
     strcat(subDirPath, entry->d_name);
 

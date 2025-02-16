@@ -78,8 +78,11 @@ struct CoGSDL {
   int defaultFontSize;
   TTF_Font *defaultSmallFont;
   int defaultSmallFontSize;
-  TTF_Font *italicFont;
-  TTF_Font *boldFont;
+
+  TTF_Font *textFont;
+  int textFontSize;
+  TTF_Font *textItalicFont;
+  TTF_Font *textBoldFont;
 
 } typedef CoGSDL;
 
@@ -238,4 +241,6 @@ void drawGameSelectMenu();
 /* playgame.c */
 void drawGame();
 
+/* about.c */
+void drawAbout();
 #endif

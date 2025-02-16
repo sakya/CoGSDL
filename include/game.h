@@ -25,9 +25,9 @@ struct achievement
 
 struct game
 {
-  char path[255];
-  char icon[255];
-  char background[255];
+  char path[256];
+  char icon[256];
+  char background[256];
   char *title;
   char *author;
   char *ifid;
@@ -49,7 +49,7 @@ struct game
 
 struct scene
 {
-  char path[255];
+  char path[256];
 
   label labels[4096];
 } typedef scene;

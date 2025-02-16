@@ -34,6 +34,7 @@ int draw()
         drawGame();
         break;
       case About:
+        drawAbout();
         break;
     }
     manageEvents();

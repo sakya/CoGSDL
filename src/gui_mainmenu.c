@@ -25,6 +25,7 @@ void drawMainMenu()
         _Globals.status = GameSelect;
         break;
       case 2:
+        _Globals.status = About;
         break;
       case 3:
         _Globals.quit = 1;
@@ -54,5 +55,5 @@ void drawMainMenu()
   sdlWriteText(_Globals.defaultFont, mmIndex == 3 ? colorSelectedText : colorText, "Quit", 30, 300, 0, 0);
 
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }

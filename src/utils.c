@@ -40,11 +40,11 @@ int startsWith(const char *prefix, const char *string)
 int endsWith(const char *suffix, const char *string)
 {
     if (!string || !suffix)
-        return 0;
+      return 0;
     int lenstr = strlen(string);
     int lensuffix = strlen(suffix);
     if (lensuffix >  lenstr)
-        return 0;
+      return 0;
     return strncmp(string + lenstr - lensuffix, suffix, lensuffix) == 0 ? 1 : 0;
 }
 

@@ -10,6 +10,7 @@ int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
+int pg_needsNewLine(const char* text);
 
 static game_status pg_game_status;
 static int lineHeight = 0;
@@ -68,11 +69,13 @@ void drawGame()
       pg_game_status.canScrollDown = 1;
     }
   }
+
+  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }
 
 void pg_init()
 {
-  char filePath[255];
+  char filePath[256];
   strcpy(filePath, runningGame->path);
   strcat(filePath, "/scenes/startup.txt");
 
@@ -98,7 +101,7 @@ void pg_init()
   logDebug("Position set to %li\n", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
 
-  SDL_Surface* surface = TTF_RenderUTF8_Blended(_Globals.defaultFont, "H", colorText);
+  SDL_Surface* surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", colorText);
   lineHeight = surface->h;
   logDebug("Line height %li\n", lineHeight);
   SDL_FreeSurface(surface);
@@ -135,7 +138,7 @@ void pg_renderText(char* text)
   int wordWidth;
   char test[5];
   char word[256];
-  TTF_Font *font = _Globals.defaultFont;
+  TTF_Font *font = _Globals.textFont;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
   while(1) {
@@ -181,7 +184,7 @@ void pg_renderText(char* text)
         if (y - pg_game_status.scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
           break;
         }
-        // Avoid whitespace at the beginning of the line
+        // Remove whitespace at the beginning of the line
         if (word[i] == ' ')
           i++;
       }
@@ -202,22 +205,22 @@ void pg_renderText(char* text)
       if (word[i] == '[')  {
         // Italic
         if (i + 2 < wordLen && word[i + 1] == 'i' && word[i + 2] == ']') {
-          font = _Globals.italicFont;
+          font = _Globals.textItalicFont;
           i += 2;
           continue;
         } else if (i + 3 < wordLen && word[i + 1] == '/' && word[i + 2] == 'i' && word[i + 3] == ']') {
-          font = _Globals.defaultFont;
+          font = _Globals.textFont;
           i += 3;
           continue;
         }
 
         // Bold
         if (i + 2 < wordLen && word[i + 1] == 'b' && word[i + 2] == ']') {
-          font = _Globals.boldFont;
+          font = _Globals.textBoldFont;
           i += 2;
           continue;
         } else if (i + 3 < wordLen && word[i + 1] == '/' && word[i + 2] == 'b' && word[i + 3] == ']') {
-          font = _Globals.defaultFont;
+          font = _Globals.textFont;
           i += 3;
           continue;
         }
@@ -262,7 +265,7 @@ int pg_renderPageBreak()
     char next[] = "Next";
     int width;
     TTF_MeasureUTF8(_Globals.defaultFont, next, _Globals.windowWidth, &width, NULL);
-    sdlWriteText(_Globals.defaultFont, colorText, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 30, 0, 0);
+    sdlWriteText(_Globals.defaultFont, colorText, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
 
     return 1;
   }
@@ -295,6 +298,7 @@ void pg_exec()
       indentation = lineIndentation;
 
     if (lineIndentation != indentation) {
+      // Indentation changed, we don't need to read further
       break;
     }
 
@@ -333,8 +337,8 @@ void pg_exec()
           logWarning("Missing variable name\n");
           continue;
         }
-        char varName[255];
-        char value[255];
+        char varName[256];
+        char value[256];
         subString(line, varName, idx, wordEnd - idx);
         idx += strlen(varName);
         subString(line, value, idx + 1, lineLen - idx);
@@ -352,12 +356,15 @@ void pg_exec()
         continue;
       }
     } else {
-      // Read text
+      // Text
       if (lineLen) {
-        pg_appendText(line, 1);
+        if (pg_needsNewLine(line) && !endsWith("\n", pg_game_status.text))
+          pg_appendText("\n", 0);
+        pg_appendText(line, 0);
         textStarted = 1;
       } else if(textStarted) {
-        pg_appendText("\n", 0);
+        // New paragraph
+        pg_appendText("\n\n", 0);
       }
     }
   }
@@ -427,6 +434,17 @@ void pg_getCommand(const char *line, char* command)
   command[idx] = '\0';
 }
 
+int pg_needsNewLine(const char *text)
+{
+  if (!text)
+    return 0;
+
+  // Bullet point
+  if (strlen(text) > 2 && text[0] == -30 && text[1] == -128 && text[2] == -94)
+    return 1;
+  return 0;
+}
+
 void pg_goToNextScene()
 {
   if (pg_game_status.sceneIndex + 1 >= runningGame->scenesCount) {
@@ -437,7 +455,7 @@ void pg_goToNextScene()
   pg_game_status.sceneIndex++;
   pg_game_status.fpPosition = 0;
 
-  char filePath[255];
+  char filePath[256];
   strcpy(filePath, runningGame->path);
   strcat(filePath, "/scenes/");
   strcat(filePath, runningGame->scenes[pg_game_status.sceneIndex]);
