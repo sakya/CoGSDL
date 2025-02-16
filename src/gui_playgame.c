@@ -180,7 +180,7 @@ void pg_renderText(const char* text)
       // Draw image
       // *text_image filename.png alignment optional text
       // *image filename.png alignment optional text
-      int imagHeight = pg_manageImageCommand(text, idx, y);
+      int imagHeight = pg_manageImageCommand(text, idx, y - pg_game_status.scrollY);
       y += imagHeight;
       x = TEXT_MARGIN;
       while (text[idx++] != '\n');
@@ -503,8 +503,6 @@ void pg_goToNextScene()
 
 int pg_manageImageCommand(const char *text, int startFrom, int y)
 {
-  y -= pg_game_status.scrollY;
-
   char imageName[255];
   char alignment[64];
 
@@ -548,12 +546,18 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
     srcRect.w = image->surface->w;
     srcRect.h = image->surface->h;
 
-    int res = destRect.h + 2 * TEXT_MARGIN;
+    // Always return multiple of lineheigt to not break text scrolling
+    int res = destRect.h + TEXT_MARGIN;
+    int diff = res % lineHeight;
+    if (diff)
+      res += lineHeight - diff;
 
     if (y < HEADER_HEIGHT - TEXT_MARGIN) {
       int deltaY = HEADER_HEIGHT - TEXT_MARGIN - y;
-      if (deltaY >= destRect.h)
+      if (deltaY >= destRect.h) {
+        SDL_DestroyTexture(texture);
         return res;
+      }
 
       int srcDeltaY = srcRect.h * deltaY / destRect.h;
       srcRect.y += srcDeltaY;
