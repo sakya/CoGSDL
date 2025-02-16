@@ -182,6 +182,7 @@ void pg_renderText(const char* text)
       // *image filename.png alignment optional text
       int imagHeight = pg_manageImageCommand(text, idx, y);
       y += imagHeight;
+      x = TEXT_MARGIN;
       while (text[idx++] != '\n');
       continue;
     }
@@ -536,8 +537,8 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
       destRect.w = _Globals.windowWidth - 2 * TEXT_MARGIN;
       destRect.h = destRect.w / ratio;
     }
-    if (destRect.h > _Globals.windowHeight - 2 * HEADER_HEIGHT) {
-      destRect.h = _Globals.windowHeight - 2 * HEADER_HEIGHT;
+    if (destRect.h > _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) {
+      destRect.h = _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN;
       destRect.w = destRect.h * ratio;
     }
 
@@ -547,10 +548,12 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
     srcRect.w = image->surface->w;
     srcRect.h = image->surface->h;
 
+    int res = destRect.h + TEXT_MARGIN;
+
     if (y < HEADER_HEIGHT - TEXT_MARGIN) {
       int deltaY = HEADER_HEIGHT - TEXT_MARGIN - y;
       if (deltaY >= destRect.h)
-        return 0;
+        return res;
 
       int srcDeltaY = srcRect.h * deltaY / destRect.h;
       srcRect.y += srcDeltaY;
@@ -567,10 +570,19 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
       destRect.h -= deltaY;
     }
 
+    int deltaX = _Globals.windowWidth - destRect.w - 2 * TEXT_MARGIN;
+    if (deltaX > 0) {
+      if (strcmp(alignment, "center") == 0) {
+        destRect.x += deltaX / 2;
+      } else if (strcmp(alignment, "right") == 0) {
+        destRect.x = deltaX;
+      }
+    }
+
     SDL_RenderCopyEx(_Globals.renderer, texture, &srcRect, &destRect, 0, NULL, SDL_FLIP_NONE);
     SDL_DestroyTexture(texture);
 
-    return destRect.h;
+    return res;
   }
   return 0;
 }
