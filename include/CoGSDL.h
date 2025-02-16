@@ -154,6 +154,7 @@ int setVarValue(const char *varName, const char *value, game *game);
 /// @brief Check if a line of text is a comment
 /// @param line The line
 int isComment(const char *line);
+int isCommand(const char *line, const char command);
 
 /* utils.c */
 /// @brief Check if a string is empty or all whitespaces

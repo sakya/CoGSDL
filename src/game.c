@@ -27,6 +27,28 @@ int isComment(const char *line)
   return idx == strlen(comment) ? 1 : 0;
 }
 
+int isCommand(const char *line, const char command)
+{
+  if (line == NULL)
+    return 0;
+
+  int end = strlen(line);
+  const char *c = &command;
+  int idx = 0;
+  for (int i = 0; i < end; i++) {
+    if (idx == 0 && isspace(line[i]))
+      continue;
+
+    if (line[i] != c[idx++])
+      return 0;
+
+    if (idx == strlen(c))
+      break;
+  }
+
+  return idx == strlen(c) ? 1 : 0;
+}
+
 int loadGame(const char* path, game* game, int forListing)
 {
   if (game == NULL)

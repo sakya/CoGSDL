@@ -1,19 +1,26 @@
 #include "CoGSDL.h"
-#include "playgame.h"
+#include "gui_playgame.h"
 
 void pg_init();
 void pg_dispose();
 void pg_exec();
-void pg_renderText(char* text);
+void pg_renderText(const char* text);
 int pg_renderPageBreak();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
+void pg_manageImageCommand(const char *text, int start);
+
+void pg_clear_image_cache();
+image_cache_item* pg_get_image_from_cache(const char *name);
+image_cache_item* pg_add_image_to_cache(const char *name);
 
 static game_status pg_game_status;
 static int lineHeight = 0;
+static image_cache_item image_cache[32];
+int image_cache_count = 0;
 
 void drawGame()
 {
@@ -126,7 +133,7 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderText(char* text)
+void pg_renderText(const char* text)
 {
   if (text == NULL || strlen(text) == 0)
     return;
@@ -169,6 +176,9 @@ void pg_renderText(char* text)
       // Draw image
       // *text_image filename.png alignment optional text
       // *image filename.png alignment optional text
+      pg_manageImageCommand(text, idx);
+      while (text[idx++] != '\n');
+      continue;
     }
 
     TTF_MeasureUTF8(font, word, _Globals.windowWidth, &wordWidth, NULL);
@@ -482,4 +492,72 @@ void pg_goToNextScene()
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
   fseek(pg_game_status.fp, 0L, SEEK_SET);
+}
+
+void pg_manageImageCommand(const char *text, int startFrom)
+{
+  char imageName[255];
+  char alignment[64];
+
+  int start = indexOfWordBreak(text, startFrom);
+  if (start < 0)
+    return;
+
+  int idx = indexOfWordBreak(text, start + 1);
+  if (idx < 0)
+    return;
+  subString(text, imageName, start + 1, idx - start - 1);
+  start = idx;
+  idx = indexOfWordBreak(text, idx + 1);
+  if (idx < 0)
+    return;
+  subString(text, alignment, start + 1, idx - start - 1);
+
+  image_cache_item *image = pg_get_image_from_cache(imageName);
+  sdlBlitImage(image->surface, TEXT_MARGIN, 100, _Globals.windowWidth - 2 * TEXT_MARGIN, _Globals.windowHeight - 2 * HEADER_HEIGHT);
+}
+
+void pg_clear_image_cache()
+{
+  for (int i = 0; i < image_cache_count; i++) {
+    free(image_cache[i].name);
+    image_cache[i].name = NULL;
+    SDL_FreeSurface(image_cache[i].surface);
+    image_cache[i].surface = NULL;
+  }
+  image_cache_count = 0;
+}
+
+image_cache_item* pg_get_image_from_cache(const char *name)
+{
+  for (int i = 0; i < image_cache_count; i++) {
+    if (strcmp(image_cache[i].name, name) == 0)
+      return &image_cache[i];
+  }
+
+  return pg_add_image_to_cache(name);
+}
+
+image_cache_item *pg_add_image_to_cache(const char *name)
+{
+  if (image_cache_count + 1 >= sizeof(image_cache) / sizeof(image_cache_item)) {
+    logWarning("Cannot add image to cache");
+    return NULL;
+  }
+
+  if (image_cache[image_cache_count].name != NULL)
+    free(image_cache[image_cache_count].name);
+
+  image_cache[image_cache_count].name = malloc(strlen(name) + 1);
+  strcpy(image_cache[image_cache_count].name, name);
+
+  char filePath[256];
+  strcpy(filePath, runningGame->path);
+  strcat(filePath, "/");
+  strcat(filePath, name);
+  image_cache[image_cache_count].surface = IMG_Load(filePath);
+  if (image_cache[image_cache_count].surface == NULL) {
+    logWarning("Failed to load image from %s", filePath);
+  }
+  return &image_cache[image_cache_count++];
 }

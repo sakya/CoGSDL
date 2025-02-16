@@ -1,6 +1,7 @@
 #ifndef PLAYGAME_H__
 #define PLAYGAME_H__
 #include <stdio.h>
+#include <SDL2/SDL_image.h>
 
 enum gui_status
 {
@@ -33,5 +34,11 @@ struct game_status
     /// @brief Set to 1 if the text can be scrolled
     int canScrollDown;
 } typedef game_status;
+
+struct image_cache_item
+{
+    char *name;
+    SDL_Surface *surface;
+} typedef image_cache_item;
 
 #endif
