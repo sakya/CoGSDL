@@ -546,7 +546,7 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
     srcRect.w = image->surface->w;
     srcRect.h = image->surface->h;
 
-    // Always return multiple of lineheigt to not break text scrolling
+    // Always return multiple of lineHeight to not break text scrolling
     int res = destRect.h + TEXT_MARGIN;
     int diff = res % lineHeight;
     if (diff)
