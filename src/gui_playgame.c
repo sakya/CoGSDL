@@ -142,6 +142,13 @@ void pg_renderText(char* text)
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
   while(1) {
+    // Check newlines
+    while (text[idx] == '\n') {
+      y += lineHeight;
+      x = TEXT_MARGIN;
+      idx++;
+    }
+
     if (y - pg_game_status.scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
       break;
     }
