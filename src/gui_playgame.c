@@ -548,7 +548,7 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
     srcRect.w = image->surface->w;
     srcRect.h = image->surface->h;
 
-    int res = destRect.h + TEXT_MARGIN;
+    int res = destRect.h + 2 * TEXT_MARGIN;
 
     if (y < HEADER_HEIGHT - TEXT_MARGIN) {
       int deltaY = HEADER_HEIGHT - TEXT_MARGIN - y;
