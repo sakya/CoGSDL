@@ -151,6 +151,7 @@ void pg_renderText(const char* text)
   TTF_Font *font = _Globals.textFont;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
+
   while(1) {
     // Check newlines
     while (text[idx] == '\n') {
@@ -180,7 +181,6 @@ void pg_renderText(const char* text)
       // *text_image filename.png alignment optional text
       // *image filename.png alignment optional text
       int imagHeight = pg_manageImageCommand(text, idx, y);
-      logDebug("imagHeight=%i\n", imagHeight);
       y += imagHeight;
       while (text[idx++] != '\n');
       continue;
