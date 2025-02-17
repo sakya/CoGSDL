@@ -28,12 +28,17 @@ struct game_status
     /// @brief The labels of the opened file
     label* labels;
     int labelsCount;
+    /// @brief Temp variables
+    variable* tempVariables;
+    int tempVariablesCount;
 } typedef game_status;
 
 struct image_cache_item
 {
     char *name;
-    SDL_Surface *surface;
+    SDL_Texture *texture;
+    int w;
+    int h;
 } typedef image_cache_item;
 
 #endif

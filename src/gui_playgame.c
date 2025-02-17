@@ -13,6 +13,11 @@ void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
 
+/// @brief Manage the image and text_image command
+/// @param text The text
+/// @param start The position where the command can be found in test
+/// @param y The y value where the image have to be drawn
+/// @return The height of the image
 int pg_manageImageCommand(const char *text, int start, int y);
 /// @brief Manage an if
 /// @param text The text of the line with the if command
@@ -26,6 +31,10 @@ int pg_evaluateCondition(const char *condition);
 /// @param text The text of the line with the goto command
 /// @return The new file position
 int pg_manageGotoCommand(const char *text);
+/// @brief Manage the temp command
+/// @param text The text of the line with the temp command
+/// @return The new file position
+void pg_manageTempCommand(const char *text);
 
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
@@ -110,6 +119,7 @@ void pg_init()
   pg_game_status.fpSize = ftell(pg_game_status.fp);
   fseek(pg_game_status.fp, 0L, SEEK_SET);
 
+  pg_game_status.tempVariables = NULL;
   pg_game_status.labels = runningGame->labels;
   pg_game_status.labelsCount = runningGame->labelsCount;
   pg_game_status.text = NULL;
@@ -402,6 +412,7 @@ void pg_exec()
 
       if (strcmp(command, "temp") == 0) {
         // *temp varName value
+        pg_manageTempCommand(line);
         continue;
       }
 
@@ -510,6 +521,15 @@ void pg_goToNextScene()
   pg_game_status.fpPosition = 0;
   pg_game_status.labels = NULL;
   pg_game_status.labelsCount = 0;
+  if (pg_game_status.tempVariables != NULL) {
+    for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
+      free(pg_game_status.tempVariables[i].name);
+      free(pg_game_status.tempVariables[i].value);
+    }
+    free(pg_game_status.tempVariables);
+    pg_game_status.tempVariables = NULL;
+  }
+  pg_game_status.tempVariablesCount = 0;
 
   char filePath[256];
   strcpy(filePath, runningGame->path);
@@ -588,14 +608,12 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
   subString(text, alignment, start + 1, idx - start - 1);
 
   image_cache_item *image = pg_get_image_from_cache(imageName);
-  if (image->surface) {
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(_Globals.renderer, image->surface);
-
+  if (image->texture) {
     SDL_Rect destRect;
     destRect.x = TEXT_MARGIN;
     destRect.y = y;
-    destRect.w = image->surface->w;
-    destRect.h = image->surface->h;
+    destRect.w = image->w;
+    destRect.h = image->h;
 
     float ratio = (float)destRect.w / (float)destRect.h;
     if (destRect.w > _Globals.windowWidth - 2 * TEXT_MARGIN) {
@@ -610,8 +628,8 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
     SDL_Rect srcRect;
     srcRect.x = 0;
     srcRect.y = 0;
-    srcRect.w = image->surface->w;
-    srcRect.h = image->surface->h;
+    srcRect.w = image->w;
+    srcRect.h = image->h;
 
     // Always return multiple of lineHeight to not break text scrolling
     int res = destRect.h + TEXT_MARGIN;
@@ -622,7 +640,6 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
     if (y < HEADER_HEIGHT - TEXT_MARGIN) {
       int deltaY = HEADER_HEIGHT - TEXT_MARGIN - y;
       if (deltaY >= destRect.h) {
-        SDL_DestroyTexture(texture);
         return res;
       }
 
@@ -650,8 +667,7 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
       }
     }
 
-    SDL_RenderCopyEx(_Globals.renderer, texture, &srcRect, &destRect, 0, NULL, SDL_FLIP_NONE);
-    SDL_DestroyTexture(texture);
+    SDL_RenderCopyEx(_Globals.renderer, image->texture, &srcRect, &destRect, 0, NULL, SDL_FLIP_NONE);
 
     return res;
   }
@@ -686,7 +702,7 @@ int pg_evaluateCondition(const char *condition)
   if (indexOf(condition, ' ', 0) < 0) {
     // just a variable name (boolean condition)
     char* value = getVarValue(condition, runningGame);
-    return strcmp(value, "true") == 0;
+    return value != NULL && strcmp(value, "true") == 0;
   }
 
   int idx;
@@ -717,13 +733,50 @@ int pg_manageGotoCommand(const char *text)
   return lbl->position;
 }
 
+void pg_manageTempCommand(const char *text)
+{
+  int idx = indexOfWordBreak(text, 6);
+
+  pg_game_status.tempVariablesCount++;
+  if (pg_game_status.tempVariables == NULL) {
+    pg_game_status.tempVariables = malloc(sizeof(variable) * pg_game_status.tempVariablesCount);
+  } else {
+    variable *tmp = realloc(pg_game_status.tempVariables, sizeof(variable) * pg_game_status.tempVariablesCount);
+    if (tmp != NULL) {
+      pg_game_status.tempVariables = tmp;
+      tmp = NULL;
+    } else {
+      logWarning("Realloc failed\n");
+      return;
+    }
+
+  }
+
+  pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].name = malloc(idx - 6 + 1);
+  subString(text, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].name, 6, idx - 6);
+  pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value = malloc(strlen(text) - idx + 1);
+  subString(text, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, idx + 1, strlen(text) - idx);
+
+  if (startsWith("\"", pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value)) {
+    pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type = string;
+  } else if (strcmp(pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, "true") == 0 || strcmp(pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, "false") == 0) {
+    pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type = boolean;
+  } else {
+    pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type = number;
+  }
+
+  logDebug("\tTEMPVAR %s=%s (type %s)\n", pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].name, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type == string ? "string" : pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type == boolean ? "boolean" : "number");
+}
+
 void pg_clear_image_cache()
 {
   for (int i = 0; i < image_cache_count; i++) {
     free(image_cache[i].name);
     image_cache[i].name = NULL;
-    SDL_FreeSurface(image_cache[i].surface);
-    image_cache[i].surface = NULL;
+    SDL_DestroyTexture(image_cache[i].texture);
+    image_cache[i].texture = NULL;
+    image_cache[i].w = 0;
+    image_cache[i].h = 0;
   }
   image_cache_count = 0;
 }
@@ -741,7 +794,7 @@ image_cache_item* pg_get_image_from_cache(const char *name)
 image_cache_item *pg_add_image_to_cache(const char *name)
 {
   if (image_cache_count + 1 >= sizeof(image_cache) / sizeof(image_cache_item)) {
-    logWarning("Cannot add image to cache");
+    logWarning("Cannot add image to cache (cache full)");
     return NULL;
   }
 
@@ -755,10 +808,15 @@ image_cache_item *pg_add_image_to_cache(const char *name)
   strcpy(filePath, runningGame->path);
   strcat(filePath, "/");
   strcat(filePath, name);
-  image_cache[image_cache_count].surface = IMG_Load(filePath);
-  if (image_cache[image_cache_count].surface == NULL) {
+  SDL_Surface* surface = IMG_Load(filePath);
+  if (surface == NULL) {
     logWarning("Failed to load image from %s", filePath);
   }
+
+  image_cache[image_cache_count].w = surface->w;
+  image_cache[image_cache_count].h = surface->h;
+  image_cache[image_cache_count].texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
+  SDL_FreeSurface(surface);
   return &image_cache[image_cache_count++];
 }
 
