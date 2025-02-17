@@ -154,7 +154,16 @@ int loadGame(const char* path, game* game, int forListing)
       game->variables[game->variablesCount].value = malloc(strlen(line) - idx + 1);
       subString(line, game->variables[game->variablesCount].value, idx + 1, strlen(line) - idx);
 
-      logDebug("\tVAR %s=%s\n", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value);
+      if (startsWith("\"", game->variables[game->variablesCount].value)) {
+        game->variables[game->variablesCount].type = string;
+      } else if (strcmp(game->variables[game->variablesCount].value, "true") == 0 || strcmp(game->variables[game->variablesCount].value, "false") == 0) {
+        game->variables[game->variablesCount].type = boolean;
+      } else {
+        game->variables[game->variablesCount].type = number;
+      }
+
+      logDebug("\tVAR %s=%s (type %s)\n", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value,
+        game->variables[game->variablesCount].type == string ? "string" : game->variables[game->variablesCount].type == boolean ? "boolean" : "number");
       game->variablesCount++;
     } else if (startsWithWord("*achievement", line)) {
       if (game->achievementsCount == sizeof(game->achievements) / sizeof(achievement)) {

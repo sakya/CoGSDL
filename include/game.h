@@ -1,10 +1,18 @@
 #ifndef GAME_H__
 #define GAME_H__
 
+enum var_types
+{
+  string = 0,
+  number = 1,
+  boolean = 2,
+};
+
 struct variable
 {
   char* name;
   char* value;
+  enum var_types type;
 } typedef variable;
 
 struct label

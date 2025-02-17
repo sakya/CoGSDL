@@ -11,7 +11,9 @@ void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
+
 int pg_manageImageCommand(const char *text, int start, int y);
+void pg_manageIfCommand(const char *text);
 
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
@@ -369,6 +371,12 @@ void pg_exec()
         continue;
       }
 
+      if (strcmp(command, "if") == 0) {
+        // if
+        pg_manageIfCommand(line);
+        continue;
+      }
+
       if (strcmp(command, "temp") == 0) {
         // *temp varName value
         continue;
@@ -589,6 +597,11 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
     return res;
   }
   return 0;
+}
+
+void pg_manageIfCommand(const char *text)
+{
+
 }
 
 void pg_clear_image_cache()
