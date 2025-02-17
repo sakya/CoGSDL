@@ -3,16 +3,8 @@
 #include <stdio.h>
 #include <SDL2/SDL_image.h>
 
-enum gui_status
-{
-    play = 0,
-    stats = 1,
-    menu = 2
-};
-
 struct game_status
 {
-    enum gui_status status;
     /// @brief Startup or scene file
     FILE *fp;
     /// @brief Size of the file we are executing
@@ -33,6 +25,9 @@ struct game_status
     int showPageBreak;
     /// @brief Set to 1 if the text can be scrolled
     int canScrollDown;
+    /// @brief The labels of the opened file
+    label* labels;
+    int labelsCount;
 } typedef game_status;
 
 struct image_cache_item

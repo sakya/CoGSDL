@@ -361,6 +361,8 @@ char* getVarValue(const char *varName, game* game)
     if (strcmp(game->variables[i].name, varName) == 0)
       return game->variables[i].value;
   }
+
+  logWarning("Variable %s not found\n", varName);
   return NULL;
 }
 
@@ -370,7 +372,7 @@ int setVarValue(const char *varName, const char *value, game *game)
   for (i = 0; i < sizeof(game->variables) / sizeof(variable); i++) {
     if (strcmp(game->variables[i].name, varName) == 0) {
       strcpy(game->variables[i].value, value);
-      logDebug("Variable %s=%s\n", varName, value);
+      logDebug("Variable set %s=%s\n", varName, value);
       return 1;
     }
   }

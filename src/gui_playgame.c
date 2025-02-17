@@ -11,9 +11,21 @@ void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
+label* pg_get_label(const char *labelName);
 
 int pg_manageImageCommand(const char *text, int start, int y);
-void pg_manageIfCommand(const char *text);
+/// @brief Manage an if
+/// @param text The text of the line with the if command
+/// @return The new file position where continue execution
+int pg_manageIfCommand(const char *text);
+/// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
+/// @param condition The condition
+/// @return 1 if true, 0 if false
+int pg_evaluateCondition(const char *condition);
+/// @brief Manage the goto command
+/// @param text The text of the line with the goto command
+/// @return The new file position
+int pg_manageGotoCommand(const char *text);
 
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
@@ -41,12 +53,10 @@ void drawGame()
   }
 
   if (_Globals.input[_Keys.KeyA] == 1) {
-    if (pg_game_status.status == play) {
-      //Next
-      if (!pg_game_status.canScrollDown && pg_game_status.showPageBreak) {
-        _Globals.input[_Keys.KeyA] = 0;
-        pg_exec();
-      }
+    //Next
+    if (!pg_game_status.canScrollDown && pg_game_status.showPageBreak) {
+      _Globals.input[_Keys.KeyA] = 0;
+      pg_exec();
     }
   }
 
@@ -100,7 +110,8 @@ void pg_init()
   pg_game_status.fpSize = ftell(pg_game_status.fp);
   fseek(pg_game_status.fp, 0L, SEEK_SET);
 
-  pg_game_status.status = play;
+  pg_game_status.labels = runningGame->labels;
+  pg_game_status.labelsCount = runningGame->labelsCount;
   pg_game_status.text = NULL;
   pg_game_status.sceneIndex = 0;
   pg_game_status.fpPosition = runningGame->startPosition;
@@ -354,6 +365,15 @@ void pg_exec()
         continue;
       }
 
+      if (strcmp(command, "goto") == 0) {
+        // goto
+        int newPosition = pg_manageGotoCommand(line);
+        logDebug("%s -> %i\n", line, newPosition);
+        pg_game_status.fpPosition = newPosition;
+        indentation = -1;
+        continue;
+      }
+
       if (strcmp(command, "set") == 0) {
         // *set varName value
         int idx = 5;
@@ -373,7 +393,10 @@ void pg_exec()
 
       if (strcmp(command, "if") == 0) {
         // if
-        pg_manageIfCommand(line);
+        int newPosition = pg_manageIfCommand(line);
+        logDebug("%s -> %i\n", line, newPosition);
+        pg_game_status.fpPosition = newPosition;
+        indentation = -1;
         continue;
       }
 
@@ -420,7 +443,7 @@ void pg_appendText(const char *text, int newLine)
       pg_game_status.text = tmp;
       tmp = NULL;
     } else {
-      logWarning("Realloc failed");
+      logWarning("Realloc failed\n");
       pg_game_status.text = NULL;
       return;
     }
@@ -485,6 +508,8 @@ void pg_goToNextScene()
 
   pg_game_status.sceneIndex++;
   pg_game_status.fpPosition = 0;
+  pg_game_status.labels = NULL;
+  pg_game_status.labelsCount = 0;
 
   char filePath[256];
   strcpy(filePath, runningGame->path);
@@ -506,6 +531,40 @@ void pg_goToNextScene()
 
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
+  fseek(pg_game_status.fp, 0L, SEEK_SET);
+
+  // Get labels
+  char line[4096];
+  int lineStartPosition = 0;
+  long nextLineStartPosition = 0;
+  while (fgets(line, sizeof(line), pg_game_status.fp)) {
+    lineStartPosition = nextLineStartPosition;
+    nextLineStartPosition = ftell(pg_game_status.fp);
+
+    line[strcspn(line, "\r")] = '\0';
+    line[strcspn(line, "\n")] = '\0';
+    if (startsWithWord("*label", line)) {
+      pg_game_status.labelsCount++;
+      if (pg_game_status.labels == NULL) {
+        pg_game_status.labels = malloc(sizeof(label) * pg_game_status.labelsCount);
+      } else {
+        label *tmp = realloc(pg_game_status.labels, sizeof(label) * pg_game_status.labelsCount);
+        if (tmp != NULL) {
+          pg_game_status.labels = tmp;
+          tmp = NULL;
+        } else {
+          logWarning("Realloc failed\n");
+          break;
+        }
+      }
+
+      pg_game_status.labels[pg_game_status.labelsCount - 1].name = malloc(strlen(line) - 7 + 1);
+      subString(line, pg_game_status.labels[pg_game_status.labelsCount - 1].name, 7, strlen(line) - 7);
+      pg_game_status.labels[pg_game_status.labelsCount - 1].position = lineStartPosition;
+
+      logDebug("\tLabel name=%s, position=%li\n", pg_game_status.labels[pg_game_status.labelsCount - 1].name, pg_game_status.labels[pg_game_status.labelsCount - 1].position);
+    }
+  }
   fseek(pg_game_status.fp, 0L, SEEK_SET);
 }
 
@@ -599,9 +658,63 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
   return 0;
 }
 
-void pg_manageIfCommand(const char *text)
+int pg_manageIfCommand(const char *text)
 {
+  char condition[4096];
+  subString(text, condition, 3, strlen(text) - 3);
+  trim(condition);
 
+  logDebug("if condition=%s\n", condition);
+  // Condition on boolean
+  if (indexOf(condition, ' ', 0) < 0) {
+    if (pg_evaluateCondition(condition)) {
+      return ftell(pg_game_status.fp);
+    }
+  }
+
+  // First check parentheses
+  int open = 0;
+  while ((open = indexOf(text, '(', open)) >= 0) {
+    int close = indexOf(text, ')', open);
+  }
+
+  return 0;
+}
+
+int pg_evaluateCondition(const char *condition)
+{
+  if (indexOf(condition, ' ', 0) < 0) {
+    // just a variable name (boolean condition)
+    char* value = getVarValue(condition, runningGame);
+    return strcmp(value, "true") == 0;
+  }
+
+  int idx;
+  if ((idx = indexOf(condition, '=', 0)) >= 0) {
+    // var = value
+
+  }
+  return 0;
+}
+
+int pg_manageGotoCommand(const char *text)
+{
+  int start = indexOfWordBreak(text, 0);
+  if (start < 0) {
+    logWarning("goto without label name\n");
+    return ftell(pg_game_status.fp);
+  }
+
+  char labelName[256];
+  subString(text, labelName, start + 1, strlen(text) - start - 1);
+
+  label *lbl = pg_get_label(labelName);
+  if (lbl == NULL) {
+    logWarning("Label %s not found\n", labelName);
+    return ftell(pg_game_status.fp);
+  }
+  fseek(pg_game_status.fp, lbl->position, SEEK_SET);
+  return lbl->position;
 }
 
 void pg_clear_image_cache()
@@ -647,4 +760,15 @@ image_cache_item *pg_add_image_to_cache(const char *name)
     logWarning("Failed to load image from %s", filePath);
   }
   return &image_cache[image_cache_count++];
+}
+
+label* pg_get_label(const char *labelName)
+{
+  int i = 0;
+  while (i < pg_game_status.labelsCount) {
+    if (strcmp(pg_game_status.labels[i].name, labelName) == 0)
+      return &pg_game_status.labels[i];
+    i++;
+  }
+  return NULL;
 }
