@@ -357,7 +357,7 @@ int listGames(const char* path, game *games)
 char* getVarValue(const char *varName, game* game)
 {
   int i = 0;
-  for (i = 0; i < sizeof(game->variables) / sizeof(variable); i++) {
+  for (i = 0; i < game->variablesCount; i++) {
     if (strcmp(game->variables[i].name, varName) == 0)
       return game->variables[i].value;
   }
@@ -369,7 +369,7 @@ char* getVarValue(const char *varName, game* game)
 int setVarValue(const char *varName, const char *value, game *game)
 {
   int i = 0;
-  for (i = 0; i < sizeof(game->variables) / sizeof(variable); i++) {
+  for (i = 0; i < game->variablesCount; i++) {
     if (strcmp(game->variables[i].name, varName) == 0) {
       strcpy(game->variables[i].value, value);
       logDebug("Variable set %s=%s\n", varName, value);

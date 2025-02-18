@@ -12,6 +12,8 @@ void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
+char* pg_getVarValue(const char *varName);
+int pg_setVarValue(const char *varName, const char *value);
 
 /// @brief Manage the image and text_image command
 /// @param text The text
@@ -397,7 +399,7 @@ void pg_exec()
         subString(line, varName, idx, wordEnd - idx);
         idx += strlen(varName);
         subString(line, value, idx + 1, lineLen - idx);
-        setVarValue(varName, value, runningGame);
+        pg_setVarValue(varName, value);
         continue;
       }
 
@@ -752,20 +754,21 @@ void pg_manageTempCommand(const char *text)
 
   }
 
-  pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].name = malloc(idx - 6 + 1);
-  subString(text, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].name, 6, idx - 6);
-  pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value = malloc(strlen(text) - idx + 1);
-  subString(text, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, idx + 1, strlen(text) - idx);
+  variable *var = &pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1];
+  var->name = malloc(idx - 6 + 1);
+  subString(text, var->name, 6, idx - 6);
+  var->value = malloc(strlen(text) - idx + 1);
+  subString(text, var->value, idx + 1, strlen(text) - idx);
 
-  if (startsWith("\"", pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value)) {
-    pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type = string;
-  } else if (strcmp(pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, "true") == 0 || strcmp(pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, "false") == 0) {
-    pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type = boolean;
+  if (startsWith("\"", var->value)) {
+    var->type = string;
+  } else if (strcmp(var->value, "true") == 0 || strcmp(var->value, "false") == 0) {
+    var->type = boolean;
   } else {
-    pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type = number;
+    var->type = number;
   }
 
-  logDebug("\tTEMPVAR %s=%s (type %s)\n", pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].name, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].value, pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type == string ? "string" : pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type == boolean ? "boolean" : "number");
+  logDebug("\tTEMPVAR %s=%s (type %s)\n", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
 }
 
 void pg_clear_image_cache()
@@ -829,4 +832,31 @@ label* pg_get_label(const char *labelName)
     i++;
   }
   return NULL;
+}
+
+char* pg_getVarValue(const char *varName)
+{
+  int i = 0;
+  for (i = 0; i < pg_game_status.tempVariablesCount; i++) {
+    if (strcmp(pg_game_status.tempVariables[i].name, varName) == 0) {
+      return pg_game_status.tempVariables[i].value;
+    }
+  }
+
+  return getVarValue(varName, runningGame);
+}
+
+int pg_setVarValue(const char *varName, const char *value)
+{
+  int i = 0;
+
+  for (i = 0; i < pg_game_status.tempVariablesCount; i++) {
+    if (strcmp(pg_game_status.tempVariables[i].name, varName) == 0) {
+      strcpy(pg_game_status.tempVariables[i].value, value);
+      logDebug("Temp variable set %s=%s\n", varName, value);
+      return 1;
+    }
+  }
+
+  return setVarValue(varName, value, runningGame);
 }
