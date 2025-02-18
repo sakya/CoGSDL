@@ -36,6 +36,7 @@ struct choice
   char *text;
   long position;
   int reusable;
+  int used;
 } typedef choice;
 
 struct game
