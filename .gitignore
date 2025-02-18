@@ -3,6 +3,8 @@
 .cache/
 objs/
 games/
+Debug/
+Release/
 CoGSDL
 *.log
 *.exe
