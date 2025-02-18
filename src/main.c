@@ -38,7 +38,7 @@ Keys _Keys = {
   SDL_SCANCODE_SPACE
 };
 
-const theme defaultTheme = {
+const theme darkTheme = {
   {30, 30, 30},
   {60, 60, 60},
   {255, 255, 255},
@@ -46,7 +46,15 @@ const theme defaultTheme = {
   {242, 238, 143}
 };
 
-const theme *_theme = &defaultTheme;
+const theme sepiaTheme = {
+  {225, 228, 196},
+  {139, 90, 43},
+  {44, 44, 44},
+  {107, 66, 38},
+  {242, 238, 143}
+};
+
+const theme *_theme = &sepiaTheme;
 
 int main(int argc, char* argv[])
 {

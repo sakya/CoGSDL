@@ -14,6 +14,7 @@ int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
 char* pg_getVarValue(const char *varName);
 int pg_setVarValue(const char *varName, const char *value);
+void pg_clearTempVars();
 
 /// @brief Manage the image and text_image command
 /// @param text The text
@@ -147,6 +148,7 @@ void pg_dispose()
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
+  pg_clearTempVars();
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
@@ -523,15 +525,7 @@ void pg_goToNextScene()
   pg_game_status.fpPosition = 0;
   pg_game_status.labels = NULL;
   pg_game_status.labelsCount = 0;
-  if (pg_game_status.tempVariables != NULL) {
-    for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
-      free(pg_game_status.tempVariables[i].name);
-      free(pg_game_status.tempVariables[i].value);
-    }
-    free(pg_game_status.tempVariables);
-    pg_game_status.tempVariables = NULL;
-  }
-  pg_game_status.tempVariablesCount = 0;
+  pg_clearTempVars();
 
   char filePath[256];
   strcpy(filePath, runningGame->path);
@@ -859,4 +853,17 @@ int pg_setVarValue(const char *varName, const char *value)
   }
 
   return setVarValue(varName, value, runningGame);
+}
+
+void pg_clearTempVars()
+{
+  if (pg_game_status.tempVariables != NULL) {
+    for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
+      free(pg_game_status.tempVariables[i].name);
+      free(pg_game_status.tempVariables[i].value);
+    }
+    free(pg_game_status.tempVariables);
+    pg_game_status.tempVariables = NULL;
+  }
+  pg_game_status.tempVariablesCount = 0;
 }

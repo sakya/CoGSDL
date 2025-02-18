@@ -286,6 +286,7 @@ void freeGame(game *game)
     free(game->variables[i].value);
     game->variables[i].value = NULL;
   }
+  game->variablesCount = 0;
 
   for (i = 0; i < game->achievementsCount; i++) {
     free(game->achievements[i].name);
@@ -300,11 +301,13 @@ void freeGame(game *game)
     free(game->achievements[i].postEarnedDescription);
     game->achievements[i].postEarnedDescription = NULL;
   }
+  game->achievementsCount = 0;
 
   for (i = 0; i < game->labelsCount; i++) {
     free(game->labels[i].name);
     game->labels[i].name = NULL;
   }
+  game->labelsCount = 0;
 
   free(game);
 }
