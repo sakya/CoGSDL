@@ -12,6 +12,7 @@ void drawGameSelectMenu()
 
   const int items = (_Globals.windowHeight - HEADER_HEIGHT) / 52;
   if (_Globals.input[_Keys.KeyDown] == 1 && selectedIdx >= 0) {
+    _Globals.input[_Keys.KeyDown] = 0;
     selectedIdx++;
     Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx == _Globals.gamesCount) {
@@ -24,8 +25,8 @@ void drawGameSelectMenu()
     }
     if (selectedIdx - firstIdx + 1 > items)
       firstIdx++;
-    _Globals.input[_Keys.KeyDown] = 0;
   } else if (_Globals.input[_Keys.KeyUp] == 1 && selectedIdx >= 0) {
+    _Globals.input[_Keys.KeyUp] = 0;
     selectedIdx--;
     Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx < 0) {
@@ -40,8 +41,8 @@ void drawGameSelectMenu()
     }
     if (selectedIdx < firstIdx)
       firstIdx = selectedIdx;
-    _Globals.input[_Keys.KeyUp] = 0;
   } else if (_Globals.input[_Keys.KeyA] == 1 && selectedIdx >= 0) {
+    _Globals.input[_Keys.KeyA] = 0;
     runningGame = malloc(sizeof(game));
     loadGame(_Globals.games[selectedIdx].path, runningGame, 0);
     if (strlen(runningGame->icon) > 0) {
@@ -51,6 +52,7 @@ void drawGameSelectMenu()
     _Globals.status = Game;
     return;
   } else if (_Globals.input[_Keys.KeyB] == 1) {
+    _Globals.input[_Keys.KeyB] = 0;
     if (iconSurface != NULL) {
       SDL_FreeSurface(iconSurface);
       iconSurface = NULL;

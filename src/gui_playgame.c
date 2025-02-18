@@ -144,17 +144,18 @@ void pg_init()
 void pg_dispose()
 {
   pg_clear_image_cache();
+  pg_clearTempVars();
 
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
-  pg_clearTempVars();
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
 
   fclose(pg_game_status.fp);
   pg_game_status.fp = NULL;
+  pg_game_status.fpPosition = 0;
 
   freeGame(runningGame);
   runningGame = NULL;
@@ -336,6 +337,7 @@ void pg_exec()
   pg_game_status.scrollY = 0;
 
   if (pg_game_status.fpPosition == pg_game_status.fpSize) {
+    logDebug("Reached EOF (file size=%i), going to the next scene\n", pg_game_status.fpSize);
     pg_goToNextScene();
   }
 

@@ -51,7 +51,7 @@ const theme sepiaTheme = {
   {139, 90, 43},
   {44, 44, 44},
   {107, 66, 38},
-  {242, 238, 143}
+  {225, 228, 196},
 };
 
 const theme *_theme = &sepiaTheme;
