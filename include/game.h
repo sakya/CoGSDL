@@ -31,6 +31,13 @@ struct achievement
   char* postEarnedDescription;
 } typedef achievement;
 
+struct choice
+{
+  char *text;
+  long position;
+  int reusable;
+} typedef choice;
+
 struct game
 {
   char path[256];

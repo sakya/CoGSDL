@@ -31,6 +31,9 @@ struct game_status
     /// @brief Temp variables
     variable* tempVariables;
     int tempVariablesCount;
+    /// @brief The choices to display to the user
+    choice *choices;
+    int choicesCount;
 } typedef game_status;
 
 struct image_cache_item

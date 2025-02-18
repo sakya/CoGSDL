@@ -15,10 +15,11 @@ label* pg_get_label(const char *labelName);
 char* pg_getVarValue(const char *varName);
 int pg_setVarValue(const char *varName, const char *value);
 void pg_clearTempVars();
+void pg_clearChoices();
 
 /// @brief Manage the image and text_image command
 /// @param text The text
-/// @param start The position where the command can be found in test
+/// @param start The position where the command can be found in text
 /// @param y The y value where the image have to be drawn
 /// @return The height of the image
 int pg_manageImageCommand(const char *text, int start, int y);
@@ -38,6 +39,11 @@ int pg_manageGotoCommand(const char *text);
 /// @param text The text of the line with the temp command
 /// @return The new file position
 void pg_manageTempCommand(const char *text);
+/// @brief Manage the choice command
+/// @param text The text of the line with the temp command
+/// @param start
+/// @return The new file position
+int pg_manageChoiceCommand(const char *text);
 
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
@@ -122,6 +128,8 @@ void pg_init()
   pg_game_status.fpSize = ftell(pg_game_status.fp);
   fseek(pg_game_status.fp, 0L, SEEK_SET);
 
+  pg_clearChoices();
+  pg_game_status.showPageBreak = 0;
   pg_game_status.tempVariables = NULL;
   pg_game_status.labels = runningGame->labels;
   pg_game_status.labelsCount = runningGame->labelsCount;
@@ -145,6 +153,7 @@ void pg_dispose()
 {
   pg_clear_image_cache();
   pg_clearTempVars();
+  pg_clearChoices();
 
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
@@ -424,8 +433,18 @@ void pg_exec()
 
       if (strcmp(command, "choice") == 0) {
         // Choice
+        int newPosition = pg_manageChoiceCommand(line);
+        logDebug("Choice -> %i\n", newPosition);
+        pg_game_status.fpPosition = newPosition;
         continue;
       }
+
+      if (strcmp(command, "label") == 0) {
+        // We can just skip labels
+        continue;
+      }
+
+      logWarning("Unknown command: %s\n", command);
     } else {
       // Text
       if (lineLen) {
@@ -767,6 +786,57 @@ void pg_manageTempCommand(const char *text)
   logDebug("\tTEMPVAR %s=%s (type %s)\n", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
 }
 
+int pg_manageChoiceCommand(const char *text)
+{
+  char line[4096];
+  int choiceIndentaion = -1;
+  int lineStartPosition = 0;
+  long nextLineStartPosition = 0;
+  while (fgets(line, sizeof(line), pg_game_status.fp)) {
+    lineStartPosition = nextLineStartPosition;
+    nextLineStartPosition = ftell(pg_game_status.fp);
+    line[strcspn(line, "\r")] = '\0';
+    line[strcspn(line, "\n")] = '\0';
+
+    if (choiceIndentaion < 0) {
+      choiceIndentaion = getIndentation(line);
+    }
+
+    int lineIndentation = getIndentation(line);
+    if (strlen(line) > 0 && lineIndentation < choiceIndentaion) {
+      break;
+    }
+
+    if (lineIndentation == choiceIndentaion) {
+      int start = indexOf(line, '#', 0);
+      if (start >= 0) {
+        pg_game_status.choicesCount++;
+        if (pg_game_status.choices == NULL) {
+          pg_game_status.choices = malloc(sizeof(choice) * pg_game_status.choicesCount);
+        } else {
+          choice *tmp = realloc(pg_game_status.choices, sizeof(choice) * pg_game_status.choicesCount);
+          if (tmp != NULL) {
+            pg_game_status.choices = tmp;
+            tmp = NULL;
+          } else {
+            logWarning("Realloc failed\n");
+            continue;
+          }
+        }
+
+        choice *choice = &pg_game_status.choices[pg_game_status.choicesCount - 1];
+
+        start++;
+        choice->reusable = 1;
+        choice->text = malloc(strlen(line) - start + 1);
+        subString(line, choice->text, start, strlen(line) - start);
+        logDebug("Choice: %s\n", choice->text);
+      }
+    }
+  }
+  return lineStartPosition;
+}
+
 void pg_clear_image_cache()
 {
   for (int i = 0; i < image_cache_count; i++) {
@@ -797,8 +867,10 @@ image_cache_item *pg_add_image_to_cache(const char *name)
     return NULL;
   }
 
-  if (image_cache[image_cache_count].name != NULL)
+  if (image_cache[image_cache_count].name != NULL) {
     free(image_cache[image_cache_count].name);
+    image_cache[image_cache_count].name = NULL;
+  }
 
   image_cache[image_cache_count].name = malloc(strlen(name) + 1);
   strcpy(image_cache[image_cache_count].name, name);
@@ -862,10 +934,24 @@ void pg_clearTempVars()
   if (pg_game_status.tempVariables != NULL) {
     for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
       free(pg_game_status.tempVariables[i].name);
+      pg_game_status.tempVariables[i].name = NULL;
       free(pg_game_status.tempVariables[i].value);
+      pg_game_status.tempVariables[i].value = NULL;
     }
     free(pg_game_status.tempVariables);
     pg_game_status.tempVariables = NULL;
   }
   pg_game_status.tempVariablesCount = 0;
+}
+
+void pg_clearChoices()
+{
+  if (pg_game_status.choices != NULL) {
+    for (int i = 0; i < pg_game_status.choicesCount; i++) {
+      free(pg_game_status.choices[i].text);
+      pg_game_status.choices[i].text = NULL;
+    }
+    pg_game_status.choices = NULL;
+  }
+  pg_game_status.choicesCount = 0;
 }
