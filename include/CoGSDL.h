@@ -42,9 +42,11 @@ extern SDL_Surface *runningGameIcon;
 enum status
 {
   MainMenu = 0,
-  GameSelect = 1,
-  Game = 2,
-  About = 3
+  About = 1,
+  GameSelect = 2,
+  Game = 3,
+  GameMenu = 4,
+  GameStats = 5
 };
 
 enum logLevel

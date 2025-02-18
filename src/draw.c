@@ -27,14 +27,18 @@ int draw()
       case MainMenu:
         drawMainMenu();
         break;
+      case About:
+        drawAbout();
+        break;
       case GameSelect:
         drawGameSelectMenu();
         break;
       case Game:
         drawGame();
         break;
-      case About:
-        drawAbout();
+      case GameMenu:
+        break;
+      case GameStats:
         break;
     }
     manageEvents();
