@@ -4,7 +4,7 @@
 void pg_init();
 void pg_dispose();
 void pg_exec();
-void pg_renderText(const char* text);
+void pg_renderText(const char* text, int startY);
 int pg_renderPageBreak();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
@@ -93,7 +93,7 @@ void drawGame()
   }
 
   if (pg_game_status.text != NULL) {
-    pg_renderText(pg_game_status.text);
+    pg_renderText(pg_game_status.text, -1);
     if (!pg_game_status.textFullyRendered) {
       pg_game_status.canScrollDown = 1;
     }
@@ -107,6 +107,13 @@ void drawGame()
     }
   }
 
+  if (pg_game_status.textFullyRendered && pg_game_status.choicesCount > 0) {
+    for (int i = 0; i < pg_game_status.choicesCount; i++) {
+      pg_game_status.lastRenderedY += lineHeight;
+      choice *choice = &pg_game_status.choices[i];
+      pg_renderText(choice->text, pg_game_status.lastRenderedY + pg_game_status.scrollY);
+    }
+  }
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }
 
@@ -173,21 +180,25 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderText(const char* text)
+void pg_renderText(const char* text, int startY)
 {
   if (text == NULL || strlen(text) == 0)
     return;
 
+  int isMainText = (startY < 0) ? 1 : 0;
   int end = strlen(text);
   int idx = 0;
   int x = TEXT_MARGIN;
-  int y = HEADER_HEIGHT + TEXT_MARGIN;
+  int y = isMainText ? HEADER_HEIGHT + TEXT_MARGIN : startY;
   int wordWidth;
   char test[5];
   char word[256];
   TTF_Font *font = _Globals.textFont;
-  pg_game_status.textFullyRendered = 0;
-  pg_game_status.lastRenderedY = 0;
+
+  if (isMainText) {
+    pg_game_status.textFullyRendered = 0;
+    pg_game_status.lastRenderedY = 0;
+  }
 
   while(1) {
     // Check newlines
@@ -204,7 +215,8 @@ void pg_renderText(const char* text)
     // Find the next word to print
     int wordEnd = pg_indexOfWordEnd(text, idx);
     if (wordEnd < 0) {
-      pg_game_status.textFullyRendered = 1;
+      if (isMainText)
+        pg_game_status.textFullyRendered = 1;
       break;
     }
 
@@ -215,8 +227,8 @@ void pg_renderText(const char* text)
     subString(text, word, idx, wordEnd - idx + 1);
     if (startsWithWord("*text_image", word) || startsWithWord("*image", word)) {
       // Draw image
-      // *text_image filename.png alignment optional text
-      // *image filename.png alignment optional text
+      // text_image filename.png alignment optional text
+      // image filename.png alignment optional text
       int imagHeight = pg_manageImageCommand(text, idx, y - pg_game_status.scrollY);
       y += imagHeight;
       x = TEXT_MARGIN;
@@ -300,7 +312,8 @@ void pg_renderText(const char* text)
 
     idx += wordLen;
     if (idx >= end) {
-      pg_game_status.textFullyRendered = 1;
+      if (isMainText)
+        pg_game_status.textFullyRendered = 1;
       break;
     }
   }
@@ -344,6 +357,7 @@ void pg_exec()
   }
   pg_game_status.showPageBreak = 0;
   pg_game_status.scrollY = 0;
+  pg_clearChoices();
 
   if (pg_game_status.fpPosition == pg_game_status.fpSize) {
     logDebug("Reached EOF (file size=%i), going to the next scene\n", pg_game_status.fpSize);
@@ -400,7 +414,7 @@ void pg_exec()
       }
 
       if (strcmp(command, "set") == 0) {
-        // *set varName value
+        // set varName value
         int idx = 5;
         int wordEnd = pg_indexOfWordEnd(line, idx);
         if (wordEnd < 0) {
@@ -426,17 +440,17 @@ void pg_exec()
       }
 
       if (strcmp(command, "temp") == 0) {
-        // *temp varName value
+        // temp varName value
         pg_manageTempCommand(line);
         continue;
       }
 
       if (strcmp(command, "choice") == 0) {
-        // Choice
+        // choice
         int newPosition = pg_manageChoiceCommand(line);
         logDebug("Choice -> %i\n", newPosition);
         pg_game_status.fpPosition = newPosition;
-        continue;
+        break;
       }
 
       if (strcmp(command, "label") == 0) {
@@ -459,6 +473,17 @@ void pg_exec()
     }
   }
 
+  if (pg_game_status.text != NULL) {
+    // Remove trailing new lines (except one)
+    int end = strlen(pg_game_status.text) - 1;
+    for (int i = end; i >= 0; i--) {
+      if (pg_game_status.text[i] == '\n') {
+        pg_game_status.text[i] = '\0';
+      } else {
+        break;
+      }
+    }
+  }
   logDebug("Text to render:\n%s\n", pg_game_status.text);
 }
 
@@ -711,6 +736,7 @@ int pg_manageIfCommand(const char *text)
     int close = indexOf(text, ')', open);
   }
 
+  logWarning("If not managed: %s\n", text);
   return 0;
 }
 
@@ -830,7 +856,7 @@ int pg_manageChoiceCommand(const char *text)
         choice->reusable = 1;
         choice->text = malloc(strlen(line) - start + 1);
         subString(line, choice->text, start, strlen(line) - start);
-        logDebug("Choice: %s\n", choice->text);
+        logDebug("\tChoice: %s\n", choice->text);
       }
     }
   }
@@ -951,6 +977,7 @@ void pg_clearChoices()
       free(pg_game_status.choices[i].text);
       pg_game_status.choices[i].text = NULL;
     }
+    free(pg_game_status.choices);
     pg_game_status.choices = NULL;
   }
   pg_game_status.choicesCount = 0;

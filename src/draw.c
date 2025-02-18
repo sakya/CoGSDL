@@ -37,8 +37,10 @@ int draw()
         drawGame();
         break;
       case GameMenu:
+        drawGameMenu();
         break;
       case GameStats:
+        drawGameStats();
         break;
     }
     manageEvents();

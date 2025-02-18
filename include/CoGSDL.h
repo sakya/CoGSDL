@@ -244,4 +244,10 @@ void drawGame();
 
 /* about.c */
 void drawAbout();
+
+/* gui_gamemenu.c */
+void drawGameMenu();
+
+/* gui_gamestats.c */
+void drawGameStats();
 #endif
