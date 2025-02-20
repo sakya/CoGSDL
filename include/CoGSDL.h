@@ -169,6 +169,12 @@ int isEmpty(const char *string);
 /// @param startFrom The start position
 /// @return The position or -1
 int indexOf(const char *string, const char character, const int startFrom);
+/// @brief Get the position of a char in a string, going backward
+/// @param string The string
+/// @param character The character to find
+/// @param startFrom The start position
+/// @return The position or -1
+int lastIndexOf(const char *string, const char character, const int startFrom);
 /// @brief Get the position of a word break char (space or tab) in a string
 /// @param string The string
 /// @param startFrom The start position

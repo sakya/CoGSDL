@@ -32,6 +32,21 @@ int indexOf(const char *string, const char character, const int startFrom)
   return -1;
 }
 
+int lastIndexOf(const char *string, const char character, const int startFrom)
+{
+  if (!string || character == '\0')
+      return -1;
+
+  int idx = startFrom;
+  while (idx >= 0) {
+    if (string[idx] == character)
+      return idx;
+    idx--;
+  }
+
+  return -1;
+}
+
 int startsWith(const char *prefix, const char *string)
 {
   return strncmp(prefix, string, strlen(prefix)) == 0 ? 1 : 0;

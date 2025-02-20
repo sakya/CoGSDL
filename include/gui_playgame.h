@@ -2,6 +2,7 @@
 #define PLAYGAME_H__
 #include <stdio.h>
 #include <SDL2/SDL_image.h>
+#include "game.h"
 
 struct game_status
 {
@@ -43,5 +44,11 @@ struct image_cache_item
     int w;
     int h;
 } typedef image_cache_item;
+
+struct parentheses
+{
+  int open;
+  int close;
+} typedef parentheses;
 
 #endif

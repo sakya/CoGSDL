@@ -4,7 +4,7 @@
 void pg_init();
 void pg_dispose();
 void pg_exec();
-void pg_renderText(const char* text, int startY);
+void pg_renderText(const char* text);
 int pg_renderPageBreak();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
@@ -16,6 +16,12 @@ char* pg_getVarValue(const char *varName);
 int pg_setVarValue(const char *varName, const char *value);
 void pg_clearTempVars();
 void pg_clearChoices();
+/// @brief Get the next line from text
+/// @param text The string
+/// @param position The starting position
+/// @param maxWidth The maximum width in pixels of the rendered line
+/// @return A line of text or NULL. The position is updated with the position of the next line
+char* pg_getNextLine(const char *text, int* position, int maxWidth);
 
 /// @brief Manage the image and text_image command
 /// @param text The text
@@ -93,7 +99,7 @@ void drawGame()
   }
 
   if (pg_game_status.text != NULL) {
-    pg_renderText(pg_game_status.text, -1);
+    pg_renderText(pg_game_status.text);
     if (!pg_game_status.textFullyRendered) {
       pg_game_status.canScrollDown = 1;
     }
@@ -111,7 +117,7 @@ void drawGame()
     for (int i = 0; i < pg_game_status.choicesCount; i++) {
       pg_game_status.lastRenderedY += lineHeight;
       choice *choice = &pg_game_status.choices[i];
-      pg_renderText(choice->text, pg_game_status.lastRenderedY + pg_game_status.scrollY);
+      //pg_renderText(choice->text, pg_game_status.lastRenderedY + pg_game_status.scrollY);
     }
   }
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
@@ -180,25 +186,22 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderText(const char* text, int startY)
+void pg_renderText(const char* text)
 {
   if (text == NULL || strlen(text) == 0)
     return;
 
-  int isMainText = (startY < 0) ? 1 : 0;
   int end = strlen(text);
   int idx = 0;
   int x = TEXT_MARGIN;
-  int y = isMainText ? HEADER_HEIGHT + TEXT_MARGIN : startY;
+  int y = HEADER_HEIGHT + TEXT_MARGIN;
   int wordWidth;
   char test[5];
   char word[256];
   TTF_Font *font = _Globals.textFont;
 
-  if (isMainText) {
-    pg_game_status.textFullyRendered = 0;
-    pg_game_status.lastRenderedY = 0;
-  }
+  pg_game_status.textFullyRendered = 0;
+  pg_game_status.lastRenderedY = 0;
 
   while(1) {
     // Check newlines
@@ -215,8 +218,7 @@ void pg_renderText(const char* text, int startY)
     // Find the next word to print
     int wordEnd = pg_indexOfWordEnd(text, idx);
     if (wordEnd < 0) {
-      if (isMainText)
-        pg_game_status.textFullyRendered = 1;
+      pg_game_status.textFullyRendered = 1;
       break;
     }
 
@@ -312,8 +314,7 @@ void pg_renderText(const char* text, int startY)
 
     idx += wordLen;
     if (idx >= end) {
-      if (isMainText)
-        pg_game_status.textFullyRendered = 1;
+      pg_game_status.textFullyRendered = 1;
       break;
     }
   }
@@ -719,7 +720,8 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
 int pg_manageIfCommand(const char *text)
 {
   char condition[4096];
-  subString(text, condition, 3, strlen(text) - 3);
+  int textLen = strlen(text);
+  subString(text, condition, 3, textLen - 3);
   trim(condition);
 
   logDebug("if condition=%s\n", condition);
@@ -731,9 +733,21 @@ int pg_manageIfCommand(const char *text)
   }
 
   // First check parentheses
-  int open = 0;
-  while ((open = indexOf(text, '(', open)) >= 0) {
-    int close = indexOf(text, ')', open);
+  parentheses par[20];
+  int parIdx = 0;
+  int idx = 0;
+  while (idx < textLen) {
+    if (text[idx] == '(') {
+      par[parIdx++].open = idx;
+    } else if (text[idx] == ')') {
+      for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
+        if (par[pIdx].close == 0) {
+          par[pIdx].close = idx;
+          break;
+        }
+      }
+    }
+    idx++;
   }
 
   logWarning("If not managed: %s\n", text);
@@ -981,4 +995,88 @@ void pg_clearChoices()
     pg_game_status.choices = NULL;
   }
   pg_game_status.choicesCount = 0;
+}
+
+char* pg_getNextLine(const char *text, int* startPosition, int maxWidth)
+{
+  if (!text || maxWidth <= 0)
+    return NULL;
+
+  int textLen = strlen(text);
+  if (*startPosition == textLen - 1)
+    return NULL;
+
+  char *res = NULL;
+  char test[5];
+  int width = 0;
+  int endOfLinePosition = *startPosition;
+  int endOfPreviousWordPosition = 0;
+  int i = *startPosition;
+
+  TTF_Font *font = _Globals.textFont;
+  do {
+    endOfLinePosition = i;
+    if (text[i] == '\n' || i == textLen) {
+      break;
+    }
+
+    // Check font change:
+    if (text[i] == '[')  {
+      // Italic
+      if (i + 2 < textLen && text[i + 1] == 'i' && text[i + 2] == ']') {
+        font = _Globals.textItalicFont;
+        i += 2;
+        continue;
+      } else if (i + 3 < textLen && text[i + 1] == '/' && text[i + 2] == 'i' && text[i + 3] == ']') {
+        font = _Globals.textFont;
+        i += 3;
+        continue;
+      }
+
+      // Bold
+      if (i + 2 < textLen && text[i + 1] == 'b' && text[i + 2] == ']') {
+        font = _Globals.textBoldFont;
+        i += 2;
+        continue;
+      } else if (i + 3 < textLen && text[i + 1] == '/' && text[i + 2] == 'b' && text[i + 3] == ']') {
+        font = _Globals.textFont;
+        i += 3;
+        continue;
+      }
+    }
+
+    int charBytes = u8seqlen(&text[i]);
+    memset(&test, 0, sizeof(test));
+    strncpy(test, &text[i], charBytes);
+    int charWidth;
+    TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
+    if (width + charWidth > maxWidth) {
+      endOfLinePosition = endOfPreviousWordPosition;
+      break;
+    }
+    width += charWidth;
+    if (text[i] == ' ' || text[i] == '\t') {
+      endOfPreviousWordPosition = i;
+    }
+  } while (u8nextchar(text, &i));
+
+  res = malloc(endOfLinePosition - *startPosition + 1);
+  int idx = 0;
+  for (int j = *startPosition; j <= endOfLinePosition; j++) {
+    if (text[j] != '\r' && (idx > 0 || text[j] != ' '))
+      res[idx++] = text[j];
+  }
+  res[idx] = '\0';
+
+  // Remove trailing spaces
+  while (res[--idx] == ' ') {
+    res[idx] = '\0';
+  }
+
+  if (text[endOfLinePosition] == '\n') {
+    *startPosition = endOfLinePosition + 1;
+  } else {
+    *startPosition = endOfLinePosition;
+  }
+  return res;
 }
