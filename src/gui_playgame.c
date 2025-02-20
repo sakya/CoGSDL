@@ -24,11 +24,10 @@ void pg_clearChoices();
 char* pg_getNextLine(const char *text, int* position, int maxWidth);
 
 /// @brief Manage the image and text_image command
-/// @param text The text
-/// @param start The position where the command can be found in text
+/// @param text The text of the line with
 /// @param y The y value where the image have to be drawn
 /// @return The height of the image
-int pg_manageImageCommand(const char *text, int start, int y);
+int pg_manageImageCommand(const char *text, int y);
 /// @brief Manage an if
 /// @param text The text of the line with the if command
 /// @return The new file position where continue execution
@@ -191,130 +190,77 @@ void pg_renderText(const char* text)
   if (text == NULL || strlen(text) == 0)
     return;
 
-  int end = strlen(text);
-  int idx = 0;
   int x = TEXT_MARGIN;
   int y = HEADER_HEIGHT + TEXT_MARGIN;
-  int wordWidth;
   char test[5];
-  char word[256];
   TTF_Font *font = _Globals.textFont;
 
-  pg_game_status.textFullyRendered = 0;
+  pg_game_status.textFullyRendered = 1;
   pg_game_status.lastRenderedY = 0;
 
-  while(1) {
-    // Check newlines
-    while (text[idx] == '\n') {
-      y += lineHeight;
-      x = TEXT_MARGIN;
-      idx++;
-    }
-
-    if (y - pg_game_status.scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
-      break;
-    }
-
-    // Find the next word to print
-    int wordEnd = pg_indexOfWordEnd(text, idx);
-    if (wordEnd < 0) {
-      pg_game_status.textFullyRendered = 1;
-      break;
-    }
-
-    if (wordEnd - idx + 1 > sizeof(word)) {
-      logWarning("Word too long: %i chars", wordEnd - idx);
-      break;
-    }
-    subString(text, word, idx, wordEnd - idx + 1);
-    if (startsWithWord("*text_image", word) || startsWithWord("*image", word)) {
+  char *line = NULL;
+  int linePos = 0;
+  while ((line = pg_getNextLine(pg_game_status.text, &linePos, _Globals.windowWidth - 2 * TEXT_MARGIN)) != NULL) {
+    if (startsWithWord("*text_image", line) || startsWithWord("*image", line)) {
       // Draw image
       // text_image filename.png alignment optional text
       // image filename.png alignment optional text
-      int imagHeight = pg_manageImageCommand(text, idx, y - pg_game_status.scrollY);
+      int imagHeight = pg_manageImageCommand(line, y - pg_game_status.scrollY);
       y += imagHeight;
       x = TEXT_MARGIN;
-      while (text[idx++] != '\n');
+      free(line);
       continue;
     }
 
-    TTF_MeasureUTF8(font, word, _Globals.windowWidth, &wordWidth, NULL);
-    int i = 0;
-    if (x + wordWidth + TEXT_MARGIN * 2 >= _Globals.windowWidth) {
-      int needsNewline = 1;
-      if (word[strlen(word) - 1] == ' ') {
-        word[strlen(word) - 1] = '\0';
-        TTF_MeasureUTF8(font, word, _Globals.windowWidth, &wordWidth, NULL);
-        if (x + wordWidth + TEXT_MARGIN * 2 < _Globals.windowWidth) {
-          needsNewline = 0;
-        } else {
-          word[strlen(word)] = ' ';
-        }
-      }
-
-      if (needsNewline) {
-        y += lineHeight;
-        x = TEXT_MARGIN;
-        if (y - pg_game_status.scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
-          break;
-        }
-        // Remove whitespace at the beginning of the line
-        if (word[i] == ' ')
-          i++;
-      }
+    if (y < pg_game_status.scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
+      free(line);
+      y += lineHeight;
+      continue;
     }
 
-    int wordLen = strlen(word);
+    int lineLen = strlen(line);
+    int i = 0;
     do {
-      if (word[i] == '\n') {
-        y += lineHeight;
-        x = TEXT_MARGIN;
-        if (y - pg_game_status.scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
-          break;
-        }
-        continue;
-      }
-
       // Check font change:
-      if (word[i] == '[')  {
+      if (line[i] == '[')  {
         // Italic
-        if (i + 2 < wordLen && word[i + 1] == 'i' && word[i + 2] == ']') {
+        if (i + 2 < lineLen && line[i + 1] == 'i' && line[i + 2] == ']') {
           font = _Globals.textItalicFont;
           i += 2;
           continue;
-        } else if (i + 3 < wordLen && word[i + 1] == '/' && word[i + 2] == 'i' && word[i + 3] == ']') {
+        } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'i' && line[i + 3] == ']') {
           font = _Globals.textFont;
           i += 3;
           continue;
         }
 
         // Bold
-        if (i + 2 < wordLen && word[i + 1] == 'b' && word[i + 2] == ']') {
+        if (i + 2 < lineLen && line[i + 1] == 'b' && line[i + 2] == ']') {
           font = _Globals.textBoldFont;
           i += 2;
           continue;
-        } else if (i + 3 < wordLen && word[i + 1] == '/' && word[i + 2] == 'b' && word[i + 3] == ']') {
+        } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'b' && line[i + 3] == ']') {
           font = _Globals.textFont;
           i += 3;
           continue;
         }
       }
 
-      int charBytes = u8seqlen(&word[i]);
+      int charBytes = u8seqlen(&line[i]);
       memset(&test, 0, sizeof(test));
-      strncpy(test, &word[i], charBytes);
+      strncpy(test, &line[i], charBytes);
       int charWidth;
       TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
-      if (y >= pg_game_status.scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
-        sdlWriteText(font, _theme->textColor, test, x, y - pg_game_status.scrollY, 0, 0);
-        pg_game_status.lastRenderedY = y - pg_game_status.scrollY + lineHeight;
-      }
+      sdlWriteText(font, _theme->textColor, test, x, y - pg_game_status.scrollY, 0, 0);
+      pg_game_status.lastRenderedY = y - pg_game_status.scrollY + lineHeight;
       x += charWidth;
-    } while (u8nextchar(word, &i));
+    } while (u8nextchar(line, &i));
 
-    idx += wordLen;
-    if (idx >= end) {
-      pg_game_status.textFullyRendered = 1;
+    free(line);
+    y += lineHeight;
+    x = TEXT_MARGIN;
+    if (y - pg_game_status.scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
+      pg_game_status.textFullyRendered = 0;
       break;
     }
   }
@@ -631,12 +577,12 @@ void pg_goToNextScene()
   fseek(pg_game_status.fp, 0L, SEEK_SET);
 }
 
-int pg_manageImageCommand(const char *text, int startFrom, int y)
+int pg_manageImageCommand(const char *text, int y)
 {
   char imageName[255];
   char alignment[64];
 
-  int start = indexOfWordBreak(text, startFrom);
+  int start = indexOfWordBreak(text, 0);
   if (start < 0)
     return 0;
 
@@ -710,8 +656,9 @@ int pg_manageImageCommand(const char *text, int startFrom, int y)
       }
     }
 
-    SDL_RenderCopyEx(_Globals.renderer, image->texture, &srcRect, &destRect, 0, NULL, SDL_FLIP_NONE);
-
+    if (destRect.h > 0) {
+      SDL_RenderCopyEx(_Globals.renderer, image->texture, &srcRect, &destRect, 0, NULL, SDL_FLIP_NONE);
+    }
     return res;
   }
   return 0;
@@ -1063,7 +1010,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth)
   res = malloc(endOfLinePosition - *startPosition + 1);
   int idx = 0;
   for (int j = *startPosition; j <= endOfLinePosition; j++) {
-    if (text[j] != '\r' && (idx > 0 || text[j] != ' '))
+    if (text[j] != '\r' && text[j] != '\n' && (idx > 0 || text[j] != ' '))
       res[idx++] = text[j];
   }
   res[idx] = '\0';
