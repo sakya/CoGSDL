@@ -4,7 +4,7 @@
 void pg_init();
 void pg_dispose();
 void pg_exec();
-void pg_renderText(const char* text);
+void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY);
 int pg_renderPageBreak();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
@@ -98,7 +98,7 @@ void drawGame()
   }
 
   if (pg_game_status.text != NULL) {
-    pg_renderText(pg_game_status.text);
+    pg_renderText(pg_game_status.text, TEXT_MARGIN, HEADER_HEIGHT + TEXT_MARGIN, _Globals.windowWidth - 2 * TEXT_MARGIN, pg_game_status.scrollY);
     if (!pg_game_status.textFullyRendered) {
       pg_game_status.canScrollDown = 1;
     }
@@ -115,8 +115,8 @@ void drawGame()
   if (pg_game_status.textFullyRendered && pg_game_status.choicesCount > 0) {
     for (int i = 0; i < pg_game_status.choicesCount; i++) {
       pg_game_status.lastRenderedY += lineHeight;
-      choice *choice = &pg_game_status.choices[i];
-      //pg_renderText(choice->text, pg_game_status.lastRenderedY + pg_game_status.scrollY);
+      //choice *choice = &pg_game_status.choices[i];
+      //pg_renderText(choice->text, TEXT_MARGIN * 2, pg_game_status.lastRenderedY, _Globals.windowWidth - 4 * TEXT_MARGIN, pg_game_status.scrollY);
     }
   }
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
@@ -185,13 +185,11 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderText(const char* text)
+void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
 {
   if (text == NULL || strlen(text) == 0)
     return;
 
-  int x = TEXT_MARGIN;
-  int y = HEADER_HEIGHT + TEXT_MARGIN;
   char test[5];
   TTF_Font *font = _Globals.textFont;
 
@@ -200,19 +198,19 @@ void pg_renderText(const char* text)
 
   char *line = NULL;
   int linePos = 0;
-  while ((line = pg_getNextLine(pg_game_status.text, &linePos, _Globals.windowWidth - 2 * TEXT_MARGIN)) != NULL) {
+  while ((line = pg_getNextLine(pg_game_status.text, &linePos, maxWidth)) != NULL) {
     if (startsWithWord("*text_image", line) || startsWithWord("*image", line)) {
       // Draw image
       // text_image filename.png alignment optional text
       // image filename.png alignment optional text
-      int imagHeight = pg_manageImageCommand(line, y - pg_game_status.scrollY);
+      int imagHeight = pg_manageImageCommand(line, y - scrollY);
       y += imagHeight;
       x = TEXT_MARGIN;
       free(line);
       continue;
     }
 
-    if (y < pg_game_status.scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
+    if (y < scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
       free(line);
       y += lineHeight;
       continue;
@@ -251,15 +249,15 @@ void pg_renderText(const char* text)
       strncpy(test, &line[i], charBytes);
       int charWidth;
       TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
-      sdlWriteText(font, _theme->textColor, test, x, y - pg_game_status.scrollY, 0, 0);
-      pg_game_status.lastRenderedY = y - pg_game_status.scrollY + lineHeight;
+      sdlWriteText(font, _theme->textColor, test, x, y - scrollY, 0, 0);
+      pg_game_status.lastRenderedY = y - scrollY + lineHeight;
       x += charWidth;
     } while (u8nextchar(line, &i));
 
     free(line);
     y += lineHeight;
     x = TEXT_MARGIN;
-    if (y - pg_game_status.scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
+    if (y - scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
       pg_game_status.textFullyRendered = 0;
       break;
     }
