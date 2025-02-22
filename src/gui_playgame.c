@@ -252,11 +252,8 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
         int charBytes = u8seqlen(&line[i]);
         memset(&test, 0, sizeof(test));
         strncpy(test, &line[i], charBytes);
-        int charWidth;
-        TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
-        sdlWriteText(font, _theme->textColor, test, x, y - scrollY, 0, 0);
+        x += sdlWriteText(font, _theme->textColor, test, x, y - scrollY, 0, 0);
         pg_game_status.lastRenderedY = y - scrollY + lineHeight;
-        x += charWidth;
       } while (u8nextchar(line, &i));
     }
 

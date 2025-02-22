@@ -211,7 +211,7 @@ void trim(char *string);
 /// @return 1 if the file exists
 int fileExists(const char *filename);
 
-void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
+int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight);
 

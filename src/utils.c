@@ -157,20 +157,20 @@ int fileExists (const char *filename) {
   return (stat(filename, &buffer) == 0) ? 1 : 0;
 }
 
-void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
+int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
 {
   if (!text || !font || !strlen(text))
-    return;
+    return 0;
   SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
   if (surface == NULL) {
     logWarning("Failed to create surface for text\n");
-    return;
+    return 0;
   }
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
   if (texture == NULL) {
     SDL_FreeSurface(surface);
     logWarning("Failed to create texture for text\n");
-    return;
+    return 0;
   }
 
   SDL_Rect rect;
@@ -183,6 +183,8 @@ void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int
 
   SDL_FreeSurface(surface);
   SDL_DestroyTexture(texture);
+
+  return rect.w;
 }
 
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight)

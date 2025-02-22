@@ -79,7 +79,6 @@ int init()
 
   _Globals.logLevel = Debug;
   _Globals.status = MainMenu;
-  _Globals.games = NULL;
   _Globals.gamesCount = listGames("./games/", _Globals.games);
 
   return 0;
