@@ -3,8 +3,8 @@ VERSION=1.0
 
 CC=gcc
 SDL2FLAGS=$(shell pkg-config --cflags --libs sdl2 SDL2_image SDL2_ttf SDL2_mixer)
-CFLAGS+=-I$(INC_DIR) -Wall -g
-LDFLAGS=-lm
+CFLAGS+=-I$(INC_DIR) -Wall -g -fsanitize=address
+LDFLAGS=-lm -fsanitize=address
 
 RM=rm
 RMFLAGS=-rf

@@ -210,8 +210,8 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
     }
 
     if (y < scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
-      free(line);
       y += lineHeight;
+      free(line);
       continue;
     }
 
@@ -956,7 +956,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth)
     return NULL;
 
   int textLen = strlen(text);
-  if (*startPosition == textLen - 1)
+  if (!textLen || *startPosition == textLen - 1)
     return NULL;
 
   char *res = NULL;
@@ -1014,15 +1014,16 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth)
   } while (u8nextchar(text, &i));
 
   res = malloc(endOfLinePosition - *startPosition + 1);
+  memset(res, 0, endOfLinePosition - *startPosition + 1);
   int idx = 0;
-  for (int j = *startPosition; j <= endOfLinePosition; j++) {
+  for (int j = *startPosition; j < endOfLinePosition; j++) {
     if (text[j] != '\r' && text[j] != '\n' && (idx > 0 || text[j] != ' '))
       res[idx++] = text[j];
   }
   res[idx] = '\0';
 
   // Remove trailing spaces
-  while (res[--idx] == ' ') {
+  while (idx > 0 && res[--idx] == ' ') {
     res[idx] = '\0';
   }
 

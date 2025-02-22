@@ -154,12 +154,12 @@ int isEmpty(const char *string)
 
 int fileExists (const char *filename) {
   struct stat buffer;
-  return (stat (filename, &buffer) == 0) ? 1 : 0;
+  return (stat(filename, &buffer) == 0) ? 1 : 0;
 }
 
 void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
 {
-  if (!strlen(text) || strlen(text) == 0)
+  if (!text || !font || !strlen(text))
     return;
   SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
   if (surface == NULL) {
