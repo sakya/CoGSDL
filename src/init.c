@@ -12,7 +12,7 @@ int init()
   locale = setlocale(LC_ALL, "");
   logInfo("\tLocale: %s\n", locale);
 
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
     logError("\tSDL_Init Fail: %s\n", SDL_GetError());
     return -1;
   }
@@ -79,6 +79,7 @@ int init()
 
   _Globals.logLevel = Debug;
   _Globals.status = MainMenu;
+  _Globals.games = NULL;
   _Globals.gamesCount = listGames("./games/", _Globals.games);
 
   return 0;

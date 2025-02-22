@@ -6,6 +6,7 @@ void pg_dispose();
 void pg_exec();
 void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY);
 int pg_renderPageBreak();
+int pg_renderChoice();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
@@ -18,10 +19,11 @@ void pg_clearTempVars();
 void pg_clearChoices();
 /// @brief Get the next line from text
 /// @param text The string
-/// @param position The starting position
+/// @param position The starting position. Updated to the starting position of the next line.
 /// @param maxWidth The maximum width in pixels of the rendered line
+/// @param wordWrap Set to 1 if the line was wrapped
 /// @return A line of text or NULL. The position is updated with the position of the next line
-char* pg_getNextLine(const char *text, int* position, int maxWidth);
+char *pg_getNextLine(const char *text, int *position, int maxWidth, int *wordWrap);
 
 /// @brief Manage the image and text_image command
 /// @param text The text of the line with
@@ -113,11 +115,7 @@ void drawGame()
   }
 
   if (pg_game_status.textFullyRendered && pg_game_status.choicesCount > 0) {
-    for (int i = 0; i < pg_game_status.choicesCount; i++) {
-      pg_game_status.lastRenderedY += lineHeight;
-      //choice *choice = &pg_game_status.choices[i];
-      //pg_renderText(choice->text, TEXT_MARGIN * 2, pg_game_status.lastRenderedY, _Globals.windowWidth - 4 * TEXT_MARGIN, pg_game_status.scrollY);
-    }
+    pg_renderChoice();
   }
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }
@@ -198,7 +196,8 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
 
   char *line = NULL;
   int linePos = 0;
-  while ((line = pg_getNextLine(pg_game_status.text, &linePos, maxWidth)) != NULL) {
+  int wrap = 0;
+  while ((line = pg_getNextLine(pg_game_status.text, &linePos, maxWidth, &wrap)) != NULL) {
     if (startsWithWord("*text_image", line) || startsWithWord("*image", line)) {
       // Draw image
       // text_image filename.png alignment optional text
@@ -293,6 +292,17 @@ int pg_renderPageBreak()
     sdlWriteText(_Globals.defaultFont, _theme->textColor, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
 
     return 1;
+  }
+
+  return 0;
+}
+
+int pg_renderChoice()
+{
+  for (int i = 0; i < pg_game_status.choicesCount; i++) {
+    pg_game_status.lastRenderedY += lineHeight;
+    // choice *choice = &pg_game_status.choices[i];
+    // pg_renderText(choice->text, TEXT_MARGIN * 2, pg_game_status.lastRenderedY, _Globals.windowWidth - 4 * TEXT_MARGIN, pg_game_status.scrollY);
   }
 
   return 0;
@@ -950,7 +960,7 @@ void pg_clearChoices()
   pg_game_status.choicesCount = 0;
 }
 
-char* pg_getNextLine(const char *text, int* startPosition, int maxWidth)
+char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap)
 {
   if (!text || maxWidth <= 0)
     return NULL;
@@ -1005,6 +1015,8 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth)
     TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
     if (width + charWidth > maxWidth) {
       endOfLinePosition = endOfPreviousWordPosition;
+      if (wordWrap != NULL)
+        *wordWrap = 1;
       break;
     }
     width += charWidth;
