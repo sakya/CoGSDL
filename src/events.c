@@ -7,10 +7,8 @@ void manageEvents()
 {
   SDL_Event event;
   Uint64 eventTime = SDL_GetPerformanceCounter();
-  while (SDL_PollEvent(&event))
-  {
-    switch (event.type)
-    {
+  while (SDL_PollEvent(&event)) {
+    switch (event.type) {
       case SDL_QUIT:
         _Globals.quit = 1;
         return;

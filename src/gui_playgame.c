@@ -203,8 +203,7 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
       // Draw image
       // text_image filename.png alignment optional text
       // image filename.png alignment optional text
-      int imagHeight = pg_manageImageCommand(line, y - scrollY);
-      y += imagHeight;
+      y += pg_manageImageCommand(line, y - scrollY);
       x = TEXT_MARGIN;
       free(line);
       continue;
@@ -216,43 +215,51 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
       continue;
     }
 
+    if (y - scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
+      pg_game_status.textFullyRendered = 0;
+      free(line);
+      break;
+    }
+
     int lineLen = strlen(line);
-    int i = 0;
-    do {
-      // Check font change:
-      if (line[i] == '[')  {
-        // Italic
-        if (i + 2 < lineLen && line[i + 1] == 'i' && line[i + 2] == ']') {
-          font = _Globals.textItalicFont;
-          i += 2;
-          continue;
-        } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'i' && line[i + 3] == ']') {
-          font = _Globals.textFont;
-          i += 3;
-          continue;
+    if (lineLen > 0) {
+      int i = 0;
+      do {
+        // Check font change:
+        if (line[i] == '[') {
+          // Italic
+          if (i + 2 < lineLen && line[i + 1] == 'i' && line[i + 2] == ']') {
+            font = _Globals.textItalicFont;
+            i += 2;
+            continue;
+          } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'i' && line[i + 3] == ']') {
+            font = _Globals.textFont;
+            i += 3;
+            continue;
+          }
+
+          // Bold
+          if (i + 2 < lineLen && line[i + 1] == 'b' && line[i + 2] == ']') {
+            font = _Globals.textBoldFont;
+            i += 2;
+            continue;
+          } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'b' && line[i + 3] == ']') {
+            font = _Globals.textFont;
+            i += 3;
+            continue;
+          }
         }
 
-        // Bold
-        if (i + 2 < lineLen && line[i + 1] == 'b' && line[i + 2] == ']') {
-          font = _Globals.textBoldFont;
-          i += 2;
-          continue;
-        } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'b' && line[i + 3] == ']') {
-          font = _Globals.textFont;
-          i += 3;
-          continue;
-        }
-      }
-
-      int charBytes = u8seqlen(&line[i]);
-      memset(&test, 0, sizeof(test));
-      strncpy(test, &line[i], charBytes);
-      int charWidth;
-      TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
-      sdlWriteText(font, _theme->textColor, test, x, y - scrollY, 0, 0);
-      pg_game_status.lastRenderedY = y - scrollY + lineHeight;
-      x += charWidth;
-    } while (u8nextchar(line, &i));
+        int charBytes = u8seqlen(&line[i]);
+        memset(&test, 0, sizeof(test));
+        strncpy(test, &line[i], charBytes);
+        int charWidth;
+        TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
+        sdlWriteText(font, _theme->textColor, test, x, y - scrollY, 0, 0);
+        pg_game_status.lastRenderedY = y - scrollY + lineHeight;
+        x += charWidth;
+      } while (u8nextchar(line, &i));
+    }
 
     free(line);
     y += lineHeight;
@@ -595,7 +602,7 @@ int pg_manageImageCommand(const char *text, int y)
   subString(text, alignment, start + 1, idx - start - 1);
 
   image_cache_item *image = pg_get_image_from_cache(imageName);
-  if (image->texture) {
+  if (image && image->texture) {
     SDL_Rect destRect;
     destRect.x = TEXT_MARGIN;
     destRect.y = y;
@@ -867,6 +874,7 @@ image_cache_item *pg_add_image_to_cache(const char *name)
   SDL_Surface* surface = IMG_Load(filePath);
   if (surface == NULL) {
     logWarning("Failed to load image from %s", filePath);
+    return NULL;
   }
 
   image_cache[image_cache_count].w = surface->w;

@@ -159,10 +159,19 @@ int fileExists (const char *filename) {
 
 void sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
 {
-  if (!strlen(text))
+  if (!strlen(text) || strlen(text) == 0)
     return;
   SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
+  if (surface == NULL) {
+    logWarning("Failed to create surface for text\n");
+    return;
+  }
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
+  if (texture == NULL) {
+    SDL_FreeSurface(surface);
+    logWarning("Failed to create texture for text\n");
+    return;
+  }
 
   SDL_Rect rect;
   rect.x = x;
