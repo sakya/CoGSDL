@@ -26,10 +26,11 @@ void pg_clearChoices();
 char *pg_getNextLine(const char *text, int *position, int maxWidth, int *wordWrap);
 
 /// @brief Manage the image and text_image command
+/// @param surface The surface to blit the image
 /// @param text The text of the line with
 /// @param y The y value where the image have to be drawn
 /// @return The height of the image
-int pg_manageImageCommand(const char *text, int y);
+int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
 /// @brief Manage an if
 /// @param text The text of the line with the if command
 /// @return The new file position where continue execution
@@ -208,21 +209,13 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderTextToSurface(const char* text, int width, int height, int scrollY)
+void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
 {
-  if (text_surface) {
-    SDL_FreeSurface(text_surface);
-    text_surface = NULL;
-  }
-  if (text == NULL || strlen(text) == 0)
+  if (!surface || text == NULL || strlen(text) == 0)
     return;
 
-  text_surface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
-  if (text_surface == NULL) {
-    logWarning("Failed to create text surface");
-    return;
-  }
-  SDL_FillRect(text_surface, NULL, SDL_MapRGBA(text_surface->format, _theme->backgroundColor.r, _theme->backgroundColor.g, _theme->backgroundColor.b, 0));
+  int width = surface->w;
+  int height = surface->h;
 
   char test[5];
   TTF_Font *font = _Globals.textFont;
@@ -235,12 +228,12 @@ void pg_renderTextToSurface(const char* text, int width, int height, int scrollY
   char *line = NULL;
   int linePos = 0;
   int wrap = 0;
-  while ((line = pg_getNextLine(pg_game_status.text, &linePos, width, &wrap)) != NULL) {
+  while ((line = pg_getNextLine(text, &linePos, width, &wrap)) != NULL) {
     if (startsWithWord("*text_image", line) || startsWithWord("*image", line)) {
       // Draw image
       // text_image filename.png alignment optional text
       // image filename.png alignment optional text
-      y += pg_manageImageCommand(line, y);
+      y += pg_manageImageCommand(surface, line, y);
       x = TEXT_MARGIN;
       free(line);
       continue;
@@ -252,7 +245,7 @@ void pg_renderTextToSurface(const char* text, int width, int height, int scrollY
       continue;
     }
 
-    if (y + line_height > text_surface->h) {
+    if (y + line_height > height) {
       pg_game_status.textFullyRendered = 0;
       free(line);
       break;
@@ -304,7 +297,7 @@ void pg_renderTextToSurface(const char* text, int width, int height, int scrollY
         dest_rect.w = source_rect.w;
         dest_rect.h = source_rect.h;
 
-        if (SDL_BlitSurface(char_surface, &source_rect, text_surface, &dest_rect)) {
+        if (SDL_BlitSurface(char_surface, &source_rect, surface, &dest_rect)) {
           logError("SDL_BlitSurface Fail: %s\n", SDL_GetError());
         }
         SDL_FreeSurface(char_surface);
@@ -326,8 +319,15 @@ void pg_renderTextToSurface(const char* text, int width, int height, int scrollY
 
 void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY)
 {
-  if (text_surface == NULL)
-    pg_renderTextToSurface(text, width, height, scrollY);
+  if (text_surface == NULL) {
+    text_surface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
+    if (text_surface == NULL) {
+      logWarning("Failed to create text surface");
+      return;
+    }
+    SDL_FillRect(text_surface, NULL, SDL_MapRGBA(text_surface->format, _theme->backgroundColor.r, _theme->backgroundColor.g, _theme->backgroundColor.b, 0));
+    pg_renderTextToSurface(text_surface, text, scrollY);
+  }
 
   sdlBlitImage(text_surface, 0, HEADER_HEIGHT, 0, 0);
 }
@@ -659,7 +659,7 @@ void pg_goToNextScene()
   fseek(pg_game_status.fp, 0L, SEEK_SET);
 }
 
-int pg_manageImageCommand(const char *text, int y)
+int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
 {
   char imageName[255];
   char alignment[64];
@@ -722,14 +722,14 @@ int pg_manageImageCommand(const char *text, int y)
       destRect.h -= deltaY;
     }
 
-    if (y + destRect.h > text_surface->h) {
-      int deltaY = y + destRect.h - text_surface->h;
+    if (y + destRect.h > surface->h) {
+      int deltaY = y + destRect.h - surface->h;
       int srcDeltaY = srcRect.h * deltaY / destRect.h;
       srcRect.h -= srcDeltaY;
       destRect.h -= deltaY;
     }
 
-    int deltaX = text_surface->w - destRect.w;
+    int deltaX = surface->w - destRect.w;
     if (deltaX > 0) {
       if (strcmp(alignment, "center") == 0) {
         destRect.x += deltaX / 2;
@@ -739,7 +739,7 @@ int pg_manageImageCommand(const char *text, int y)
     }
 
     if (destRect.h > 0) {
-      SDL_UpperBlitScaled(image->surface, &srcRect, text_surface, &destRect);
+      SDL_UpperBlitScaled(image->surface, &srcRect, surface, &destRect);
     }
     return res;
   }
