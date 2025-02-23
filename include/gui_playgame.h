@@ -40,7 +40,7 @@ struct game_status
 struct image_cache_item
 {
     char *name;
-    SDL_Texture *texture;
+    SDL_Surface *surface;
     int w;
     int h;
 } typedef image_cache_item;

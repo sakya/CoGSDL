@@ -1,7 +1,5 @@
 #include "CoGSDL.h"
 
-const int HEADER_HEIGHT = 30;
-
 SDL_Surface *app_icon = NULL;
 SDL_Surface *button_x = NULL;
 SDL_Surface *button_y = NULL;

@@ -60,6 +60,7 @@ static game_status pg_game_status;
 static int lineHeight = 0;
 static image_cache_item image_cache[32];
 int image_cache_count = 0;
+SDL_Surface* text_surface = NULL;
 
 void drawGame()
 {
@@ -67,6 +68,8 @@ void drawGame()
     if (_Globals.input[_Keys.KeyDown] == 1) {
       _Globals.input[_Keys.KeyDown]= 0;
       pg_game_status.scrollY += lineHeight;
+      SDL_FreeSurface(text_surface);
+      text_surface = NULL;
     }
   }
 
@@ -75,6 +78,8 @@ void drawGame()
     pg_game_status.scrollY -= lineHeight;
     if (pg_game_status.scrollY < 0)
       pg_game_status.scrollY = 0;
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
   }
 
   if (_Globals.input[_Keys.KeyA] == 1) {
@@ -123,6 +128,11 @@ void drawGame()
 void pg_init()
 {
   pg_clear_image_cache();
+  if (text_surface) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
+  }
+
   char filePath[256];
   strcpy(filePath, runningGame->path);
   strcat(filePath, "/scenes/startup.txt");
@@ -164,6 +174,10 @@ void pg_dispose()
   pg_clear_image_cache();
   pg_clearTempVars();
   pg_clearChoices();
+  if (text_surface) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
+  }
 
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
@@ -183,10 +197,22 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
+void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int scrollY)
 {
+  if (text_surface) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
+  }
   if (text == NULL || strlen(text) == 0)
     return;
+
+  text_surface = SDL_CreateRGBSurface(0, _Globals.windowWidth - 2 * TEXT_MARGIN, _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN, 32, 0, 0, 0, 0);
+  if (text_surface == NULL) {
+    logWarning("Failed to create text surface");
+    return;
+  }
+
+  SDL_FillRect(text_surface, NULL, SDL_MapRGBA(text_surface->format, _theme->backgroundColor.r, _theme->backgroundColor.g, _theme->backgroundColor.b, 0));
 
   char test[5];
   TTF_Font *font = _Globals.textFont;
@@ -252,7 +278,25 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
         int charBytes = u8seqlen(&line[i]);
         memset(&test, 0, sizeof(test));
         strncpy(test, &line[i], charBytes);
-        x += sdlWriteText(font, _theme->textColor, test, x, y - scrollY, 0, 0);
+
+        SDL_Surface *char_surface = TTF_RenderUTF8_Blended(font, test, _theme->textColor);
+        SDL_Rect source_rect;
+        source_rect.x = 0;
+        source_rect.y = 0;
+        source_rect.w = char_surface->w;
+        source_rect.h = char_surface->h;
+
+        SDL_Rect dest_rect;
+        dest_rect.x = x;
+        dest_rect.y = y - HEADER_HEIGHT - TEXT_MARGIN - scrollY;
+        dest_rect.w = source_rect.w;
+        dest_rect.h = source_rect.h;
+
+        if (SDL_BlitSurface(char_surface, &source_rect, text_surface, &dest_rect)) {
+          logError("SDL_BlitSurface Fail: %s\n", SDL_GetError());
+        }
+        SDL_FreeSurface(char_surface);
+        x += source_rect.w;
         pg_game_status.lastRenderedY = y - scrollY + lineHeight;
         i += charBytes;
       }
@@ -266,6 +310,14 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
       break;
     }
   }
+}
+
+void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
+{
+  if (text_surface == NULL)
+    pg_renderTextToSurface(text, x, y, maxWidth, scrollY);
+
+  sdlBlitImage(text_surface, TEXT_MARGIN, HEADER_HEIGHT + TEXT_MARGIN, 0, 0);
 }
 
 void pg_expandVariables(char* text)
@@ -287,7 +339,7 @@ int pg_renderPageBreak()
     char next[] = "Next";
     int width;
     TTF_MeasureUTF8(_Globals.defaultFont, next, _Globals.windowWidth, &width, NULL);
-    sdlWriteText(_Globals.defaultFont, _theme->textColor, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
 
     return 1;
   }
@@ -315,6 +367,11 @@ void pg_exec()
     free(pg_game_status.text);
     pg_game_status.text = NULL;
   }
+  if (text_surface) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
+  }
+
   pg_game_status.showPageBreak = 0;
   pg_game_status.scrollY = 0;
   pg_clearChoices();
@@ -610,10 +667,10 @@ int pg_manageImageCommand(const char *text, int y)
   subString(text, alignment, start + 1, idx - start - 1);
 
   image_cache_item *image = pg_get_image_from_cache(imageName);
-  if (image && image->texture) {
+  if (image && image->surface) {
     SDL_Rect destRect;
     destRect.x = TEXT_MARGIN;
-    destRect.y = y;
+    destRect.y = y - HEADER_HEIGHT - TEXT_MARGIN;
     destRect.w = image->w;
     destRect.h = image->h;
 
@@ -649,7 +706,7 @@ int pg_manageImageCommand(const char *text, int y)
       srcRect.y += srcDeltaY;
       srcRect.h -= srcDeltaY;
 
-      destRect.y = HEADER_HEIGHT + TEXT_MARGIN;
+      destRect.y = 0;
       destRect.h -= deltaY;
     }
 
@@ -670,7 +727,7 @@ int pg_manageImageCommand(const char *text, int y)
     }
 
     if (destRect.h > 0) {
-      SDL_RenderCopyEx(_Globals.renderer, image->texture, &srcRect, &destRect, 0, NULL, SDL_FLIP_NONE);
+      SDL_UpperBlitScaled(image->surface, &srcRect, text_surface, &destRect);
     }
     return res;
   }
@@ -842,8 +899,8 @@ void pg_clear_image_cache()
   for (int i = 0; i < image_cache_count; i++) {
     free(image_cache[i].name);
     image_cache[i].name = NULL;
-    SDL_DestroyTexture(image_cache[i].texture);
-    image_cache[i].texture = NULL;
+    SDL_FreeSurface(image_cache[i].surface);
+    image_cache[i].surface = NULL;
     image_cache[i].w = 0;
     image_cache[i].h = 0;
   }
@@ -887,8 +944,7 @@ image_cache_item *pg_add_image_to_cache(const char *name)
 
   image_cache[image_cache_count].w = surface->w;
   image_cache[image_cache_count].h = surface->h;
-  image_cache[image_cache_count].texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
-  SDL_FreeSurface(surface);
+  image_cache[image_cache_count].surface = surface;
   return &image_cache[image_cache_count++];
 }
 

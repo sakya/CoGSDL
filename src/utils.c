@@ -210,11 +210,11 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
   rect.h = surface->h;
 
   float ratio = (float)rect.w / (float)rect.h;
-  if (rect.w > maxWidth) {
+  if (maxWidth > 0 && rect.w > maxWidth) {
     rect.w = maxWidth;
     rect.h = rect.w / ratio;
   }
-  if (rect.h > maxHeight) {
+  if (maxHeight > 0 && rect.h > maxHeight) {
     rect.h = maxHeight;
     rect.w = rect.h * ratio;
   }

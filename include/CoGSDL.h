@@ -21,8 +21,7 @@
 
 #define TAB_SIZE 2
 #define TEXT_MARGIN 5
-
-extern const int HEADER_HEIGHT;
+#define HEADER_HEIGHT 30
 
 extern const SDL_Color colorTitleText;
 
