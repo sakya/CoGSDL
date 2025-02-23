@@ -10,11 +10,11 @@ void drawGameSelectMenu()
     selectedIdx = 0;
   }
 
+  const int old_selected_idx = selectedIdx;
   const int items = (_Globals.windowHeight - HEADER_HEIGHT) / 52;
   if (_Globals.input[_Keys.KeyDown] == 1 && selectedIdx >= 0) {
     _Globals.input[_Keys.KeyDown] = 0;
     selectedIdx++;
-    Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx == _Globals.gamesCount) {
       selectedIdx = 0;
       firstIdx = 0;
@@ -28,7 +28,6 @@ void drawGameSelectMenu()
   } else if (_Globals.input[_Keys.KeyUp] == 1 && selectedIdx >= 0) {
     _Globals.input[_Keys.KeyUp] = 0;
     selectedIdx--;
-    Mix_PlayChannel(-1, sound_menu_change, 0);
     if (selectedIdx < 0) {
       selectedIdx = _Globals.gamesCount - 1;
       firstIdx = _Globals.gamesCount - items;
@@ -60,6 +59,10 @@ void drawGameSelectMenu()
 
     _Globals.status = MainMenu;
     return;
+  }
+
+  if (old_selected_idx != selectedIdx) {
+    Mix_PlayChannel(-1, sound_menu_change, 0);
   }
 
   if (_Globals.gamesCount > 0) {

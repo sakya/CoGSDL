@@ -38,6 +38,12 @@ extern Mix_Chunk* sound_menu_change;
 extern game* runningGame;
 extern SDL_Surface *runningGameIcon;
 
+enum scroll_type
+{
+  scroll_line = 0,
+  scroll_page = 1
+};
+
 enum status
 {
   MainMenu = 0,
@@ -58,6 +64,7 @@ enum logLevel
 
 struct CoGSDL {
   enum logLevel logLevel;
+  enum scroll_type scroll;
   int quit;
   int32_t displayWidth;
   int32_t displayHeight;

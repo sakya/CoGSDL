@@ -15,6 +15,7 @@ SDL_Surface *runningGameIcon = NULL;
 
 CoGSDL _Globals = {
   0,
+  scroll_page,
   0,
   0,
   0,

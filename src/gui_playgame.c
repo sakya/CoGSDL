@@ -57,29 +57,27 @@ image_cache_item* pg_get_image_from_cache(const char *name);
 image_cache_item* pg_add_image_to_cache(const char *name);
 
 static game_status pg_game_status;
-static int lineHeight = 0;
+static int line_height = 0;
 static image_cache_item image_cache[32];
-int image_cache_count = 0;
-SDL_Surface* text_surface = NULL;
+static int image_cache_count = 0;
+static SDL_Surface* text_surface = NULL;
+static int scroll_height;
 
 void drawGame()
 {
+  int scrollY = pg_game_status.scrollY;
   if (pg_game_status.canScrollDown) {
     if (_Globals.input[_Keys.KeyDown] == 1) {
       _Globals.input[_Keys.KeyDown]= 0;
-      pg_game_status.scrollY += lineHeight;
-      SDL_FreeSurface(text_surface);
-      text_surface = NULL;
+      pg_game_status.scrollY += scroll_height;
     }
   }
 
   if (_Globals.input[_Keys.KeyUp] == 1) {
     _Globals.input[_Keys.KeyUp]= 0;
-    pg_game_status.scrollY -= lineHeight;
+    pg_game_status.scrollY -= scroll_height;
     if (pg_game_status.scrollY < 0)
       pg_game_status.scrollY = 0;
-    SDL_FreeSurface(text_surface);
-    text_surface = NULL;
   }
 
   if (_Globals.input[_Keys.KeyA] == 1) {
@@ -96,6 +94,11 @@ void drawGame()
 
     _Globals.status = GameSelect;
     return;
+  }
+
+  if (scrollY != pg_game_status.scrollY) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
   }
 
   // Initialize
@@ -164,9 +167,17 @@ void pg_init()
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
 
   SDL_Surface *surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", _theme->textColor);
-  lineHeight = surface->h;
-  logDebug("Line height %li\n", lineHeight);
+  line_height = surface->h;
+  logDebug("Line height %li\n", line_height);
   SDL_FreeSurface(surface);
+
+  if (_Globals.scroll == scroll_page) {
+    int lines = (_Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) / line_height;
+    scroll_height = lines * line_height;
+  } else {
+    scroll_height = line_height;
+  }
+  logDebug("scroll_height=%i\n", scroll_height);
 }
 
 void pg_dispose()
@@ -235,12 +246,12 @@ void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int sc
     }
 
     if (y < scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
-      y += lineHeight;
+      y += line_height;
       free(line);
       continue;
     }
 
-    if (y - scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
+    if (y - scrollY + line_height > _Globals.windowHeight - HEADER_HEIGHT) {
       pg_game_status.textFullyRendered = 0;
       free(line);
       break;
@@ -297,15 +308,15 @@ void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int sc
         }
         SDL_FreeSurface(char_surface);
         x += source_rect.w;
-        pg_game_status.lastRenderedY = y - scrollY + lineHeight;
+        pg_game_status.lastRenderedY = y - scrollY + line_height;
         i += charBytes;
       }
     }
 
     free(line);
-    y += lineHeight;
+    y += line_height;
     x = TEXT_MARGIN;
-    if (y - scrollY + lineHeight > _Globals.windowHeight - HEADER_HEIGHT) {
+    if (y - scrollY + line_height > _Globals.windowHeight - HEADER_HEIGHT) {
       pg_game_status.textFullyRendered = 0;
       break;
     }
@@ -350,7 +361,7 @@ int pg_renderPageBreak()
 int pg_renderChoice()
 {
   for (int i = 0; i < pg_game_status.choicesCount; i++) {
-    pg_game_status.lastRenderedY += lineHeight;
+    pg_game_status.lastRenderedY += line_height;
     // choice *choice = &pg_game_status.choices[i];
     // pg_renderText(choice->text, TEXT_MARGIN * 2, pg_game_status.lastRenderedY, _Globals.windowWidth - 4 * TEXT_MARGIN, pg_game_status.scrollY);
   }
@@ -690,11 +701,11 @@ int pg_manageImageCommand(const char *text, int y)
     srcRect.w = image->w;
     srcRect.h = image->h;
 
-    // Always return multiple of lineHeight to not break text scrolling
+    // Always return multiple of line_height to not break text scrolling
     int res = destRect.h + TEXT_MARGIN;
-    int diff = res % lineHeight;
+    int diff = res % line_height;
     if (diff)
-      res += lineHeight - diff;
+      res += line_height - diff;
 
     if (y < HEADER_HEIGHT - TEXT_MARGIN) {
       int deltaY = HEADER_HEIGHT - TEXT_MARGIN - y;

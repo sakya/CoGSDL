@@ -78,6 +78,7 @@ int init()
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
   _Globals.logLevel = Debug;
+  _Globals.scroll = scroll_page;
   _Globals.status = MainMenu;
   _Globals.gamesCount = listGames("./games/", _Globals.games);
 
