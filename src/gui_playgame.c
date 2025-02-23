@@ -4,7 +4,7 @@
 void pg_init();
 void pg_dispose();
 void pg_exec();
-void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY);
+void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY);
 int pg_renderPageBreak();
 int pg_renderChoice();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
@@ -108,7 +108,7 @@ void drawGame()
   }
 
   if (pg_game_status.text != NULL) {
-    pg_renderText(pg_game_status.text, TEXT_MARGIN, HEADER_HEIGHT + TEXT_MARGIN, _Globals.windowWidth - 2 * TEXT_MARGIN, pg_game_status.scrollY);
+    pg_renderText(pg_game_status.text, TEXT_MARGIN, HEADER_HEIGHT + TEXT_MARGIN, _Globals.windowWidth, _Globals.windowHeight - 2 * HEADER_HEIGHT, pg_game_status.scrollY);
     if (!pg_game_status.textFullyRendered) {
       pg_game_status.canScrollDown = 1;
     }
@@ -208,7 +208,7 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderTextToSurface(const char* text, int maxWidth, int scrollY)
+void pg_renderTextToSurface(const char* text, int width, int height, int scrollY)
 {
   if (text_surface) {
     SDL_FreeSurface(text_surface);
@@ -217,12 +217,11 @@ void pg_renderTextToSurface(const char* text, int maxWidth, int scrollY)
   if (text == NULL || strlen(text) == 0)
     return;
 
-  text_surface = SDL_CreateRGBSurface(0, _Globals.windowWidth, _Globals.windowHeight - 2 * HEADER_HEIGHT, 32, 0, 0, 0, 0);
+  text_surface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
   if (text_surface == NULL) {
     logWarning("Failed to create text surface");
     return;
   }
-
   SDL_FillRect(text_surface, NULL, SDL_MapRGBA(text_surface->format, _theme->backgroundColor.r, _theme->backgroundColor.g, _theme->backgroundColor.b, 0));
 
   char test[5];
@@ -236,7 +235,7 @@ void pg_renderTextToSurface(const char* text, int maxWidth, int scrollY)
   char *line = NULL;
   int linePos = 0;
   int wrap = 0;
-  while ((line = pg_getNextLine(pg_game_status.text, &linePos, maxWidth, &wrap)) != NULL) {
+  while ((line = pg_getNextLine(pg_game_status.text, &linePos, width, &wrap)) != NULL) {
     if (startsWithWord("*text_image", line) || startsWithWord("*image", line)) {
       // Draw image
       // text_image filename.png alignment optional text
@@ -325,10 +324,10 @@ void pg_renderTextToSurface(const char* text, int maxWidth, int scrollY)
   }
 }
 
-void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
+void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY)
 {
   if (text_surface == NULL)
-    pg_renderTextToSurface(text, maxWidth, scrollY);
+    pg_renderTextToSurface(text, width, height, scrollY);
 
   sdlBlitImage(text_surface, 0, HEADER_HEIGHT, 0, 0);
 }
@@ -662,7 +661,6 @@ void pg_goToNextScene()
 
 int pg_manageImageCommand(const char *text, int y)
 {
-  logDebug("pg_manageImageCommand y=%i\n", y);
   char imageName[255];
   char alignment[64];
 
