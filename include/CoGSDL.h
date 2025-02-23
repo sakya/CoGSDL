@@ -262,4 +262,5 @@ void drawGameMenu();
 
 /* gui_gamestats.c */
 void drawGameStats();
+
 #endif
