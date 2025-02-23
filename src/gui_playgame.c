@@ -208,7 +208,7 @@ void pg_dispose()
   runningGameIcon = NULL;
 }
 
-void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int scrollY)
+void pg_renderTextToSurface(const char* text, int maxWidth, int scrollY)
 {
   if (text_surface) {
     SDL_FreeSurface(text_surface);
@@ -217,7 +217,7 @@ void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int sc
   if (text == NULL || strlen(text) == 0)
     return;
 
-  text_surface = SDL_CreateRGBSurface(0, _Globals.windowWidth - 2 * TEXT_MARGIN, _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN, 32, 0, 0, 0, 0);
+  text_surface = SDL_CreateRGBSurface(0, _Globals.windowWidth, _Globals.windowHeight - 2 * HEADER_HEIGHT, 32, 0, 0, 0, 0);
   if (text_surface == NULL) {
     logWarning("Failed to create text surface");
     return;
@@ -231,6 +231,8 @@ void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int sc
   pg_game_status.textFullyRendered = 1;
   pg_game_status.lastRenderedY = 0;
 
+  int x = TEXT_MARGIN;
+  int y = TEXT_MARGIN - scrollY;
   char *line = NULL;
   int linePos = 0;
   int wrap = 0;
@@ -239,19 +241,19 @@ void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int sc
       // Draw image
       // text_image filename.png alignment optional text
       // image filename.png alignment optional text
-      y += pg_manageImageCommand(line, y - scrollY);
+      y += pg_manageImageCommand(line, y);
       x = TEXT_MARGIN;
       free(line);
       continue;
     }
 
-    if (y < scrollY + HEADER_HEIGHT + TEXT_MARGIN) {
+    if (y < 0) {
       y += line_height;
       free(line);
       continue;
     }
 
-    if (y - scrollY + line_height > _Globals.windowHeight - HEADER_HEIGHT) {
+    if (y + line_height > text_surface->h) {
       pg_game_status.textFullyRendered = 0;
       free(line);
       break;
@@ -299,7 +301,7 @@ void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int sc
 
         SDL_Rect dest_rect;
         dest_rect.x = x;
-        dest_rect.y = y - HEADER_HEIGHT - TEXT_MARGIN - scrollY;
+        dest_rect.y = y;
         dest_rect.w = source_rect.w;
         dest_rect.h = source_rect.h;
 
@@ -326,9 +328,9 @@ void pg_renderTextToSurface(const char* text, int x, int y, int maxWidth, int sc
 void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
 {
   if (text_surface == NULL)
-    pg_renderTextToSurface(text, x, y, maxWidth, scrollY);
+    pg_renderTextToSurface(text, maxWidth, scrollY);
 
-  sdlBlitImage(text_surface, TEXT_MARGIN, HEADER_HEIGHT + TEXT_MARGIN, 0, 0);
+  sdlBlitImage(text_surface, 0, HEADER_HEIGHT, 0, 0);
 }
 
 void pg_expandVariables(char* text)
@@ -660,6 +662,7 @@ void pg_goToNextScene()
 
 int pg_manageImageCommand(const char *text, int y)
 {
+  logDebug("pg_manageImageCommand y=%i\n", y);
   char imageName[255];
   char alignment[64];
 
@@ -681,7 +684,7 @@ int pg_manageImageCommand(const char *text, int y)
   if (image && image->surface) {
     SDL_Rect destRect;
     destRect.x = TEXT_MARGIN;
-    destRect.y = y - HEADER_HEIGHT - TEXT_MARGIN;
+    destRect.y = y;
     destRect.w = image->w;
     destRect.h = image->h;
 
@@ -707,8 +710,8 @@ int pg_manageImageCommand(const char *text, int y)
     if (diff)
       res += line_height - diff;
 
-    if (y < HEADER_HEIGHT - TEXT_MARGIN) {
-      int deltaY = HEADER_HEIGHT - TEXT_MARGIN - y;
+    if (y < 0) {
+      int deltaY = -y;
       if (deltaY >= destRect.h) {
         return res;
       }
@@ -721,14 +724,14 @@ int pg_manageImageCommand(const char *text, int y)
       destRect.h -= deltaY;
     }
 
-    if (y + destRect.h > _Globals.windowHeight - HEADER_HEIGHT - TEXT_MARGIN) {
-      int deltaY = y + destRect.h - (_Globals.windowHeight - HEADER_HEIGHT - TEXT_MARGIN);
+    if (y + destRect.h > text_surface->h) {
+      int deltaY = y + destRect.h - text_surface->h;
       int srcDeltaY = srcRect.h * deltaY / destRect.h;
       srcRect.h -= srcDeltaY;
       destRect.h -= deltaY;
     }
 
-    int deltaX = _Globals.windowWidth - destRect.w - 2 * TEXT_MARGIN;
+    int deltaX = text_surface->w - destRect.w;
     if (deltaX > 0) {
       if (strcmp(alignment, "center") == 0) {
         destRect.x += deltaX / 2;
