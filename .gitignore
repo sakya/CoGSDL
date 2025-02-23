@@ -9,3 +9,5 @@ CoGSDL
 *.log
 *.exe
 *.zip
+*.out
+prof_output

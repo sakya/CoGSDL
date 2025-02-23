@@ -223,28 +223,28 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
     int lineLen = strlen(line);
     if (lineLen > 0) {
       int i = 0;
-      do {
+      while (i < lineLen) {
         // Check font change:
         if (line[i] == '[') {
           // Italic
           if (i + 2 < lineLen && line[i + 1] == 'i' && line[i + 2] == ']') {
             font = _Globals.textItalicFont;
-            i += 2;
+            i += 3;
             continue;
           } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'i' && line[i + 3] == ']') {
             font = _Globals.textFont;
-            i += 3;
+            i += 4;
             continue;
           }
 
           // Bold
           if (i + 2 < lineLen && line[i + 1] == 'b' && line[i + 2] == ']') {
             font = _Globals.textBoldFont;
-            i += 2;
+            i += 3;
             continue;
           } else if (i + 3 < lineLen && line[i + 1] == '/' && line[i + 2] == 'b' && line[i + 3] == ']') {
             font = _Globals.textFont;
-            i += 3;
+            i += 4;
             continue;
           }
         }
@@ -254,7 +254,8 @@ void pg_renderText(const char* text, int x, int y, int maxWidth, int scrollY)
         strncpy(test, &line[i], charBytes);
         x += sdlWriteText(font, _theme->textColor, test, x, y - scrollY, 0, 0);
         pg_game_status.lastRenderedY = y - scrollY + lineHeight;
-      } while (u8nextchar(line, &i));
+        i += charBytes;
+      }
     }
 
     free(line);
@@ -974,7 +975,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
   int i = *startPosition;
 
   TTF_Font *font = _Globals.textFont;
-  do {
+  while (i < textLen) {
     endOfLinePosition = i;
     if (text[i] == '\n' || i == textLen) {
       break;
@@ -985,22 +986,22 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
       // Italic
       if (i + 2 < textLen && text[i + 1] == 'i' && text[i + 2] == ']') {
         font = _Globals.textItalicFont;
-        i += 2;
+        i += 3;
         continue;
       } else if (i + 3 < textLen && text[i + 1] == '/' && text[i + 2] == 'i' && text[i + 3] == ']') {
         font = _Globals.textFont;
-        i += 3;
+        i += 4;
         continue;
       }
 
       // Bold
       if (i + 2 < textLen && text[i + 1] == 'b' && text[i + 2] == ']') {
         font = _Globals.textBoldFont;
-        i += 2;
+        i += 3;
         continue;
       } else if (i + 3 < textLen && text[i + 1] == '/' && text[i + 2] == 'b' && text[i + 3] == ']') {
         font = _Globals.textFont;
-        i += 3;
+        i += 4;
         continue;
       }
     }
@@ -1020,7 +1021,8 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     if (text[i] == ' ' || text[i] == '\t') {
       endOfPreviousWordPosition = i;
     }
-  } while (u8nextchar(text, &i));
+    i += charBytes;
+  }
 
   res = malloc(endOfLinePosition - *startPosition + 1);
   memset(res, 0, endOfLinePosition - *startPosition + 1);
