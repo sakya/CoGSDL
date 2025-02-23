@@ -22,8 +22,9 @@ void pg_clearChoices();
 /// @param position The starting position. Updated to the starting position of the next line.
 /// @param maxWidth The maximum width in pixels of the rendered line
 /// @param wordWrap Set to 1 if the line was wrapped
+/// @param last_x Set to the last x position blitted
 /// @return A line of text or NULL. The position is updated with the position of the next line
-char *pg_getNextLine(const char *text, int *position, int maxWidth, int *wordWrap);
+char *pg_getNextLine(const char *text, int *position, int maxWidth, int *wordWrap, int *last_x);
 
 /// @brief Manage the image and text_image command
 /// @param surface The surface to blit the image
@@ -228,7 +229,8 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
   char *line = NULL;
   int linePos = 0;
   int wrap = 0;
-  while ((line = pg_getNextLine(text, &linePos, width, &wrap)) != NULL) {
+  int last_x =0;
+  while ((line = pg_getNextLine(text, &linePos, width - 2 * TEXT_MARGIN, &wrap, &last_x)) != NULL) {
     if (startsWithWord("*text_image", line) || startsWithWord("*image", line)) {
       // Draw image
       // text_image filename.png alignment optional text
@@ -252,6 +254,26 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
     }
 
     int lineLen = strlen(line);
+    int pixels_to_justify = 0;
+    int pixels_to_justify_first = 0;
+    if (wrap) {
+      int delta_x = width - last_x;
+      if (delta_x > 0) {
+        int spaces = 0;
+        for (int i = 0; i < lineLen; i++) {
+          if (line[i] == ' ')
+            spaces++;
+        }
+
+        if (spaces > 0) {
+          pixels_to_justify = delta_x / spaces;
+          pixels_to_justify_first = delta_x - pixels_to_justify * spaces;
+        }
+        logDebug("%s\n", line);
+        logDebug("wrapped line. last_x=%i, delta_x=%i, spaces=%i, pixels_to_justify=%i\n", last_x, delta_x, spaces, pixels_to_justify);
+      }
+    }
+
     if (lineLen > 0) {
       int i = 0;
       while (i < lineLen) {
@@ -302,6 +324,14 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
         }
         SDL_FreeSurface(char_surface);
         x += source_rect.w;
+        if (strcmp(test, " ") == 0) {
+          if (pixels_to_justify_first) {
+            x += pixels_to_justify_first;
+            pixels_to_justify_first = 0;
+          } else {
+            x += pixels_to_justify;
+          }
+        }
         pg_game_status.lastRenderedY = y - scrollY + line_height;
         i += charBytes;
       }
@@ -1026,7 +1056,7 @@ void pg_clearChoices()
   pg_game_status.choicesCount = 0;
 }
 
-char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap)
+char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap, int *last_x)
 {
   if (!text || maxWidth <= 0)
     return NULL;
@@ -1083,6 +1113,8 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
       endOfLinePosition = endOfPreviousWordPosition;
       if (wordWrap != NULL)
         *wordWrap = 1;
+      if (last_x != NULL)
+        *last_x = width;
       break;
     }
     width += charWidth;
