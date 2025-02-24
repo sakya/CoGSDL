@@ -24,6 +24,8 @@ struct game_status
     int lastRenderedY;
     /// @brief Set to 1 if we need to show a "next" button
     int showPageBreak;
+    /// @brief The message to show for the page break
+    char pageBreakMessage[64];
     /// @brief Set to 1 if the text can be scrolled
     int canScrollDown;
     /// @brief The labels of the opened file

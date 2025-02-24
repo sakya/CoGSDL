@@ -53,6 +53,9 @@ void pg_manageTempCommand(const char *text);
 /// @param start
 /// @return The new file position
 int pg_manageChoiceCommand(const char *text);
+/// @brief Manage the finish command
+/// @param text
+void pg_manageFinishCommand(const char *text);
 
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
@@ -389,10 +392,9 @@ int pg_renderPageBreak()
   if (pg_game_status.textFullyRendered) {
     sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
 
-    char next[] = "Next";
     int width;
-    TTF_MeasureUTF8(_Globals.defaultFont, next, _Globals.windowWidth, &width, NULL);
-    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, next, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
+    TTF_MeasureUTF8(_Globals.defaultFont, pg_game_status.pageBreakMessage, _Globals.windowWidth, &width, NULL);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, pg_game_status.pageBreakMessage, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
 
     return 1;
   }
@@ -459,6 +461,7 @@ void pg_exec()
       logDebug("Command=%s\n", command);
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
+        strcpy(pg_game_status.pageBreakMessage, "Next");
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         break;
       }
@@ -472,6 +475,13 @@ void pg_exec()
         // Add the command to the text as it should be rendered with it
         pg_appendText(line, 1);
         continue;
+      }
+
+      if (strcmp(command, "finish") == 0) {
+        pg_manageFinishCommand(line);
+        pg_game_status.showPageBreak = 1;
+        pg_game_status.fpPosition = pg_game_status.fpSize;
+        break;
       }
 
       if (strcmp(command, "goto") == 0) {
@@ -945,6 +955,19 @@ int pg_manageChoiceCommand(const char *text)
     }
   }
   return lineStartPosition;
+}
+
+void pg_manageFinishCommand(const char *text)
+{
+  int lineLen = strlen(text);
+  if (lineLen > 7) {
+    if (lineLen - 8 > sizeof(pg_game_status.pageBreakMessage)) {
+      logWarning("Finish message too long");
+      strcpy(pg_game_status.pageBreakMessage, "Next");
+    } else {
+      subString(text, pg_game_status.pageBreakMessage, 8, lineLen - 8);
+    }
+  }
 }
 
 void pg_clear_image_cache()
