@@ -1094,6 +1094,11 @@ void pg_clearChoices()
 
 char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap, int *last_x)
 {
+  if (wordWrap != NULL)
+    *wordWrap = 0;
+  if (last_x != NULL)
+    *last_x = 0;
+
   if (!text || maxWidth <= 0)
     return NULL;
 
@@ -1111,20 +1116,14 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
   int is_command = -1;
 
   TTF_Font *font = _Globals.textFont;
-
-  if (wordWrap != NULL)
-    *wordWrap = 0;
-  if (last_x != NULL)
-    *last_x = 0;
-
   while (i < textLen) {
     endOfLinePosition = i;
-    if (text[i] == '\n' || i == textLen) {
+    if (text[i] == '\n') {
       break;
     }
 
     if (!isspace(text[i]) && is_command < 0) {
-      // This line contains a command, don't wrap it
+      // If this line contains a command, don't wrap it
       is_command = text[i] == '*' ? 1 : 0;
     }
 
@@ -1159,6 +1158,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     int charWidth;
     TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
     if (!is_command && width + charWidth > maxWidth) {
+      // Wrap line
       endOfLinePosition = endOfPreviousWordPosition;
       if (wordWrap != NULL)
         *wordWrap = 1;
@@ -1172,19 +1172,22 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
       previousWordWidth = width - charWidth;
     }
     i += charBytes;
+    if (i == textLen) {
+      endOfLinePosition = i - 1;
+    }
   }
 
-  res = malloc(endOfLinePosition - *startPosition + 1);
-  memset(res, 0, endOfLinePosition - *startPosition + 1);
+  res = malloc(endOfLinePosition - *startPosition + 2);
+  memset(res, 0, endOfLinePosition - *startPosition + 2);
   int idx = 0;
-  for (int j = *startPosition; j < endOfLinePosition; j++) {
+  for (int j = *startPosition; j <= endOfLinePosition; j++) {
     if (text[j] != '\r' && text[j] != '\n' && (idx > 0 || text[j] != ' '))
       res[idx++] = text[j];
   }
   res[idx] = '\0';
 
   // Remove trailing spaces
-  while (idx > 0 && res[--idx] == ' ') {
+  while (idx >= 0 && res[--idx] == ' ') {
     res[idx] = '\0';
   }
 
