@@ -962,11 +962,13 @@ void pg_manageFinishCommand(const char *text)
   int lineLen = strlen(text);
   if (lineLen > 7) {
     if (lineLen - 8 > sizeof(pg_game_status.pageBreakMessage)) {
-      logWarning("Finish message too long");
+      logWarning("Finish message too long\n");
       strcpy(pg_game_status.pageBreakMessage, "Next");
     } else {
       subString(text, pg_game_status.pageBreakMessage, 8, lineLen - 8);
     }
+  } else {
+    strcpy(pg_game_status.pageBreakMessage, "Next Chapter");
   }
 }
 
