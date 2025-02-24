@@ -270,8 +270,6 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
           pixels_to_justify = delta_x / spaces;
           pixels_to_justify_first = delta_x - pixels_to_justify * spaces;
         }
-        logDebug("%s\n", line);
-        logDebug("wrapped line. last_x=%i, delta_x=%i, spaces=%i, pixels_to_justify=%i, pixels_to_justify_first=%i\n", last_x, delta_x, spaces, pixels_to_justify, pixels_to_justify_first);
       }
     }
 
@@ -325,6 +323,7 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
         }
         SDL_FreeSurface(char_surface);
         x += source_rect.w;
+
         if (charBytes == 1 && line[i] == ' ') {
           if (pixels_to_justify_first) {
             x += pixels_to_justify_first;
@@ -1146,7 +1145,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     res[idx] = '\0';
   }
 
-  if (text[endOfLinePosition] == '\n') {
+  if (text[endOfLinePosition] == '\n' || text[endOfLinePosition] == ' ') {
     *startPosition = endOfLinePosition + 1;
   } else {
     *startPosition = endOfLinePosition;
