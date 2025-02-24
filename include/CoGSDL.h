@@ -51,7 +51,8 @@ enum status
   GameSelect = 2,
   Game = 3,
   GameMenu = 4,
-  GameStats = 5
+  GameStats = 5,
+  GameChoice = 6
 };
 
 enum logLevel
@@ -263,5 +264,7 @@ void drawGameMenu();
 
 /* gui_gamestats.c */
 void drawGameStats();
+/* gui_gamechoice.c */
+void drawGameChoice();
 
 #endif

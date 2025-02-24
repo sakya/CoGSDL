@@ -6,7 +6,6 @@ void pg_dispose();
 void pg_exec();
 void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY);
 int pg_renderPageBreak();
-int pg_renderChoice();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
 void pg_goToNextScene();
@@ -61,7 +60,7 @@ void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
 image_cache_item* pg_add_image_to_cache(const char *name);
 
-static game_status pg_game_status;
+game_status pg_game_status;
 static int line_height = 0;
 static image_cache_item image_cache[32];
 static int image_cache_count = 0;
@@ -98,10 +97,15 @@ void drawGame()
   }
 
   if (_Globals.input[_Keys.KeyA] == 1) {
-    //Next
     if (!pg_game_status.canScrollDown && pg_game_status.showPageBreak) {
+      //Next
       _Globals.input[_Keys.KeyA] = 0;
       pg_exec();
+    } else if (!pg_game_status.canScrollDown && pg_game_status.choicesCount > 0) {
+      // Choice
+      _Globals.input[_Keys.KeyA] = 0;
+      _Globals.status = GameChoice;
+      return;
     }
   }
 
@@ -140,7 +144,9 @@ void drawGame()
   }
 
   if (pg_game_status.textFullyRendered && pg_game_status.choicesCount > 0) {
-    pg_renderChoice();
+    pg_game_status.canScrollDown = 0;
+    strcpy(pg_game_status.pageBreakMessage, "Choice");
+    pg_renderPageBreak();
   }
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }
@@ -397,17 +403,6 @@ int pg_renderPageBreak()
     sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, pg_game_status.pageBreakMessage, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
 
     return 1;
-  }
-
-  return 0;
-}
-
-int pg_renderChoice()
-{
-  for (int i = 0; i < pg_game_status.choicesCount; i++) {
-    pg_game_status.lastRenderedY += line_height;
-    // choice *choice = &pg_game_status.choices[i];
-    // pg_renderText(choice->text, TEXT_MARGIN * 2, pg_game_status.lastRenderedY, _Globals.windowWidth - 4 * TEXT_MARGIN, pg_game_status.scrollY);
   }
 
   return 0;

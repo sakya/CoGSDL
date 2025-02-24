@@ -36,6 +36,9 @@ int draw()
       case Game:
         drawGame();
         break;
+      case GameChoice:
+        drawGameChoice();
+        break;
       case GameMenu:
         drawGameMenu();
         break;
@@ -80,7 +83,7 @@ void drawHeader()
 
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
-  if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats)) {
+  if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats || _Globals.status == GameChoice)) {
     if (runningGameIcon != NULL) {
       sdlBlitImage(runningGameIcon, 0, 0, 30, 30);
     } else {
