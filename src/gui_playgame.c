@@ -1083,6 +1083,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
   int endOfPreviousWordPosition = 0;
   int previousWordWidth = 0;
   int i = *startPosition;
+  int is_command = -1;
 
   TTF_Font *font = _Globals.textFont;
 
@@ -1095,6 +1096,11 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     endOfLinePosition = i;
     if (text[i] == '\n' || i == textLen) {
       break;
+    }
+
+    if (!isspace(text[i]) && is_command < 0) {
+      // This line contains a command, don't wrap it
+      is_command = text[i] == '*' ? 1 : 0;
     }
 
     // Check font change:
@@ -1127,7 +1133,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     strncpy(test, &text[i], charBytes);
     int charWidth;
     TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
-    if (width + charWidth > maxWidth) {
+    if (!is_command && width + charWidth > maxWidth) {
       endOfLinePosition = endOfPreviousWordPosition;
       if (wordWrap != NULL)
         *wordWrap = 1;
