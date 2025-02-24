@@ -80,7 +80,7 @@ void drawHeader()
 
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
-  if (_Globals.status == Game && runningGame != NULL) {
+  if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats)) {
     if (runningGameIcon != NULL) {
       sdlBlitImage(runningGameIcon, 0, 0, 30, 30);
     } else {

@@ -68,6 +68,18 @@ static int scroll_height;
 void drawGame()
 {
   int scrollY = pg_game_status.scrollY;
+  if (_Globals.input[_Keys.KeyL1] == 1) {
+    _Globals.input[_Keys.KeyL1] = 0;
+    _Globals.status = GameMenu;
+    return;
+  }
+
+  if (_Globals.input[_Keys.KeyR1] == 1) {
+    _Globals.input[_Keys.KeyR1] = 0;
+    _Globals.status = GameStats;
+    return;
+  }
+
   if (pg_game_status.canScrollDown) {
     if (_Globals.input[_Keys.KeyDown] == 1) {
       _Globals.input[_Keys.KeyDown]= 0;
