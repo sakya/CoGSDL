@@ -65,6 +65,7 @@ enum logLevel
 struct CoGSDL {
   enum logLevel logLevel;
   enum scroll_type scroll;
+  int justify_text;
   int quit;
   int32_t displayWidth;
   int32_t displayHeight;
