@@ -37,6 +37,7 @@ struct game_status
     /// @brief The choices to display to the user
     choice *choices;
     int choicesCount;
+    int selectedChoiceIndex;
 } typedef game_status;
 
 struct image_cache_item

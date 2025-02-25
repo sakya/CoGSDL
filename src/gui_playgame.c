@@ -105,6 +105,7 @@ void drawGame()
       // Choice
       _Globals.input[_Keys.KeyA] = 0;
       _Globals.status = GameChoice;
+      pg_game_status.selectedChoiceIndex = -1;
       return;
     }
   }
@@ -125,6 +126,14 @@ void drawGame()
   // Initialize
   if (pg_game_status.fp == NULL) {
     pg_init();
+    pg_exec();
+  }
+
+  // A choice was selected
+  if (pg_game_status.selectedChoiceIndex >= 0) {
+    choice *c = &pg_game_status.choices[pg_game_status.selectedChoiceIndex];
+    pg_game_status.selectedChoiceIndex = -1;
+    fseek(pg_game_status.fp, c->position, SEEK_SET);
     pg_exec();
   }
 
@@ -185,6 +194,7 @@ void pg_init()
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
+  pg_game_status.selectedChoiceIndex = -1;
 
   logDebug("Position set to %li\n", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -944,8 +954,9 @@ int pg_manageChoiceCommand(const char *text)
         start++;
         choice->reusable = 1;
         choice->text = malloc(strlen(line) - start + 1);
+        choice->position = ftell(pg_game_status.fp);
         subString(line, choice->text, start, strlen(line) - start);
-        logDebug("\tChoice: %s\n", choice->text);
+        logDebug("\tChoice: %s (%li)\n", choice->text, choice->position);
       }
     }
   }
