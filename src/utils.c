@@ -222,3 +222,21 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
   SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE);
   SDL_DestroyTexture(texture);
 }
+
+int is_number(const char *text, int *value)
+{
+  if (!text)
+    return 0;
+
+  int end = strlen(text);
+  for (int i = 0; i < end; i++) {
+    if ((text[i] == '-' || text[i] == '+') && i > 0)
+      return 0;
+
+    if (!isdigit(text[i] && text[i] != '.' && text[i] != '-' && text[i] != '+'))
+      return 0;
+  }
+
+  *value = atoi(text);
+  return 1;
+}

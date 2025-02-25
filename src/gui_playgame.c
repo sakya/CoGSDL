@@ -39,6 +39,7 @@ int pg_manageIfCommand(const char *text);
 /// @param condition The condition
 /// @return 1 if true, 0 if false
 int pg_evaluateCondition(const char *condition);
+int pg_evaluateExpression(const char *expression, char *value);
 /// @brief Manage the goto command
 /// @param text The text of the line with the goto command
 /// @return The new file position
@@ -56,6 +57,7 @@ int pg_manageChoiceCommand(const char *text);
 /// @param text
 void pg_manageFinishCommand(const char *text);
 
+int pg_get_operator(const char *condition, char *operator);
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
 image_cache_item* pg_add_image_to_cache(const char *name);
@@ -495,6 +497,10 @@ void pg_exec()
         logDebug("%s -> %i\n", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         indentation = -1;
+
+        if (textStarted)
+          pg_appendText("\n", 0);
+        textStarted = 0;
         continue;
       }
 
@@ -808,23 +814,18 @@ int pg_manageIfCommand(const char *text)
   int textLen = strlen(text);
   subString(text, condition, 3, textLen - 3);
   trim(condition);
+  textLen = strlen(condition);
 
   logDebug("if condition=%s\n", condition);
-  // Condition on boolean
-  if (indexOf(condition, ' ', 0) < 0) {
-    if (pg_evaluateCondition(condition)) {
-      return ftell(pg_game_status.fp);
-    }
-  }
 
   // First check parentheses
   parentheses par[20];
   int parIdx = 0;
   int idx = 0;
   while (idx < textLen) {
-    if (text[idx] == '(') {
+    if (condition[idx] == '(') {
       par[parIdx++].open = idx;
-    } else if (text[idx] == ')') {
+    } else if (condition[idx] == ')') {
       for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
         if (par[pIdx].close == 0) {
           par[pIdx].close = idx;
@@ -835,23 +836,137 @@ int pg_manageIfCommand(const char *text)
     idx++;
   }
 
+  if (parIdx == 0) {
+    // Single condition
+    if (pg_evaluateCondition(condition)) {
+      return ftell(pg_game_status.fp);
+    } else {
+      // Search for the else or end
+    }
+  }
+
   logWarning("If not managed: %s\n", text);
   return 0;
 }
 
+int pg_get_operator(const char *condition, char *operator)
+{
+  // Operators: ['=', '!=', '>', '>=', '<', '<=']
+  operator[0] = '\0';
+  int len = strlen(condition);
+  for (int i = 0; i < len; i++) {
+    if (condition[i] == '!' && i + 1 < len && condition[i + 1] == '=') {
+      strcpy(operator, "!=");
+      return i;
+    }
+
+    if (condition[i] == '>' && i + 1 < len && condition[i + 1] == '=') {
+      strcpy(operator, ">=");
+      return i;
+    }
+
+    if (condition[i] == '<' && i + 1 < len && condition[i + 1] == '=') {
+      strcpy(operator, "<=");
+      return i;
+    }
+
+    if (condition[i] == '>') {
+      strcpy(operator, ">");
+      return i;
+    }
+
+    if (condition[i] == '<') {
+      strcpy(operator, "<");
+      return i;
+    }
+
+    if (condition[i] == '=') {
+      strcpy(operator, "=");
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 int pg_evaluateCondition(const char *condition)
 {
-  if (indexOf(condition, ' ', 0) < 0) {
+  char operator[3];
+  int res;
+
+  int opIdx = pg_get_operator(condition, operator);
+  if (opIdx < 0) {
     // just a variable name (boolean condition)
-    char* value = getVarValue(condition, runningGame);
-    return value != NULL && strcmp(value, "true") == 0;
+    char* value = getGameVarValue(condition, runningGame);
+    res = value != NULL && strcmp(value, "true") == 0;
+    logDebug("\tCondition %s -> %s\n", condition, res ? "true" : "false");
+    return res;
   }
 
-  int idx;
-  if ((idx = indexOf(condition, '=', 0)) >= 0) {
-    // var = value
+  // expr OPT expr
+  char left_expression[1024];
+  subString(condition, left_expression, 0, opIdx);
+  trim(left_expression);
+  char right_expression[1024];
+  subString(condition, right_expression, opIdx + 1, strlen(condition) - opIdx - 1);
+  trim(right_expression);
 
+  char left_value[1024];
+  char right_value[1024];
+
+  pg_evaluateExpression(left_expression, left_value);
+  pg_evaluateExpression(right_expression, right_value);
+
+  logDebug("\tleft=%s (%s), right=%s (%s), op='%s'\n", left_expression, left_value, right_expression, right_value, operator);
+  if (strcmp(operator, "=") == 0) {
+    res = strcmp(left_value, right_value) == 0 ? 1 : 0;
+  } else if (strcmp(operator, "!=") == 0) {
+    res = strcmp(left_value, right_value) != 0 ? 1 : 0;
+  } else if (strcmp(operator, ">") == 0) {
+    res = strcmp(left_value, right_value) > 0 ? 1 : 0;
+  } else if (strcmp(operator, ">=") == 0) {
+    res = strcmp(left_value, right_value) >= 0 ? 1 : 0;
+  } else if (strcmp(operator, "<") == 0) {
+    res = strcmp(left_value, right_value) < 0 ? 1 : 0;
+  } else if (strcmp(operator, "<=") == 0) {
+    res = strcmp(left_value, right_value) <= 0 ? 1 : 0;
+  } else {
+    logWarning("\tUnknown operator: %s\n", operator);
+    return 0;
   }
+
+  logDebug("\tCondition %s -> %s\n", condition, res ? "true" : "false");
+  return res;
+}
+
+int pg_evaluateExpression(const char *expression, char *value)
+{
+  value[0] = '\0';
+  if (!expression)
+    return 0;
+
+  int expLen = strlen(expression);
+  if (expression[0] == '"' && expression[expLen - 1] == '"') {
+    // String constant
+    subString(expression, value, 1, expLen - 2);
+
+    return 1;
+  }
+
+  int int_value;
+  if (is_number(expression, &int_value)) {
+    // Number constant
+    snprintf(value, 20, "%10d", int_value);
+    return 1;
+  }
+
+  // Variable name
+  variable *var = getVar(expression, runningGame);
+  if (var != NULL) {
+    strcpy(value, var->value);
+    return 1;
+  }
+
   return 0;
 }
 
@@ -953,6 +1068,7 @@ int pg_manageChoiceCommand(const char *text)
         choice *choice = &pg_game_status.choices[pg_game_status.choicesCount - 1];
 
         start++;
+        choice->used = 0;
         choice->reusable = startsWithWord("*hide_reuse", line) ? 0 : 1;
         choice->text = malloc(strlen(line) - start + 1);
         choice->position = ftell(pg_game_status.fp);
@@ -1053,7 +1169,7 @@ char* pg_getVarValue(const char *varName)
     }
   }
 
-  return getVarValue(varName, runningGame);
+  return getGameVarValue(varName, runningGame);
 }
 
 int pg_setVarValue(const char *varName, const char *value)
@@ -1062,13 +1178,12 @@ int pg_setVarValue(const char *varName, const char *value)
 
   for (i = 0; i < pg_game_status.tempVariablesCount; i++) {
     if (strcmp(pg_game_status.tempVariables[i].name, varName) == 0) {
-      strcpy(pg_game_status.tempVariables[i].value, value);
-      logDebug("Temp variable set %s=%s\n", varName, value);
+      setVarValue(&pg_game_status.tempVariables[i], value);
       return 1;
     }
   }
 
-  return setVarValue(varName, value, runningGame);
+  return setGameVarValue(varName, value, runningGame);
 }
 
 void pg_clearTempVars()

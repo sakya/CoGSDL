@@ -155,12 +155,14 @@ int listGames(const char *path, game *games);
 /// @param varName The variable name
 /// @param game The game
 /// @return The variable value or NULL
-char* getVarValue(const char *varName, game* game);
+char* getGameVarValue(const char *varName, game* game);
+variable* getVar(const char *varName, game* game);
 /// @brief Set a variable value
 /// @param varName The variable name
 /// @param value The variable value
 /// @param game The game
-int setVarValue(const char *varName, const char *value, game *game);
+int setGameVarValue(const char *varName, const char *value, game *game);
+void setVarValue(const variable *var, const char *value);
 /// @brief Check if a line of text is a comment
 /// @param line The line
 int isComment(const char *line);
@@ -218,6 +220,7 @@ void trim(char *string);
 /// @param filename The path to the file
 /// @return 1 if the file exists
 int fileExists(const char *filename);
+int is_number(const char *text, int *value);
 
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);

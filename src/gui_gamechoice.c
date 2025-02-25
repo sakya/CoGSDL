@@ -77,9 +77,6 @@ void gc_init()
 
     for (int i = 0; i < pg_game_status.choicesCount; i++) {
       choice* c = &pg_game_status.choices[i];
-      if (!c->reusable && c->used)
-        continue;
-
       int lines = 0;
       int linePos = 0;
       char *line = NULL;
@@ -114,6 +111,10 @@ void gc_draw()
   int i = 0;
   int y = HEADER_HEIGHT + TEXT_MARGIN;
   for (i = firstIdx; i < pg_game_status.choicesCount; i++) {
+    choice* c = &pg_game_status.choices[i];
+    if (!c->reusable && c->used)
+      continue;
+
     int cropped = 0;
     int height = choice_surface[i]->h + 2;
     if (y + height > _Globals.windowHeight - HEADER_HEIGHT) {
