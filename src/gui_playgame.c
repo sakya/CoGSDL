@@ -530,7 +530,7 @@ void pg_exec()
         continue;
       }
 
-      if (strcmp(command, "choice") == 0) {
+      if (strcmp(command, "choice") == 0 || strcmp(command, "fake_choice") == 0) {
         // choice
         int newPosition = pg_manageChoiceCommand(line);
         logDebug("Choice -> %i\n", newPosition);
@@ -932,6 +932,7 @@ int pg_manageChoiceCommand(const char *text)
       break;
     }
 
+    trim(line);
     if (lineIndentation == choiceIndentaion) {
       int start = indexOf(line, '#', 0);
       if (start >= 0) {
@@ -952,11 +953,11 @@ int pg_manageChoiceCommand(const char *text)
         choice *choice = &pg_game_status.choices[pg_game_status.choicesCount - 1];
 
         start++;
-        choice->reusable = 1;
+        choice->reusable = startsWithWord("*hide_reuse", line) ? 0 : 1;
         choice->text = malloc(strlen(line) - start + 1);
         choice->position = ftell(pg_game_status.fp);
         subString(line, choice->text, start, strlen(line) - start);
-        logDebug("\tChoice: %s (%li)\n", choice->text, choice->position);
+        logDebug("\tChoice: %s (pos=%li, reusable=%i)\n", choice->text, choice->position, choice->reusable);
       }
     }
   }

@@ -77,6 +77,9 @@ void gc_init()
 
     for (int i = 0; i < pg_game_status.choicesCount; i++) {
       choice* c = &pg_game_status.choices[i];
+      if (!c->reusable && c->used)
+        continue;
+
       int lines = 0;
       int linePos = 0;
       char *line = NULL;
