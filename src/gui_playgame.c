@@ -37,9 +37,10 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
 int pg_manageIfCommand(const char *text, int indentation);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
 /// @param condition The condition
+/// @param forComparison If set tpo true value are evaluated for comparison (e.g. numbers are right aligned)
 /// @return 1 if true, 0 if false
 int pg_evaluateCondition(const char *condition);
-int pg_evaluateExpression(const char *expression, char *value);
+int pg_evaluateExpression(const char *expression, char *value, int forComparison);
 /// @brief Manage the goto command
 /// @param text The text of the line with the goto command
 /// @return The new file position
@@ -452,6 +453,7 @@ void pg_exec()
 
     trim(line);
     int lineLen = strlen(line);
+    logDebug("line=%s", line);
     if (line[0] == '*') {
       // Command
       char command[256];
@@ -512,11 +514,12 @@ void pg_exec()
         continue;
       }
 
-      if (strcmp(command, "if") == 0) {
+      if (strcmp(command, "if") == 0 || strcmp(command, "elseif") == 0) {
         // if
         int newPosition = pg_manageIfCommand(line, lineIndentation);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
+        fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
         indentation = -1;
         continue;
       }
@@ -847,6 +850,8 @@ int pg_manageIfCommand(const char *text, int indentation)
         if (lineIndentation == indentation) {
           if (strcmp(line, "*else") == 0) {
             return ftell(pg_game_status.fp);
+          } else if (startsWith("*elseif", line)) {
+            return lineStartPosition;
           }
 
           return lineStartPosition;
@@ -927,8 +932,8 @@ int pg_evaluateCondition(const char *condition)
   char left_value[1024];
   char right_value[1024];
 
-  pg_evaluateExpression(left_expression, left_value);
-  pg_evaluateExpression(right_expression, right_value);
+  pg_evaluateExpression(left_expression, left_value, 1);
+  pg_evaluateExpression(right_expression, right_value, 1);
 
   logDebug("\tleft=%s (%s), right=%s (%s), op='%s'", left_expression, left_value, right_expression, right_value, operator);
   if (strcmp(operator, "=") == 0) {
@@ -952,7 +957,7 @@ int pg_evaluateCondition(const char *condition)
   return res;
 }
 
-int pg_evaluateExpression(const char *expression, char *value)
+int pg_evaluateExpression(const char *expression, char *value, int forComparison)
 {
   value[0] = '\0';
   if (!expression)
@@ -976,7 +981,11 @@ int pg_evaluateExpression(const char *expression, char *value)
   }
   if (is_number(expression, &int_value)) {
     // Number constant
-    strcpy(value, expression);
+    if (forComparison) {
+      sprintf(value, "%10i", int_value);
+    } else {
+      strcpy(value, expression);
+    }
     return 1;
   }
 
@@ -989,7 +998,11 @@ int pg_evaluateExpression(const char *expression, char *value)
   // Variable name
   variable *var = pg_getVar(expression);
   if (var != NULL) {
-    strcpy(value, var->value);
+    if (var->type == number && forComparison) {
+      sprintf(value, "%10i", atoi(var->value));
+    } else {
+      strcpy(value, var->value);
+    }
     return 1;
   }
 
@@ -1209,7 +1222,7 @@ int pg_setVarValue(const char *varName, const char *value)
     return 0;
 
   char evaluated[1024];
-  pg_evaluateExpression(value, evaluated);
+  pg_evaluateExpression(value, evaluated, 0);
   setVarValue(var, evaluated);
   return 1;
 }
