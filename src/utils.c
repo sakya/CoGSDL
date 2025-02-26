@@ -173,12 +173,7 @@ int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int 
     return 0;
   }
 
-  SDL_Rect rect;
-  rect.x = x;
-  rect.y = y;
-  rect.w = maxWidth > 0 && maxWidth < surface->w ? maxWidth : surface->w;
-  rect.h = maxHeight > 0 && maxHeight < surface->h ? maxHeight : surface->h;
-
+  SDL_Rect rect = { x, y, maxWidth > 0 && maxWidth < surface->w ? maxWidth : surface->w, maxHeight > 0 && maxHeight < surface->h ? maxHeight : surface->h };
   SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE);
 
   SDL_FreeSurface(surface);
@@ -203,12 +198,7 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
     return;
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
 
-  SDL_Rect rect;
-  rect.x = x;
-  rect.y = y;
-  rect.w = surface->w;
-  rect.h = surface->h;
-
+  SDL_Rect rect = { x, y, surface->w, surface->h };
   float ratio = (float)rect.w / (float)rect.h;
   if (maxWidth > 0 && rect.w > maxWidth) {
     rect.w = maxWidth;

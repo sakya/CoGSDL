@@ -339,17 +339,8 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
         strncpy(test, &line[i], charBytes);
 
         SDL_Surface *char_surface = TTF_RenderUTF8_Blended(font, test, _theme->textColor);
-        SDL_Rect source_rect;
-        source_rect.x = 0;
-        source_rect.y = 0;
-        source_rect.w = char_surface->w;
-        source_rect.h = char_surface->h;
-
-        SDL_Rect dest_rect;
-        dest_rect.x = x;
-        dest_rect.y = y;
-        dest_rect.w = source_rect.w;
-        dest_rect.h = source_rect.h;
+        SDL_Rect source_rect = { 0, 0, char_surface->w, char_surface->h};
+        SDL_Rect dest_rect = { x, y, source_rect.w, source_rect.h };
 
         if (SDL_BlitSurface(char_surface, &source_rect, surface, &dest_rect)) {
           logError("SDL_BlitSurface Fail: %s", SDL_GetError());
@@ -742,11 +733,7 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
 
   image_cache_item *image = pg_get_image_from_cache(imageName);
   if (image && image->surface) {
-    SDL_Rect destRect;
-    destRect.x = TEXT_MARGIN;
-    destRect.y = y;
-    destRect.w = image->w;
-    destRect.h = image->h;
+    SDL_Rect destRect = { TEXT_MARGIN, y, image->w, image->h };
 
     float ratio = (float)destRect.w / (float)destRect.h;
     if (destRect.w > _Globals.windowWidth - 2 * TEXT_MARGIN) {
@@ -758,11 +745,7 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
       destRect.w = destRect.h * ratio;
     }
 
-    SDL_Rect srcRect;
-    srcRect.x = 0;
-    srcRect.y = 0;
-    srcRect.w = image->w;
-    srcRect.h = image->h;
+    SDL_Rect srcRect = { 0, 0, image->w, image->h };
 
     // Always return multiple of line_height to not break text scrolling
     int res = destRect.h + TEXT_MARGIN;

@@ -75,12 +75,7 @@ void drawHeader()
 {
   SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
 
-  SDL_Rect rect;
-  rect.x = 0;
-  rect.y = 0;
-  rect.w = _Globals.windowWidth;
-  rect.h = HEADER_HEIGHT;
-
+  SDL_Rect rect = { 0, 0, _Globals.windowWidth, HEADER_HEIGHT };
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
   if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats || _Globals.status == GameChoice)) {
@@ -109,12 +104,7 @@ void drawFooter()
 {
   SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
 
-  SDL_Rect rect;
-  rect.x = 0;
-  rect.y = _Globals.windowHeight - HEADER_HEIGHT;
-  rect.w = _Globals.windowWidth;
-  rect.h = HEADER_HEIGHT;
-
+  SDL_Rect rect = { 0, _Globals.windowHeight - HEADER_HEIGHT, _Globals.windowWidth, HEADER_HEIGHT };
   SDL_RenderFillRect(_Globals.renderer, &rect);
 }
 

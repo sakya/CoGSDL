@@ -125,12 +125,7 @@ void gc_draw()
     if (i == selectedIdx) {
       SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
 
-      SDL_Rect rect;
-      rect.x = 0;
-      rect.y = y;
-      rect.w = _Globals.windowWidth;
-      rect.h = height;
-
+      SDL_Rect rect = { 0, y, _Globals.windowWidth, height };
       SDL_RenderFillRect(_Globals.renderer, &rect);
 
       if (cropped) {
