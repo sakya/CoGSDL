@@ -360,7 +360,7 @@ int listGames(const char* path, game *games)
   return count;
 }
 
-variable* getVar(const char *varName, game* game)
+variable* getGameVar(const char *varName, game* game)
 {
   int i = 0;
   for (i = 0; i < game->variablesCount; i++) {
@@ -374,28 +374,22 @@ variable* getVar(const char *varName, game* game)
 
 char* getGameVarValue(const char *varName, game* game)
 {
-  int i = 0;
-  for (i = 0; i < game->variablesCount; i++) {
-    if (strcmp(game->variables[i].name, varName) == 0)
-      return game->variables[i].value;
+  variable* var = getGameVar(varName, game);
+  if (var == NULL) {
+    return NULL;
   }
-
-  logWarning("Variable %s not found", varName);
-  return NULL;
+  return var->value;
 }
 
 int setGameVarValue(const char *varName, const char *value, game *game)
 {
-  int i = 0;
-  for (i = 0; i < game->variablesCount; i++) {
-    variable *var = &game->variables[i];
-    if (strcmp(var->name, varName) == 0) {
-      setVarValue(var, value);
-
-      return 1;
-    }
+  variable* var = getGameVar(varName, game);
+  if (var == NULL) {
+    return 0;
   }
-  return 0;
+
+  setVarValue(var, value);
+  return 1;
 }
 
 void setVarValue(variable *var, const char *value)

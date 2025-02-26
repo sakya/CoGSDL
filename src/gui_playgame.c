@@ -12,7 +12,7 @@ void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
-char* pg_getVarValue(const char *varName);
+variable* pg_getVar(const char *varName);
 int pg_setVarValue(const char *varName, const char *value);
 void pg_clearTempVars();
 void pg_clearChoices();
@@ -34,7 +34,7 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
 /// @brief Manage an if
 /// @param text The text of the line with the if command
 /// @return The new file position where continue execution
-int pg_manageIfCommand(const char *text);
+int pg_manageIfCommand(const char *text, int indentation);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
 /// @param condition The condition
 /// @return 1 if true, 0 if false
@@ -514,7 +514,7 @@ void pg_exec()
 
       if (strcmp(command, "if") == 0) {
         // if
-        int newPosition = pg_manageIfCommand(line);
+        int newPosition = pg_manageIfCommand(line, lineIndentation);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         indentation = -1;
@@ -791,7 +791,7 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
   return 0;
 }
 
-int pg_manageIfCommand(const char *text)
+int pg_manageIfCommand(const char *text, int indentation)
 {
   char condition[4096];
   int textLen = strlen(text);
@@ -825,6 +825,26 @@ int pg_manageIfCommand(const char *text)
       return ftell(pg_game_status.fp);
     } else {
       // Search for the else or end
+      char line[4096];
+      int lineStartPosition = 0;
+      long nextLineStartPosition = 0;
+
+      while (fgets(line, sizeof(line), pg_game_status.fp)) {
+        lineStartPosition = nextLineStartPosition;
+        nextLineStartPosition = ftell(pg_game_status.fp);
+        line[strcspn(line, "\r")] = '\0';
+        line[strcspn(line, "\n")] = '\0';
+
+        int lineIndentation = getIndentation(line);
+        trim(line);
+        if (lineIndentation == indentation) {
+          if (strcmp(line, "*else") == 0) {
+            return ftell(pg_game_status.fp);
+          }
+
+          return lineStartPosition;
+        }
+      }
     }
   }
 
@@ -880,8 +900,11 @@ int pg_evaluateCondition(const char *condition)
   int opIdx = pg_get_operator(condition, operator);
   if (opIdx < 0) {
     // just a variable name (boolean condition)
-    char* value = getGameVarValue(condition, runningGame);
-    res = value != NULL && strcmp(value, "true") == 0;
+    variable *var = pg_getVar(condition);
+    if (var == NULL) {
+      return 0;
+    }
+    res = var->value != NULL && strcmp(var->value, "true") == 0;
     logDebug("\tCondition (%s) -> %s", condition, res ? "true" : "false");
     return res;
   }
@@ -957,7 +980,7 @@ int pg_evaluateExpression(const char *expression, char *value)
   }
 
   // Variable name
-  variable *var = getVar(expression, runningGame);
+  variable *var = pg_getVar(expression);
   if (var != NULL) {
     strcpy(value, var->value);
     return 1;
@@ -1160,32 +1183,28 @@ label* pg_get_label(const char *labelName)
   return NULL;
 }
 
-char* pg_getVarValue(const char *varName)
+variable* pg_getVar(const char *varName)
 {
   int i = 0;
   for (i = 0; i < pg_game_status.tempVariablesCount; i++) {
     if (strcmp(pg_game_status.tempVariables[i].name, varName) == 0) {
-      return pg_game_status.tempVariables[i].value;
+      return &pg_game_status.tempVariables[i];
     }
   }
 
-  return getGameVarValue(varName, runningGame);
+  return getGameVar(varName, runningGame);
 }
 
 int pg_setVarValue(const char *varName, const char *value)
 {
-  int i = 0;
+  variable *var = pg_getVar(varName);
+  if (var == NULL)
+    return 0;
 
   char evaluated[1024];
   pg_evaluateExpression(value, evaluated);
-  for (i = 0; i < pg_game_status.tempVariablesCount; i++) {
-    if (strcmp(pg_game_status.tempVariables[i].name, varName) == 0) {
-      setVarValue(&pg_game_status.tempVariables[i], evaluated);
-      return 1;
-    }
-  }
-
-  return setGameVarValue(varName, evaluated, runningGame);
+  setVarValue(var, evaluated);
+  return 1;
 }
 
 void pg_clearTempVars()

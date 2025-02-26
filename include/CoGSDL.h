@@ -156,7 +156,7 @@ int listGames(const char *path, game *games);
 /// @param game The game
 /// @return The variable value or NULL
 char* getGameVarValue(const char *varName, game* game);
-variable* getVar(const char *varName, game* game);
+variable* getGameVar(const char *varName, game* game);
 /// @brief Set a variable value
 /// @param varName The variable name
 /// @param value The variable value
