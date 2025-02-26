@@ -144,6 +144,7 @@ void gc_draw()
     SDL_Rect crop = { 0, 0, choice_surface[i]->w, height - 2};
     SDL_Rect rect = { TEXT_MARGIN, y, choice_surface[i]->w, height - 2 };
     SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, 0, NULL, SDL_FLIP_NONE);
+    SDL_DestroyTexture(texture);
     y += choice_surface[i]->h + 1;
     if (y >= _Globals.windowHeight - HEADER_HEIGHT)
       break;
