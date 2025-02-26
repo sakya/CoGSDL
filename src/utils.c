@@ -163,13 +163,13 @@ int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int 
     return 0;
   SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
   if (surface == NULL) {
-    logWarning("Failed to create surface for text\n");
+    logWarning("Failed to create surface for text");
     return 0;
   }
   SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
   if (texture == NULL) {
     SDL_FreeSurface(surface);
-    logWarning("Failed to create texture for text\n");
+    logWarning("Failed to create texture for text");
     return 0;
   }
 

@@ -64,7 +64,7 @@ const theme *_theme = &sepiaTheme;
 int main(int argc, char* argv[])
 {
   if (init() < 0) {
-    logError("Init failed\n");
+    logError("Init failed");
     return -1;
   }
 

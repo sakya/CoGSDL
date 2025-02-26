@@ -54,7 +54,7 @@ int loadGame(const char* path, game* game, int forListing)
   if (game == NULL)
     return -1;
 
-  logInfo("Loading game from: %s\n", path);
+  logInfo("Loading game from: %s", path);
   strcpy(game->path, path);
 
   char iconPath[256];
@@ -70,8 +70,8 @@ int loadGame(const char* path, game* game, int forListing)
     strcpy(game->background, iconPath);
   }
 
-  logInfo("\tIcon: %s\n", game->icon);
-  logInfo("\tBackground: %s\n", game->background);
+  logInfo("\tIcon: %s", game->icon);
+  logInfo("\tBackground: %s", game->background);
   char filePath[256];
   strcpy(filePath, path);
   strcat(filePath, "/scenes/startup.txt");
@@ -90,7 +90,7 @@ int loadGame(const char* path, game* game, int forListing)
     if (bomBuffer[0] != -17 || bomBuffer[1] != -69 || bomBuffer[2] != -65) {
       fseek(fp, 0, SEEK_SET);
     } else {
-      logDebug("\tSkipped BOM bytes\n");
+      logDebug("\tSkipped BOM bytes");
     }
   }
 
@@ -132,18 +132,18 @@ int loadGame(const char* path, game* game, int forListing)
     } else if (startsWithWord("*title", line)) {
       game->title = malloc(strlen(line) - 7 + 1);
       subString(line, game->title, 7, strlen(line) - 7);
-      logInfo("\tTitle: %s\n", game->title);
+      logInfo("\tTitle: %s", game->title);
     } else if (startsWithWord("*author", line)) {
       game->author = malloc(strlen(line) - 8 + 1);
       subString(line, game->author, 8, strlen(line) - 8);
-      logInfo("\tAuthor: %s\n", game->author);
+      logInfo("\tAuthor: %s", game->author);
     } else if (startsWithWord("*ifid", line)) {
       game->ifid = malloc(strlen(line) - 8 + 1);
       subString(line, game->ifid, 8, strlen(line) - 8);
-      logInfo("\tIfid: %s\n", game->ifid);
+      logInfo("\tIfid: %s", game->ifid);
     } else if (startsWithWord("*create", line)) {
       if (game->variablesCount == sizeof(game->variables) / sizeof(variable)) {
-        logWarning("Reached maximum number of variables (%i)\n", game->variablesCount);
+        logWarning("Reached maximum number of variables (%i)", game->variablesCount);
         continue;
       }
 
@@ -165,12 +165,12 @@ int loadGame(const char* path, game* game, int forListing)
       }
       setVarValue(&game->variables[game->variablesCount], tempValue);
 
-      logDebug("\tVAR %s=%s (type %s)\n", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value,
+      logDebug("\tVAR %s=%s (type %s)", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value,
         game->variables[game->variablesCount].type == string ? "string" : game->variables[game->variablesCount].type == boolean ? "boolean" : "number");
       game->variablesCount++;
     } else if (startsWithWord("*achievement", line)) {
       if (game->achievementsCount == sizeof(game->achievements) / sizeof(achievement)) {
-        logWarning("Reached maximum number of achievements (%i)\n", game->achievementsCount);
+        logWarning("Reached maximum number of achievements (%i)", game->achievementsCount);
         continue;
       }
 
@@ -188,7 +188,7 @@ int loadGame(const char* path, game* game, int forListing)
         subString(line, points, idx + 1, nextIdx - idx - 1);
         game->achievements[game->achievementsCount].points = atoi(points);
       } else {
-        logWarning("\tPoints string too long (idx=%i, nextIdx=%i)\n", idx, nextIdx);
+        logWarning("\tPoints string too long (idx=%i, nextIdx=%i)", idx, nextIdx);
       }
       game->achievements[game->achievementsCount].title = malloc(strlen(line) - nextIdx + 1);
       subString(line, game->achievements[game->achievementsCount].title, nextIdx + 1, strlen(line) - nextIdx);
@@ -196,11 +196,11 @@ int loadGame(const char* path, game* game, int forListing)
       game->achievements[game->achievementsCount].preEarnedDescription = NULL;
       game->achievements[game->achievementsCount].postEarnedDescription = NULL;
       ach = &game->achievements[game->achievementsCount];
-      logDebug("\tACH name=%s, title=%s, points=%i, visible=%i\n", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
+      logDebug("\tACH name=%s, title=%s, points=%i, visible=%i", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
       game->achievementsCount++;
     } else if (startsWithWord("*label", line)) {
       if (game->labelsCount == sizeof(game->labels) / sizeof(label)) {
-        logWarning("Reached maximum number of labels (%i)\n", game->labelsCount);
+        logWarning("Reached maximum number of labels (%i)", game->labelsCount);
         continue;
       }
 
@@ -208,7 +208,7 @@ int loadGame(const char* path, game* game, int forListing)
       subString(line, game->labels[game->labelsCount].name, 7, strlen(line) - 7);
 
       game->labels[game->labelsCount].position = lineStartPosition;
-      logDebug("\tLabel name=%s, position=%li\n", game->labels[game->labelsCount].name, game->labels[game->labelsCount].position);
+      logDebug("\tLabel name=%s, position=%li", game->labels[game->labelsCount].name, game->labels[game->labelsCount].position);
       game->labelsCount++;
     } else if (startsWithWord("*product", line)) {
       // Don't know what's this
@@ -232,12 +232,12 @@ int loadGame(const char* path, game* game, int forListing)
         } else {
           strcpy(game->scenes[sceneIdx], line);
         }
-        logDebug("\tscene: %s\n", game->scenes[sceneIdx]);
+        logDebug("\tscene: %s", game->scenes[sceneIdx]);
         sceneIdx++;
         game->scenesCount++;
       } else {
         if (game->startPosition == 0) {
-          logDebug("\tFirst line to interpret=%s\n", line);
+          logDebug("\tFirst line to interpret=%s", line);
           game->startPosition = lineStartPosition;
         }
       }
@@ -259,11 +259,11 @@ int loadGame(const char* path, game* game, int forListing)
     strcpy(game->variables[game->variablesCount].value, "true");
     game->variablesCount++;
 
-    logInfo("\tScenes      : %i\n", game->scenesCount);
-    logInfo("\tVariables   : %i\n", game->variablesCount);
-    logInfo("\tAchievements: %i\n", game->achievementsCount);
-    logInfo("\tLabels      : %i\n", game->labelsCount);
-    logInfo("\tStart       : %i\n", game->startPosition);
+    logInfo("\tScenes      : %i", game->scenesCount);
+    logInfo("\tVariables   : %i", game->variablesCount);
+    logInfo("\tAchievements: %i", game->achievementsCount);
+    logInfo("\tLabels      : %i", game->labelsCount);
+    logInfo("\tStart       : %i", game->startPosition);
   }
 
   return 0;
@@ -356,7 +356,7 @@ int listGames(const char* path, game *games)
   closedir(dir);
 
   qsort(games, count, sizeof(struct game), compareByTitle);
-  logInfo("Games found in %s: %i\n", path, count);
+  logInfo("Games found in %s: %i", path, count);
   return count;
 }
 

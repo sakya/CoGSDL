@@ -540,7 +540,7 @@ void pg_exec()
         continue;
       }
 
-      logWarning("Unknown command: %s\n", command);
+      logWarning("Unknown command: %s", command);
     } else {
       // Text
       if (lineLen) {
@@ -794,10 +794,17 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
 int pg_manageIfCommand(const char *text, int indentation)
 {
   char condition[4096];
-  int textLen = strlen(text);
-  subString(text, condition, 3, textLen - 3);
   trim(condition);
-  textLen = strlen(condition);
+  int textLen = strlen(text);
+  int start = 0;
+  if (startsWith("*if", text)) {
+    start = 3;
+  } else if (startsWith("*elseif", text)) {
+    start = 7;
+  }
+  subString(text, condition, start, textLen - start);
+  trim(condition);
+  textLen = strlen(text);
 
   logDebug("if condition=%s", condition);
 

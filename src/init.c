@@ -6,35 +6,35 @@ void load_sounds();
 int init()
 {
   logInit("CoGSDL.log");
-  logInfo("Initializing\n");
+  logInfo("Initializing");
 
   char *locale;
   locale = setlocale(LC_ALL, "");
-  logInfo("\tLocale: %s\n", locale);
+  logInfo("\tLocale: %s", locale);
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
-    logError("\tSDL_Init Fail: %s\n", SDL_GetError());
+    logError("\tSDL_Init Fail: %s", SDL_GetError());
     return -1;
   }
 
   if (TTF_Init() < 0) {
-    logError("\tTTF_Init Fail: %s\n", TTF_GetError());
+    logError("\tTTF_Init Fail: %s", TTF_GetError());
     return -1;
   }
 
   if (IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG) < 0) {
-    logError("\tIMG_Init Fail: %s\n", TTF_GetError());
+    logError("\tIMG_Init Fail: %s", TTF_GetError());
     return -1;
   }
 
   if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-    logError("\tMix_OpenAudio Fail: %s\n", Mix_GetError());
+    logError("\tMix_OpenAudio Fail: %s", Mix_GetError());
     return -1;
   }
 
   SDL_DisplayMode mode;
   if (SDL_GetDesktopDisplayMode(0, &mode)) {
-    logError("SDL_GetDesktopDisplayMode Fail: %s\n", SDL_GetError());
+    logError("SDL_GetDesktopDisplayMode Fail: %s", SDL_GetError());
     return -1;
   }
   _Globals.displayWidth = mode.w;
@@ -42,7 +42,7 @@ int init()
   _Globals.windowWidth = 640;
   _Globals.windowHeight = 480;
 
-  logInfo("\tDisplay Resolution: %dx%d\n", _Globals.displayWidth, _Globals.displayHeight);
+  logInfo("\tDisplay Resolution: %dx%d", _Globals.displayWidth, _Globals.displayHeight);
 
   _Globals.defaultFontSize = 21;
   _Globals.textFontSize = 21;
@@ -64,13 +64,13 @@ int init()
                                _Globals.windowHeight > 0 ? _Globals.windowHeight : _Globals.displayHeight,
                                SDL_WINDOW_SHOWN);
   if (_Globals.window == NULL) {
-    logError("\tSDL_CreateWindow Fail: %s\n", SDL_GetError());
+    logError("\tSDL_CreateWindow Fail: %s", SDL_GetError());
     return -1;
   }
 
   _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_SOFTWARE);
   if (_Globals.renderer == NULL) {
-    logError("\tSDL_CreateRenderer Fail: %s\n", SDL_GetError());
+    logError("\tSDL_CreateRenderer Fail: %s", SDL_GetError());
     return -1;
   }
 

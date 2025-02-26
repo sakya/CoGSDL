@@ -39,7 +39,7 @@ void drawGameChoice()
     if (selectedIdx >= 0) {
       choice* c = &pg_game_status.choices[selectedIdx];
       pg_game_status.selectedChoiceIndex = selectedIdx;
-      logDebug("Selected choice: %s (%i)\n", c->text, c->position);
+      logDebug("Selected choice: %s (%i)", c->text, c->position);
       c->used = 1;
       _Globals.status = Game;
       gc_dispose();
