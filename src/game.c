@@ -151,16 +151,19 @@ int loadGame(const char* path, game* game, int forListing)
       int idx = indexOfWordBreak(line, 8);
       game->variables[game->variablesCount].name = malloc(idx - 8 + 1);
       subString(line, game->variables[game->variablesCount].name, 8, idx - 8);
-      game->variables[game->variablesCount].value = malloc(strlen(line) - idx + 1);
-      subString(line, game->variables[game->variablesCount].value, idx + 1, strlen(line) - idx);
+      game->variables[game->variablesCount].value = NULL;
 
-      if (startsWith("\"", game->variables[game->variablesCount].value)) {
+      char *tempValue = malloc(strlen(line) - idx + 1);
+      subString(line, tempValue, idx + 1, strlen(line) - idx);
+      int valueLen = strlen(tempValue);
+      if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
         game->variables[game->variablesCount].type = string;
-      } else if (strcmp(game->variables[game->variablesCount].value, "true") == 0 || strcmp(game->variables[game->variablesCount].value, "false") == 0) {
+      } else if (strcmp(tempValue, "true") == 0 || strcmp(tempValue, "false") == 0) {
         game->variables[game->variablesCount].type = boolean;
       } else {
         game->variables[game->variablesCount].type = number;
       }
+      setVarValue(&game->variables[game->variablesCount], tempValue);
 
       logDebug("\tVAR %s=%s (type %s)\n", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value,
         game->variables[game->variablesCount].type == string ? "string" : game->variables[game->variablesCount].type == boolean ? "boolean" : "number");
@@ -395,8 +398,13 @@ int setGameVarValue(const char *varName, const char *value, game *game)
   return 0;
 }
 
-void setVarValue(const variable *var, const char *value)
+void setVarValue(variable *var, const char *value)
 {
+  if (var->value == NULL) {
+    var->value = malloc(1);
+    var->value[0] = '\0';
+  }
+
   char *tempValue = malloc(strlen(value) + 1);
   strcpy(tempValue, value);
   trim(tempValue);
@@ -442,6 +450,11 @@ void setVarValue(const variable *var, const char *value)
       break;
   }
 
+  if (var->value != NULL) {
+    free(var->value);
+    var->value = NULL;
+  }
+  var->value = malloc(strlen(tempValue) + 1);
   strcpy(var->value, tempValue);
   logDebug("Variable set %s=%s", var->name, tempValue);
   free(tempValue);

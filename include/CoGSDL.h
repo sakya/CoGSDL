@@ -162,7 +162,7 @@ variable* getVar(const char *varName, game* game);
 /// @param value The variable value
 /// @param game The game
 int setGameVarValue(const char *varName, const char *value, game *game);
-void setVarValue(const variable *var, const char *value);
+void setVarValue(variable *var, const char *value);
 /// @brief Check if a line of text is a comment
 /// @param line The line
 int isComment(const char *line);

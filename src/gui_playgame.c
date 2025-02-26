@@ -179,7 +179,7 @@ void pg_init()
     logError("Failed to open file %s", filePath);
     return;
   }
-  logDebug("Opened file %s\n", filePath);
+  logDebug("Opened file %s", filePath);
 
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
@@ -198,12 +198,12 @@ void pg_init()
   pg_game_status.lastRenderedY = 0;
   pg_game_status.selectedChoiceIndex = -1;
 
-  logDebug("Position set to %li\n", pg_game_status.fpPosition);
+  logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
 
   SDL_Surface *surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", _theme->textColor);
   line_height = surface->h;
-  logDebug("Line height %li\n", line_height);
+  logDebug("Line height %li", line_height);
   SDL_FreeSurface(surface);
 
   if (_Globals.scroll == scroll_page) {
@@ -212,7 +212,7 @@ void pg_init()
   } else {
     scroll_height = line_height;
   }
-  logDebug("scroll_height=%i\n", scroll_height);
+  logDebug("scroll_height=%i", scroll_height);
 }
 
 void pg_dispose()
@@ -352,7 +352,7 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
         dest_rect.h = source_rect.h;
 
         if (SDL_BlitSurface(char_surface, &source_rect, surface, &dest_rect)) {
-          logError("SDL_BlitSurface Fail: %s\n", SDL_GetError());
+          logError("SDL_BlitSurface Fail: %s", SDL_GetError());
         }
         SDL_FreeSurface(char_surface);
         x += source_rect.w;
@@ -439,7 +439,7 @@ void pg_exec()
   pg_clearChoices();
 
   if (pg_game_status.fpPosition == pg_game_status.fpSize) {
-    logDebug("Reached EOF (file size=%i), going to the next scene\n", pg_game_status.fpSize);
+    logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
     pg_goToNextScene();
   }
 
@@ -465,7 +465,7 @@ void pg_exec()
       // Command
       char command[256];
       pg_getCommand(line, command);
-      logDebug("Command=%s\n", command);
+      logDebug("Command=%s", command);
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
@@ -494,7 +494,7 @@ void pg_exec()
       if (strcmp(command, "goto") == 0) {
         // goto
         int newPosition = pg_manageGotoCommand(line);
-        logDebug("%s -> %i\n", line, newPosition);
+        logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         indentation = -1;
 
@@ -509,7 +509,7 @@ void pg_exec()
         int idx = 5;
         int wordEnd = pg_indexOfWordEnd(line, idx);
         if (wordEnd < 0) {
-          logWarning("Missing variable name\n");
+          logWarning("Missing variable name");
           continue;
         }
         char varName[256];
@@ -524,7 +524,7 @@ void pg_exec()
       if (strcmp(command, "if") == 0) {
         // if
         int newPosition = pg_manageIfCommand(line);
-        logDebug("%s -> %i\n", line, newPosition);
+        logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         indentation = -1;
         continue;
@@ -539,7 +539,7 @@ void pg_exec()
       if (strcmp(command, "choice") == 0 || strcmp(command, "fake_choice") == 0) {
         // choice
         int newPosition = pg_manageChoiceCommand(line);
-        logDebug("Choice -> %i\n", newPosition);
+        logDebug("Choice -> %i", newPosition);
         pg_game_status.fpPosition = newPosition;
         break;
       }
@@ -575,7 +575,7 @@ void pg_exec()
       }
     }
   }
-  logDebug("Text to render:\n%s\n", pg_game_status.text);
+  logDebug("Text to render:\n%s", pg_game_status.text);
 }
 
 void pg_appendText(const char *text, int newLine)
@@ -595,7 +595,7 @@ void pg_appendText(const char *text, int newLine)
       pg_game_status.text = tmp;
       tmp = NULL;
     } else {
-      logWarning("Realloc failed\n");
+      logWarning("Realloc failed");
       pg_game_status.text = NULL;
       return;
     }
@@ -680,7 +680,7 @@ void pg_goToNextScene()
     logError("Failed to open file %s", filePath);
     return;
   }
-  logDebug("Opened file %s\n", filePath);
+  logDebug("Opened file %s", filePath);
 
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
@@ -706,7 +706,7 @@ void pg_goToNextScene()
           pg_game_status.labels = tmp;
           tmp = NULL;
         } else {
-          logWarning("Realloc failed\n");
+          logWarning("Realloc failed");
           break;
         }
       }
@@ -715,7 +715,7 @@ void pg_goToNextScene()
       subString(line, pg_game_status.labels[pg_game_status.labelsCount - 1].name, 7, strlen(line) - 7);
       pg_game_status.labels[pg_game_status.labelsCount - 1].position = lineStartPosition;
 
-      logDebug("\tLabel name=%s, position=%li\n", pg_game_status.labels[pg_game_status.labelsCount - 1].name, pg_game_status.labels[pg_game_status.labelsCount - 1].position);
+      logDebug("\tLabel name=%s, position=%li", pg_game_status.labels[pg_game_status.labelsCount - 1].name, pg_game_status.labels[pg_game_status.labelsCount - 1].position);
     }
   }
   fseek(pg_game_status.fp, 0L, SEEK_SET);
@@ -816,7 +816,7 @@ int pg_manageIfCommand(const char *text)
   trim(condition);
   textLen = strlen(condition);
 
-  logDebug("if condition=%s\n", condition);
+  logDebug("if condition=%s", condition);
 
   // First check parentheses
   parentheses par[20];
@@ -845,7 +845,7 @@ int pg_manageIfCommand(const char *text)
     }
   }
 
-  logWarning("If not managed: %s\n", text);
+  logWarning("If not managed: %s", text);
   return 0;
 }
 
@@ -899,7 +899,7 @@ int pg_evaluateCondition(const char *condition)
     // just a variable name (boolean condition)
     char* value = getGameVarValue(condition, runningGame);
     res = value != NULL && strcmp(value, "true") == 0;
-    logDebug("\tCondition %s -> %s\n", condition, res ? "true" : "false");
+    logDebug("\tCondition (%s) -> %s", condition, res ? "true" : "false");
     return res;
   }
 
@@ -917,7 +917,7 @@ int pg_evaluateCondition(const char *condition)
   pg_evaluateExpression(left_expression, left_value);
   pg_evaluateExpression(right_expression, right_value);
 
-  logDebug("\tleft=%s (%s), right=%s (%s), op='%s'\n", left_expression, left_value, right_expression, right_value, operator);
+  logDebug("\tleft=%s (%s), right=%s (%s), op='%s'", left_expression, left_value, right_expression, right_value, operator);
   if (strcmp(operator, "=") == 0) {
     res = strcmp(left_value, right_value) == 0 ? 1 : 0;
   } else if (strcmp(operator, "!=") == 0) {
@@ -931,11 +931,11 @@ int pg_evaluateCondition(const char *condition)
   } else if (strcmp(operator, "<=") == 0) {
     res = strcmp(left_value, right_value) <= 0 ? 1 : 0;
   } else {
-    logWarning("\tUnknown operator: %s\n", operator);
+    logWarning("\tUnknown operator: %s", operator);
     return 0;
   }
 
-  logDebug("\tCondition %s -> %s\n", condition, res ? "true" : "false");
+  logDebug("\tCondition (%s) -> %s", condition, res ? "true" : "false");
   return res;
 }
 
@@ -988,7 +988,7 @@ int pg_manageGotoCommand(const char *text)
 {
   int start = indexOfWordBreak(text, 0);
   if (start < 0) {
-    logWarning("goto without label name\n");
+    logWarning("goto without label name");
     return ftell(pg_game_status.fp);
   }
 
@@ -997,7 +997,7 @@ int pg_manageGotoCommand(const char *text)
 
   label *lbl = pg_get_label(labelName);
   if (lbl == NULL) {
-    logWarning("Label %s not found\n", labelName);
+    logWarning("Label %s not found", labelName);
     return ftell(pg_game_status.fp);
   }
   fseek(pg_game_status.fp, lbl->position, SEEK_SET);
@@ -1017,7 +1017,7 @@ void pg_manageTempCommand(const char *text)
       pg_game_status.tempVariables = tmp;
       tmp = NULL;
     } else {
-      logWarning("Realloc failed\n");
+      logWarning("Realloc failed");
       return;
     }
 
@@ -1026,18 +1026,21 @@ void pg_manageTempCommand(const char *text)
   variable *var = &pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1];
   var->name = malloc(idx - 6 + 1);
   subString(text, var->name, 6, idx - 6);
-  var->value = malloc(strlen(text) - idx + 1);
-  subString(text, var->value, idx + 1, strlen(text) - idx);
+  var->value = NULL;
 
-  if (startsWith("\"", var->value)) {
+  char *tempValue = malloc(strlen(text) - idx + 1);
+  subString(text, tempValue, idx + 1, strlen(text) - idx);
+  int valueLen = strlen(tempValue);
+  if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
     var->type = string;
-  } else if (strcmp(var->value, "true") == 0 || strcmp(var->value, "false") == 0) {
+  } else if (strcmp(tempValue, "true") == 0 || strcmp(tempValue, "false") == 0) {
     var->type = boolean;
   } else {
     var->type = number;
   }
+  setVarValue(var, tempValue);
 
-  logDebug("\tTEMPVAR %s=%s (type %s)\n", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
+  logDebug("\tTEMPVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
 }
 
 int pg_manageChoiceCommand(const char *text)
@@ -1074,7 +1077,7 @@ int pg_manageChoiceCommand(const char *text)
             pg_game_status.choices = tmp;
             tmp = NULL;
           } else {
-            logWarning("Realloc failed\n");
+            logWarning("Realloc failed");
             continue;
           }
         }
@@ -1087,7 +1090,7 @@ int pg_manageChoiceCommand(const char *text)
         choice->text = malloc(strlen(line) - start + 1);
         choice->position = ftell(pg_game_status.fp);
         subString(line, choice->text, start, strlen(line) - start);
-        logDebug("\tChoice: %s (pos=%li, reusable=%i)\n", choice->text, choice->position, choice->reusable);
+        logDebug("\tChoice: %s (pos=%li, reusable=%i)", choice->text, choice->position, choice->reusable);
       }
     }
   }
@@ -1099,7 +1102,7 @@ void pg_manageFinishCommand(const char *text)
   int lineLen = strlen(text);
   if (lineLen > 7) {
     if (lineLen - 8 > sizeof(pg_game_status.pageBreakMessage)) {
-      logWarning("Finish message too long\n");
+      logWarning("Finish message too long");
       strcpy(pg_game_status.pageBreakMessage, "Next");
     } else {
       subString(text, pg_game_status.pageBreakMessage, 8, lineLen - 8);
