@@ -44,6 +44,7 @@ int pg_evaluateExpression(const char *expression, char *value);
 /// @param text The text of the line with the goto command
 /// @return The new file position
 int pg_manageGotoCommand(const char *text);
+int pg_manageGosubCommand(const char *text);
 /// @brief Manage the temp command
 /// @param text The text of the line with the temp command
 /// @return The new file position
@@ -197,6 +198,7 @@ void pg_init()
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
   pg_game_status.selectedChoiceIndex = -1;
+  pg_game_status.gosubPositionsCount = 0;
 
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -228,6 +230,7 @@ void pg_dispose()
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
+  pg_game_status.gosubPositionsCount = 0;
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
@@ -492,6 +495,33 @@ void pg_exec()
         if (textStarted)
           pg_appendText("\n", 0);
         textStarted = 0;
+        continue;
+      }
+
+      if (strcmp(command, "gosub") == 0) {
+        //gosub
+        int newPosition = pg_manageGosubCommand(line);
+        logDebug("%s -> %i", line, newPosition);
+        pg_game_status.fpPosition = newPosition;
+        indentation = -1;
+
+        if (textStarted)
+          pg_appendText("\n", 0);
+        textStarted = 0;
+        continue;
+      }
+
+      if (strcmp(command, "return") == 0) {
+        if (pg_game_status.gosubPositionsCount == 0) {
+          logWarning("No previous position found");
+          continue;
+        }
+
+        int newPosition = pg_game_status.gosubPositions[pg_game_status.gosubPositionsCount];
+        pg_game_status.fpPosition = newPosition;
+        pg_game_status.gosubPositionsCount--;
+        indentation = -1;
+        logDebug("%s -> %i", line, newPosition);
         continue;
       }
 
@@ -1027,6 +1057,30 @@ int pg_manageGotoCommand(const char *text)
   return lbl->position;
 }
 
+int pg_manageGosubCommand(const char *text)
+{
+  int start = indexOfWordBreak(text, 0);
+  if (start < 0) {
+    logWarning("gosub without label name");
+    return ftell(pg_game_status.fp);
+  }
+
+  char labelName[256];
+  subString(text, labelName, start + 1, strlen(text) - start - 1);
+
+  label *lbl = pg_get_label(labelName);
+  if (lbl == NULL) {
+    logWarning("Label %s not found", labelName);
+    return ftell(pg_game_status.fp);
+  }
+
+  // TODO: manage arguments
+  pg_game_status.gosubPositionsCount++;
+  pg_game_status.gosubPositions[pg_game_status.gosubPositionsCount] = ftell(pg_game_status.fp);
+  fseek(pg_game_status.fp, lbl->position, SEEK_SET);
+  return lbl->position;
+}
+
 void pg_manageTempCommand(const char *text)
 {
   int idx = indexOfWordBreak(text, 6);
@@ -1043,7 +1097,6 @@ void pg_manageTempCommand(const char *text)
       logWarning("Realloc failed");
       return;
     }
-
   }
 
   variable *var = &pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1];

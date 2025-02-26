@@ -12,6 +12,8 @@ struct game_status
     long fpSize;
     /// @brief Position of the file we have to execute
     long fpPosition;
+    int gosubPositions[32];
+    int gosubPositionsCount;
     /// @brief The scene index in game.scenes we are executing
     int sceneIndex;
     /// @brief The text to display
