@@ -37,10 +37,9 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
 int pg_manageIfCommand(const char *text, int indentation);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
 /// @param condition The condition
-/// @param forComparison If set tpo true value are evaluated for comparison (e.g. numbers are right aligned)
 /// @return 1 if true, 0 if false
 int pg_evaluateCondition(const char *condition);
-int pg_evaluateExpression(const char *expression, char *value, int forComparison);
+int pg_evaluateExpression(const char *expression, char *value);
 /// @brief Manage the goto command
 /// @param text The text of the line with the goto command
 /// @return The new file position
@@ -453,7 +452,6 @@ void pg_exec()
 
     trim(line);
     int lineLen = strlen(line);
-    logDebug("line=%s", line);
     if (line[0] == '*') {
       // Command
       char command[256];
@@ -932,8 +930,15 @@ int pg_evaluateCondition(const char *condition)
   char left_value[1024];
   char right_value[1024];
 
-  pg_evaluateExpression(left_expression, left_value, 1);
-  pg_evaluateExpression(right_expression, right_value, 1);
+  pg_evaluateExpression(left_expression, left_value);
+  int int_value;
+  if (is_number(left_value, &int_value)) {
+    sprintf(left_value, "%10i", int_value);
+  }
+  pg_evaluateExpression(right_expression, right_value);
+  if (is_number(right_value, &int_value)) {
+    sprintf(right_value, "%10i", int_value);
+  }
 
   logDebug("\tleft=%s (%s), right=%s (%s), op='%s'", left_expression, left_value, right_expression, right_value, operator);
   if (strcmp(operator, "=") == 0) {
@@ -957,7 +962,7 @@ int pg_evaluateCondition(const char *condition)
   return res;
 }
 
-int pg_evaluateExpression(const char *expression, char *value, int forComparison)
+int pg_evaluateExpression(const char *expression, char *value)
 {
   value[0] = '\0';
   if (!expression)
@@ -981,11 +986,7 @@ int pg_evaluateExpression(const char *expression, char *value, int forComparison
   }
   if (is_number(expression, &int_value)) {
     // Number constant
-    if (forComparison) {
-      sprintf(value, "%10i", int_value);
-    } else {
-      strcpy(value, expression);
-    }
+    strcpy(value, expression);
     return 1;
   }
 
@@ -998,11 +999,7 @@ int pg_evaluateExpression(const char *expression, char *value, int forComparison
   // Variable name
   variable *var = pg_getVar(expression);
   if (var != NULL) {
-    if (var->type == number && forComparison) {
-      sprintf(value, "%10i", atoi(var->value));
-    } else {
-      strcpy(value, var->value);
-    }
+    strcpy(value, var->value);
     return 1;
   }
 
@@ -1222,7 +1219,7 @@ int pg_setVarValue(const char *varName, const char *value)
     return 0;
 
   char evaluated[1024];
-  pg_evaluateExpression(value, evaluated, 0);
+  pg_evaluateExpression(value, evaluated);
   setVarValue(var, evaluated);
   return 1;
 }
