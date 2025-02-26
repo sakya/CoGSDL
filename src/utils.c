@@ -233,10 +233,11 @@ int is_number(const char *text, int *value)
     if ((text[i] == '-' || text[i] == '+') && i > 0)
       return 0;
 
-    if (!isdigit(text[i] && text[i] != '.' && text[i] != '-' && text[i] != '+'))
+    if (!isdigit(text[i]) && text[i] != '.' && text[i] != '-' && text[i] != '+')
       return 0;
   }
 
-  *value = atoi(text);
+  if (value != NULL)
+    *value = atoi(text);
   return 1;
 }

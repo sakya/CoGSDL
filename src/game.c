@@ -365,7 +365,7 @@ variable* getVar(const char *varName, game* game)
       return &game->variables[i];
   }
 
-  logWarning("Variable %s not found\n", varName);
+  logWarning("Variable %s not found", varName);
   return NULL;
 }
 
@@ -377,7 +377,7 @@ char* getGameVarValue(const char *varName, game* game)
       return game->variables[i].value;
   }
 
-  logWarning("Variable %s not found\n", varName);
+  logWarning("Variable %s not found", varName);
   return NULL;
 }
 
@@ -402,13 +402,47 @@ void setVarValue(const variable *var, const char *value)
   trim(tempValue);
   int valueLen = strlen(tempValue);
 
-  if (var->type == string) {
-    if (tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
-      subString(tempValue, tempValue, 1, valueLen - 2);
-    }
+  switch (var->type)
+  {
+    case string:
+      if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
+        subString(tempValue, tempValue, 1, valueLen - 2);
+      }
+      break;
+    case number:
+      int intValue;
+      int isFairMath = valueLen > 2 && tempValue[0] == '%' && (tempValue[1] == '+' || tempValue[1] == '-');
+      if (isFairMath) {
+        int varValue = atoi(var->value);
+        int deltaValue = atoi(tempValue + 2);
+        if (tempValue[1] == '+') {
+          intValue = (varValue + (100 - varValue) * (deltaValue / 100));
+          sprintf(tempValue, "%i", intValue);
+        } else if (tempValue[1] == '-') {
+          intValue = (varValue - varValue * (deltaValue / 100));
+          sprintf(tempValue, "%i", intValue);
+        }
+      } else {
+        if (!is_number(tempValue, &intValue)) {
+          logWarning("Invalid value for number variable %s: %s", var->name, tempValue);
+          strcpy(tempValue, "0");
+        }
+
+        if (tempValue[0] == '+' || tempValue[0] == '-') {
+          intValue += atoi(var->value);
+          sprintf(tempValue, "%i", intValue);
+        }
+      }
+      break;
+    case boolean:
+      if (strcmp(tempValue, "true") != 0 && strcmp(tempValue, "false") != 0) {
+        logWarning("Invalid value for boolean variable %s: %s", var->name, tempValue);
+        strcpy(tempValue, "false");
+      }
+      break;
   }
 
   strcpy(var->value, tempValue);
-  logDebug("Variable set %s=%s\n", var->name, tempValue);
+  logDebug("Variable set %s=%s", var->name, tempValue);
   free(tempValue);
 }

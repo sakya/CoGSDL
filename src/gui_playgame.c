@@ -946,7 +946,7 @@ int pg_evaluateExpression(const char *expression, char *value)
     return 0;
 
   int expLen = strlen(expression);
-  if (expression[0] == '"' && expression[expLen - 1] == '"') {
+  if (expLen > 1 && expression[0] == '"' && expression[expLen - 1] == '"') {
     // String constant
     subString(expression, value, 1, expLen - 2);
 
@@ -954,9 +954,22 @@ int pg_evaluateExpression(const char *expression, char *value)
   }
 
   int int_value;
+  if (expLen > 2 && expression[0] == '%' && (expression[1] == '+' || expression[1] == '-')) {
+    if (is_number(expression + 2, &int_value)) {
+      // Fairmath
+      strcpy(value, expression);
+      return 1;
+    }
+  }
   if (is_number(expression, &int_value)) {
     // Number constant
-    snprintf(value, 20, "%10d", int_value);
+    strcpy(value, expression);
+    return 1;
+  }
+
+  // Boolean value
+  if (strcmp(expression, "true") == 0 || strcmp(expression, "false") == 0) {
+    strcpy(value, expression);
     return 1;
   }
 
@@ -967,6 +980,7 @@ int pg_evaluateExpression(const char *expression, char *value)
     return 1;
   }
 
+  logWarning("Expression not evaluated: %s", expression);
   return 0;
 }
 
@@ -1176,14 +1190,16 @@ int pg_setVarValue(const char *varName, const char *value)
 {
   int i = 0;
 
+  char evaluated[1024];
+  pg_evaluateExpression(value, evaluated);
   for (i = 0; i < pg_game_status.tempVariablesCount; i++) {
     if (strcmp(pg_game_status.tempVariables[i].name, varName) == 0) {
-      setVarValue(&pg_game_status.tempVariables[i], value);
+      setVarValue(&pg_game_status.tempVariables[i], evaluated);
       return 1;
     }
   }
 
-  return setGameVarValue(varName, value, runningGame);
+  return setGameVarValue(varName, evaluated, runningGame);
 }
 
 void pg_clearTempVars()
