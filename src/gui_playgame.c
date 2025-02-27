@@ -1435,7 +1435,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
   res[idx] = '\0';
 
   // Remove trailing spaces
-  while (idx >= 0 && res[--idx] == ' ') {
+  while (idx > 0 && res[--idx] == ' ') {
     res[idx] = '\0';
   }
 
