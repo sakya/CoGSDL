@@ -166,6 +166,7 @@ int loadGame(const char* path, game* game, int forListing)
         var->type = number;
       }
       setVarValue(&game->variables[game->variablesCount], tempValue);
+      free(tempValue);
 
       logDebug("\tVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
       game->variablesCount++;

@@ -1150,6 +1150,7 @@ void pg_manageTempCommand(const char *text)
     var->type = number;
   }
   setVarValue(var, tempValue);
+  free(tempValue);
 
   logDebug("\tTEMPVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
 }
