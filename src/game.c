@@ -149,25 +149,25 @@ int loadGame(const char* path, game* game, int forListing)
 
       // Variable definition
       int idx = indexOfWordBreak(line, 8);
-      game->variables[game->variablesCount].name = malloc(idx - 8 + 1);
-      subString(line, game->variables[game->variablesCount].name, 8, idx - 8);
-      game->variables[game->variablesCount].value = NULL;
+      variable *var = &game->variables[game->variablesCount];
+      var->name = malloc(idx - 8 + 1);
+      subString(line, var->name, 8, idx - 8);
+      var->value = NULL;
 
       char *tempValue = malloc(strlen(line) - idx + 1);
       subString(line, tempValue, idx + 1, strlen(line) - idx);
       trim(tempValue);
       int valueLen = strlen(tempValue);
       if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
-        game->variables[game->variablesCount].type = string;
+        var->type = string;
       } else if (strcmp(tempValue, "true") == 0 || strcmp(tempValue, "false") == 0) {
-        game->variables[game->variablesCount].type = boolean;
+        var->type = boolean;
       } else {
-        game->variables[game->variablesCount].type = number;
+        var->type = number;
       }
       setVarValue(&game->variables[game->variablesCount], tempValue);
 
-      logDebug("\tVAR %s=%s (type %s)", game->variables[game->variablesCount].name, game->variables[game->variablesCount].value,
-        game->variables[game->variablesCount].type == string ? "string" : game->variables[game->variablesCount].type == boolean ? "boolean" : "number");
+      logDebug("\tVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
       game->variablesCount++;
     } else if (startsWithWord("*achievement", line)) {
       if (game->achievementsCount == sizeof(game->achievements) / sizeof(achievement)) {
