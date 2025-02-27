@@ -7,8 +7,8 @@ int logInit(const char* filePath)
   setvbuf(stdout, NULL, _IONBF, 0);
   log_fp = fopen(filePath, "wb");
   if (log_fp == NULL)
-      return -1;
-
+    return -1;
+  setvbuf(log_fp, NULL, _IONBF, 0);
   return 0;
 }
 
@@ -41,7 +41,6 @@ void logPrimitive(const char* level, const char *format, va_list args)
     fwrite(msg, sizeof(char), strlen(msg), log_fp);
     if (newline)
       fwrite("\n", sizeof(char), 1, log_fp);
-    fflush(log_fp);
   }
   fprintf(stdout, timeString);
   fprintf(stdout, levelString);
