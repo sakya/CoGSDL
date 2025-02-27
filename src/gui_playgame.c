@@ -991,7 +991,7 @@ int pg_evaluateCondition(const char *condition)
   }
   pg_evaluateExpression(right_expression, right_value);
   if (is_number(right_value, &int_value)) {
-    sprintf(right_value, "%10i", int_value);
+    sprintf(right_value, "%010i", int_value);
   }
 
   logDebug("\tleft=%s (%s), right=%s (%s), op='%s'", left_expression, left_value, right_expression, right_value, operator);

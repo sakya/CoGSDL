@@ -26,7 +26,7 @@ void logPrimitive(const char* level, const char *format, va_list args)
   char timeString[256];
   char levelString[20];
   time_t current_time;
-  struct tm *info;
+  struct tm *info = NULL;
 
   vsnprintf(msg, sizeof(msg), format, args);
   int newline = msg[strlen(msg) - 1] == '\n' ? 0 : 1;
@@ -43,11 +43,11 @@ void logPrimitive(const char* level, const char *format, va_list args)
       fwrite("\n", sizeof(char), 1, log_fp);
     fflush(log_fp);
   }
-  printf(timeString);
-  printf(levelString);
-  printf(msg);
+  fprintf(stdout, timeString);
+  fprintf(stdout, levelString);
+  fprintf(stdout, msg);
   if (newline)
-    printf("\n");
+    fprintf(stdout, "\n");
 }
 
 void logDebug(const char *format, ...)
