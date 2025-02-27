@@ -155,6 +155,7 @@ int loadGame(const char* path, game* game, int forListing)
 
       char *tempValue = malloc(strlen(line) - idx + 1);
       subString(line, tempValue, idx + 1, strlen(line) - idx);
+      trim(tempValue);
       int valueLen = strlen(tempValue);
       if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
         game->variables[game->variablesCount].type = string;

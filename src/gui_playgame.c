@@ -414,7 +414,9 @@ int pg_renderPageBreak()
   return 0;
 }
 
-void pg_exec()
+/// @brief Exec the next line(s)
+/// @return 1 if something was executed
+int pg_exec_primitive()
 {
   char line[4096];
   int indentation = -1;
@@ -459,7 +461,7 @@ void pg_exec()
       // Command
       char command[256];
       pg_getCommand(line, command);
-      logDebug("Command=%s", command);
+      logDebug("Command=%s", line);
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
@@ -538,7 +540,10 @@ void pg_exec()
         subString(line, varName, idx, wordEnd - idx);
         idx += strlen(varName);
         subString(line, value, idx + 1, lineLen - idx);
-        pg_setVarValue(varName, value);
+        char evaluated[1024];
+        memset(evaluated, 0, sizeof(evaluated));
+        pg_evaluateExpression(value, evaluated);
+        pg_setVarValue(varName, evaluated);
         continue;
       }
 
@@ -585,6 +590,9 @@ void pg_exec()
       }
     }
   }
+  if (ftell(pg_game_status.fp) == pg_game_status.fpSize) {
+    pg_game_status.fpPosition = pg_game_status.fpSize;
+  }
 
   if (pg_game_status.text != NULL) {
     // Remove trailing new lines (except one)
@@ -597,7 +605,22 @@ void pg_exec()
       }
     }
   }
-  logDebug("Text to render:\n%s", pg_game_status.text);
+
+  if (pg_game_status.text == NULL && pg_game_status.fpPosition == pg_game_status.fpSize) {
+    logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
+    pg_goToNextScene();
+
+    return 0;
+  } else {
+    logDebug("Text to render:\n%s", pg_game_status.text);
+  }
+
+  return 1;
+}
+
+void pg_exec()
+{
+  while (!pg_exec_primitive());
 }
 
 void pg_appendText(const char *text, int newLine)
@@ -741,6 +764,7 @@ void pg_goToNextScene()
     }
   }
   fseek(pg_game_status.fp, 0L, SEEK_SET);
+  pg_game_status.fpPosition = 0;
 }
 
 int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
@@ -1009,11 +1033,21 @@ int pg_evaluateExpression(const char *expression, char *value)
   int int_value;
   if (expLen > 2 && expression[0] == '%' && (expression[1] == '+' || expression[1] == '-')) {
     if (is_number(expression + 2, &int_value)) {
-      // Fairmath
+      // Fairmath: %+10
       strcpy(value, expression);
       return 1;
+    } else {
+      // Fairmath: %+var_name
+      variable *var = pg_getVar(expression + 2);
+      if (var != NULL) {
+        strncpy(value, expression, 2);
+        strcat(value, var->value);
+
+        return 1;
+      }
     }
   }
+
   if (is_number(expression, &int_value)) {
     // Number constant
     strcpy(value, expression);
@@ -1106,6 +1140,7 @@ void pg_manageTempCommand(const char *text)
 
   char *tempValue = malloc(strlen(text) - idx + 1);
   subString(text, tempValue, idx + 1, strlen(text) - idx);
+  trim(tempValue);
   int valueLen = strlen(tempValue);
   if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
     var->type = string;
