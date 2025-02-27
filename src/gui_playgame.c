@@ -540,10 +540,7 @@ int pg_exec_primitive()
         subString(line, varName, idx, wordEnd - idx);
         idx += strlen(varName);
         subString(line, value, idx + 1, lineLen - idx);
-        char evaluated[1024];
-        memset(evaluated, 0, sizeof(evaluated));
-        pg_evaluateExpression(value, evaluated);
-        pg_setVarValue(varName, evaluated);
+        pg_setVarValue(varName, value);
         continue;
       }
 
