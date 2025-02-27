@@ -180,7 +180,7 @@ void pg_init()
     logError("Failed to open file %s", filePath);
     return;
   }
-  logDebug("Opened file %s", filePath);
+  logInfo("Opened file %s", filePath);
 
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
@@ -461,7 +461,7 @@ int pg_exec_primitive()
       // Command
       char command[256];
       pg_getCommand(line, command);
-      logDebug("Command=%s", line);
+      logDebug("Command [%s]=%s", command, line);
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
@@ -528,7 +528,7 @@ int pg_exec_primitive()
       }
 
       if (strcmp(command, "set") == 0) {
-        // set varName value
+        // set varName expression
         int idx = 5;
         int wordEnd = pg_indexOfWordEnd(line, idx);
         if (wordEnd < 0) {
@@ -536,7 +536,7 @@ int pg_exec_primitive()
           continue;
         }
         char varName[256];
-        char value[256];
+        char value[512];
         subString(line, varName, idx, wordEnd - idx);
         idx += strlen(varName);
         subString(line, value, idx + 1, lineLen - idx);
@@ -725,7 +725,7 @@ void pg_goToNextScene()
     logError("Failed to open file %s", filePath);
     return;
   }
-  logDebug("Opened file %s", filePath);
+  logInfo("Opened file %s", filePath);
 
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
@@ -1436,7 +1436,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
   res[idx] = '\0';
 
   // Remove trailing spaces
-  while (idx > 0 && res[--idx] == ' ') {
+  while (--idx >= 0 && res[idx] == ' ') {
     res[idx] = '\0';
   }
 

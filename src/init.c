@@ -68,6 +68,10 @@ int init()
     return -1;
   }
 
+  int w, h = 0;
+  SDL_GetWindowSize(_Globals.window, &w, &h);
+  logInfo("\tWindow Resolution: %dx%d", w, h);
+
   _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_SOFTWARE);
   if (_Globals.renderer == NULL) {
     logError("\tSDL_CreateRenderer Fail: %s", SDL_GetError());
