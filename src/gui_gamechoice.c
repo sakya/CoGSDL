@@ -2,11 +2,12 @@
 #include "gui_playgame.h"
 
 extern game_status pg_game_status;
-static int firstIdx = 0;
+static int scroll_y = 0;
 static int selectedIdx = 0;
 static SDL_Surface* choice_surface[16];
 static int choice_surface_count = 0;
 static int line_height = 0;
+static int total_height = 0;
 
 void gc_init();
 void gc_dispose();
@@ -22,18 +23,17 @@ void drawGameChoice()
     selectedIdx++;
     if (selectedIdx == pg_game_status.choicesCount) {
       selectedIdx = 0;
-      firstIdx = 0;
+      scroll_y = 0;
     }
   } else if (_Globals.input[_Keys.KeyUp] == 1 && selectedIdx >= 0) {
     _Globals.input[_Keys.KeyUp] = 0;
     selectedIdx--;
     if (selectedIdx < 0) {
       selectedIdx = pg_game_status.choicesCount - 1;
-      if (firstIdx < 0)
-        firstIdx = 0;
+      if (total_height > _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) {
+        scroll_y = total_height - (_Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) - choice_surface[selectedIdx]->h - 2;
+      }
     }
-    if (selectedIdx < firstIdx)
-      firstIdx = selectedIdx;
   } else if (_Globals.input[_Keys.KeyA] == 1) {
     _Globals.input[_Keys.KeyA] = 0;
     if (selectedIdx >= 0) {
@@ -65,13 +65,14 @@ void drawGameChoice()
 void gc_init()
 {
   selectedIdx = 0;
-  firstIdx = 0;
+  scroll_y = 0;
 
   SDL_Surface *surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", _theme->textColor);
   line_height = surface->h;
   SDL_FreeSurface(surface);
 
   pg_game_status.selectedChoiceIndex = -1;
+  total_height = 0;
   if (!choice_surface_count) {
     int text_width = _Globals.windowWidth - 2 * TEXT_MARGIN;
 
@@ -94,6 +95,7 @@ void gc_init()
 
       choice_surface[choice_surface_count] = surface;
       choice_surface_count++;
+      total_height += surface->h + 2;
     }
   }
 }
@@ -104,44 +106,59 @@ void gc_dispose()
     SDL_FreeSurface(choice_surface[i]);
   }
   choice_surface_count = 0;
+  total_height = 0;
 }
 
 void gc_draw()
 {
   int i = 0;
   int y = HEADER_HEIGHT + TEXT_MARGIN;
-  for (i = firstIdx; i < pg_game_status.choicesCount; i++) {
+  for (i = 0; i < pg_game_status.choicesCount; i++) {
     choice* c = &pg_game_status.choices[i];
+    int height = choice_surface[i]->h + 2;
+
     if (!c->reusable && c->used)
       continue;
+    if (y - scroll_y + height < HEADER_HEIGHT + TEXT_MARGIN || y - scroll_y > _Globals.windowHeight - HEADER_HEIGHT) {
+      y += height;
+      continue;
+    }
 
     int cropped = 0;
-    int height = choice_surface[i]->h + 2;
-    if (y + height > _Globals.windowHeight - HEADER_HEIGHT) {
+    int delta_y = 0;
+    if (y - scroll_y < HEADER_HEIGHT + TEXT_MARGIN) {
+      height -=  HEADER_HEIGHT + TEXT_MARGIN - (y - scroll_y);
+      delta_y = HEADER_HEIGHT + TEXT_MARGIN - (y - scroll_y);
+      cropped = 1;
+    } else if (y - scroll_y + height > _Globals.windowHeight - HEADER_HEIGHT) {
       height = _Globals.windowHeight - HEADER_HEIGHT - y - TEXT_MARGIN;
+      delta_y = 0;
       cropped = 1;
     }
 
     if (i == selectedIdx) {
-      SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
-
-      SDL_Rect rect = { 0, y, _Globals.windowWidth, height };
-      SDL_RenderFillRect(_Globals.renderer, &rect);
-
       if (cropped) {
         // Scroll
-        firstIdx++;
+        if (delta_y) {
+          scroll_y -= delta_y;
+        } else {
+          scroll_y += choice_surface[i]->h + 2 - height;
+        }
       }
+
+      SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
+      SDL_Rect rect = { 0, y - scroll_y + delta_y, _Globals.windowWidth, height };
+      SDL_RenderFillRect(_Globals.renderer, &rect);
     }
     y += 1;
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, choice_surface[i]);
-    SDL_Rect crop = { 0, 0, choice_surface[i]->w, height - 2};
-    SDL_Rect rect = { TEXT_MARGIN, y, choice_surface[i]->w, height - 2 };
+    SDL_Rect crop = { 0, delta_y, choice_surface[i]->w, height - 2};
+    SDL_Rect rect = { TEXT_MARGIN, y - scroll_y + delta_y, choice_surface[i]->w, height - 2 };
     SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, 0, NULL, SDL_FLIP_NONE);
     SDL_DestroyTexture(texture);
     y += choice_surface[i]->h + 1;
-    if (y >= _Globals.windowHeight - HEADER_HEIGHT)
+    if (y - scroll_y >= _Globals.windowHeight - HEADER_HEIGHT)
       break;
   }
 
