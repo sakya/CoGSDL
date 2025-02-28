@@ -49,6 +49,16 @@ int isCommand(const char *line, const char command)
   return idx == strlen(c) ? 1 : 0;
 }
 
+void addGameVar(game* game, enum var_types type, const char* name, const char* value)
+{
+  game->variables[game->variablesCount].type = type;
+  game->variables[game->variablesCount].name = malloc(strlen(name) + 1);
+  strcpy(game->variables[game->variablesCount].name, name);
+  game->variables[game->variablesCount].value = malloc(strlen(value + 1));
+  strcpy(game->variables[game->variablesCount].value, value);
+  game->variablesCount++;
+}
+
 int loadGame(const char* path, game* game, int forListing)
 {
   if (game == NULL)
@@ -248,24 +258,9 @@ int loadGame(const char* path, game* game, int forListing)
   fclose(fp);
 
   if (!forListing) {
-    // Add choice_randomtest var
-    game->variables[game->variablesCount].name = malloc(64);
-    strcpy(game->variables[game->variablesCount].name, "choice_randomtest");
-    game->variables[game->variablesCount].value = malloc(64);
-    strcpy(game->variables[game->variablesCount].value, "false");
-    game->variablesCount++;
-    // Add choice_is_omnibus_app var
-    game->variables[game->variablesCount].name = malloc(64);
-    strcpy(game->variables[game->variablesCount].name, "choice_is_omnibus_app");
-    game->variables[game->variablesCount].value = malloc(64);
-    strcpy(game->variables[game->variablesCount].value, "true");
-    game->variablesCount++;
-    // Add skip_description var
-    game->variables[game->variablesCount].name = malloc(64);
-    strcpy(game->variables[game->variablesCount].name, "skip_description");
-    game->variables[game->variablesCount].value = malloc(64);
-    strcpy(game->variables[game->variablesCount].value, "true");
-    game->variablesCount++;
+    addGameVar(game, boolean, "choice_randomtest", "false");
+    addGameVar(game, boolean, "choice_is_omnibus_app", "true");
+    addGameVar(game, boolean, "skip_description", "true");
 
     logInfo("\tScenes      : %i", game->scenesCount);
     logInfo("\tVariables   : %i", game->variablesCount);
