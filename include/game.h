@@ -33,9 +33,13 @@ struct achievement
 
 struct choice
 {
+  /// @brief The choice text
   char *text;
+  /// @brief The file position to go if the choice is selected
   long position;
+  /// @brief Set to 1 id the choice can be reused
   int reusable;
+  /// @brief Set to 1 if the choice has been used
   int used;
 } typedef choice;
 

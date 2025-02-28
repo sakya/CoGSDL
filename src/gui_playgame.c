@@ -33,6 +33,7 @@ char *pg_getNextLine(const char *text, int *position, int maxWidth, int *wordWra
 int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
 /// @brief Manage an if
 /// @param text The text of the line with the if command
+/// @param indentation The line indentation
 /// @return The new file position where continue execution
 long pg_manageIfCommand(const char *text, int indentation);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
@@ -50,10 +51,8 @@ long pg_manageGosubCommand(const char *text);
 /// @return The new file position
 void pg_manageTempCommand(const char *text);
 /// @brief Manage the choice command
-/// @param text The text of the line with the temp command
-/// @param start
 /// @return The new file position
-long pg_manageChoiceCommand(const char *text);
+long pg_manageChoiceCommand();
 /// @brief Manage the finish command
 /// @param text
 void pg_manageFinishCommand(const char *text);
@@ -416,7 +415,7 @@ int pg_renderPageBreak()
 
 /// @brief Exec the next line(s)
 /// @return 1 if something was executed
-int pg_exec_primitive()
+int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
 {
   char line[4096];
   int indentation = -1;
@@ -434,13 +433,13 @@ int pg_exec_primitive()
   pg_game_status.scrollY = 0;
   pg_clearChoices();
 
-  if (pg_game_status.fpPosition == pg_game_status.fpSize) {
-    logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
+  if (pg_game_status.fpPosition == file_size) {
+    logDebug("Reached EOF (file size=%i), going to the next scene", file_size);
     pg_goToNextScene();
   }
 
   int textStarted = 0;
-  while (fgets(line, sizeof(line), pg_game_status.fp)) {
+  while (fgets(line, sizeof(line), fp)) {
     int lineIndentation = isEmpty(line)
       ? indentation
       : getIndentation(line);
@@ -465,7 +464,7 @@ int pg_exec_primitive()
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
-        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        pg_game_status.fpPosition = ftell(fp);
         break;
       }
 
@@ -483,7 +482,7 @@ int pg_exec_primitive()
       if (strcmp(command, "finish") == 0) {
         pg_manageFinishCommand(line);
         pg_game_status.showPageBreak = 1;
-        pg_game_status.fpPosition = pg_game_status.fpSize;
+        pg_game_status.fpPosition = file_size;
         break;
       }
 
@@ -562,7 +561,7 @@ int pg_exec_primitive()
 
       if (strcmp(command, "choice") == 0 || strcmp(command, "fake_choice") == 0) {
         // choice
-        long newPosition = pg_manageChoiceCommand(line);
+        long newPosition = pg_manageChoiceCommand();
         logDebug("Choice -> %i", newPosition);
         pg_game_status.fpPosition = newPosition;
         break;
@@ -587,8 +586,8 @@ int pg_exec_primitive()
       }
     }
   }
-  if (ftell(pg_game_status.fp) == pg_game_status.fpSize) {
-    pg_game_status.fpPosition = pg_game_status.fpSize;
+  if (ftell(fp) == file_size) {
+    pg_game_status.fpPosition = file_size;
   }
 
   if (pg_game_status.text != NULL) {
@@ -603,8 +602,8 @@ int pg_exec_primitive()
     }
   }
 
-  if (pg_game_status.text == NULL && pg_game_status.fpPosition == pg_game_status.fpSize) {
-    logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
+  if (pg_game_status.text == NULL && pg_game_status.fpPosition == file_size) {
+    logDebug("Reached EOF (file size=%i), going to the next scene", file_size);
     pg_goToNextScene();
 
     return 0;
@@ -617,7 +616,8 @@ int pg_exec_primitive()
 
 void pg_exec()
 {
-  while (!pg_exec_primitive());
+  long position;
+  while (!pg_exec_primitive(pg_game_status.fp, pg_game_status.fpSize, &position));
 }
 
 void pg_appendText(const char *text, int newLine)
@@ -984,7 +984,7 @@ int pg_evaluateCondition(const char *condition)
   pg_evaluateExpression(left_expression, left_value);
   int int_value;
   if (is_number(left_value, &int_value)) {
-    sprintf(left_value, "%10i", int_value);
+    sprintf(left_value, "%010i", int_value);
   }
   pg_evaluateExpression(right_expression, right_value);
   if (is_number(right_value, &int_value)) {
@@ -1155,10 +1155,10 @@ void pg_manageTempCommand(const char *text)
   logDebug("\tTEMPVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
 }
 
-long pg_manageChoiceCommand(const char *text)
+long pg_manageChoiceCommand()
 {
   char line[4096];
-  int choiceIndentaion = -1;
+  int choiceIndentation = -1;
   int lineStartPosition = 0;
   long nextLineStartPosition = 0;
   while (fgets(line, sizeof(line), pg_game_status.fp)) {
@@ -1167,17 +1167,17 @@ long pg_manageChoiceCommand(const char *text)
     line[strcspn(line, "\r")] = '\0';
     line[strcspn(line, "\n")] = '\0';
 
-    if (choiceIndentaion < 0) {
-      choiceIndentaion = getIndentation(line);
+    if (choiceIndentation < 0) {
+      choiceIndentation = getIndentation(line);
     }
 
     int lineIndentation = getIndentation(line);
-    if (strlen(line) > 0 && lineIndentation < choiceIndentaion) {
+    if (strlen(line) > 0 && lineIndentation < choiceIndentation) {
       break;
     }
 
     trim(line);
-    if (lineIndentation == choiceIndentaion) {
+    if (lineIndentation == choiceIndentation) {
       int start = indexOf(line, '#', 0);
       if (start >= 0) {
         pg_game_status.choicesCount++;
@@ -1200,6 +1200,17 @@ long pg_manageChoiceCommand(const char *text)
         choice->used = 0;
         choice->reusable = startsWithWord("*hide_reuse", line) ? 0 : 1;
         choice->text = malloc(strlen(line) - start + 1);
+        // Get the position of the line to execute when the choice is selected
+        long pos = ftell(pg_game_status.fp);
+        char temp_line[4096];
+        while (fgets(temp_line, sizeof(temp_line), pg_game_status.fp)) {
+          int tempIndentation = getIndentation(temp_line);
+          logDebug("temp_line=%s, tempIndentation=%i", temp_line, tempIndentation);
+          if (tempIndentation > choiceIndentation) {
+            choice->position = pos;
+            break;
+          }
+        }
         choice->position = ftell(pg_game_status.fp);
         subString(line, choice->text, start, strlen(line) - start);
         logDebug("\tChoice: %s (pos=%li, reusable=%i)", choice->text, choice->position, choice->reusable);
