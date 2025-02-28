@@ -248,6 +248,12 @@ int loadGame(const char* path, game* game, int forListing)
   fclose(fp);
 
   if (!forListing) {
+    // Add choice_randomtest var
+    game->variables[game->variablesCount].name = malloc(64);
+    strcpy(game->variables[game->variablesCount].name, "choice_randomtest");
+    game->variables[game->variablesCount].value = malloc(64);
+    strcpy(game->variables[game->variablesCount].value, "false");
+    game->variablesCount++;
     // Add choice_is_omnibus_app var
     game->variables[game->variablesCount].name = malloc(64);
     strcpy(game->variables[game->variablesCount].name, "choice_is_omnibus_app");

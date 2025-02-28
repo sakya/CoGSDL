@@ -4,6 +4,12 @@
 #include <SDL2/SDL_image.h>
 #include "game.h"
 
+struct gosub_info
+{
+  FILE *fp;
+  long position;
+} typedef gosub_info;
+
 struct game_status
 {
     /// @brief Startup or scene file
@@ -12,8 +18,8 @@ struct game_status
     long fpSize;
     /// @brief Position of the file we have to execute
     long fpPosition;
-    int gosubPositions[32];
-    int gosubPositionsCount;
+    gosub_info gosub[32];
+    int gosubCount;
     /// @brief The scene index in game.scenes we are executing
     int sceneIndex;
     /// @brief The text to display

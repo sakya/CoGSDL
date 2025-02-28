@@ -34,7 +34,7 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
 /// @brief Manage an if
 /// @param text The text of the line with the if command
 /// @return The new file position where continue execution
-int pg_manageIfCommand(const char *text, int indentation);
+long pg_manageIfCommand(const char *text, int indentation);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
 /// @param condition The condition
 /// @return 1 if true, 0 if false
@@ -43,8 +43,8 @@ int pg_evaluateExpression(const char *expression, char *value);
 /// @brief Manage the goto command
 /// @param text The text of the line with the goto command
 /// @return The new file position
-int pg_manageGotoCommand(const char *text);
-int pg_manageGosubCommand(const char *text);
+long pg_manageGotoCommand(const char *text);
+long pg_manageGosubCommand(const char *text);
 /// @brief Manage the temp command
 /// @param text The text of the line with the temp command
 /// @return The new file position
@@ -53,7 +53,7 @@ void pg_manageTempCommand(const char *text);
 /// @param text The text of the line with the temp command
 /// @param start
 /// @return The new file position
-int pg_manageChoiceCommand(const char *text);
+long pg_manageChoiceCommand(const char *text);
 /// @brief Manage the finish command
 /// @param text
 void pg_manageFinishCommand(const char *text);
@@ -198,7 +198,7 @@ void pg_init()
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
   pg_game_status.selectedChoiceIndex = -1;
-  pg_game_status.gosubPositionsCount = 0;
+  pg_game_status.gosubCount = 0;
 
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -230,7 +230,7 @@ void pg_dispose()
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
-  pg_game_status.gosubPositionsCount = 0;
+  pg_game_status.gosubCount = 0;
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
@@ -489,7 +489,7 @@ int pg_exec_primitive()
 
       if (strcmp(command, "goto") == 0) {
         // goto
-        int newPosition = pg_manageGotoCommand(line);
+        long newPosition = pg_manageGotoCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         indentation = -1;
@@ -502,7 +502,7 @@ int pg_exec_primitive()
 
       if (strcmp(command, "gosub") == 0) {
         //gosub
-        int newPosition = pg_manageGosubCommand(line);
+        long newPosition = pg_manageGosubCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         indentation = -1;
@@ -514,14 +514,14 @@ int pg_exec_primitive()
       }
 
       if (strcmp(command, "return") == 0) {
-        if (pg_game_status.gosubPositionsCount == 0) {
+        if (pg_game_status.gosubCount == 0) {
           logWarning("No previous position found");
           continue;
         }
 
-        int newPosition = pg_game_status.gosubPositions[pg_game_status.gosubPositionsCount];
+        long newPosition = pg_game_status.gosub[pg_game_status.gosubCount].position;
         pg_game_status.fpPosition = newPosition;
-        pg_game_status.gosubPositionsCount--;
+        pg_game_status.gosubCount--;
         indentation = -1;
         logDebug("%s -> %i", line, newPosition);
         continue;
@@ -546,7 +546,7 @@ int pg_exec_primitive()
 
       if (strcmp(command, "if") == 0 || strcmp(command, "elseif") == 0) {
         // if
-        int newPosition = pg_manageIfCommand(line, lineIndentation);
+        long newPosition = pg_manageIfCommand(line, lineIndentation);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -562,7 +562,7 @@ int pg_exec_primitive()
 
       if (strcmp(command, "choice") == 0 || strcmp(command, "fake_choice") == 0) {
         // choice
-        int newPosition = pg_manageChoiceCommand(line);
+        long newPosition = pg_manageChoiceCommand(line);
         logDebug("Choice -> %i", newPosition);
         pg_game_status.fpPosition = newPosition;
         break;
@@ -843,7 +843,7 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
   return 0;
 }
 
-int pg_manageIfCommand(const char *text, int indentation)
+long pg_manageIfCommand(const char *text, int indentation)
 {
   char condition[4096];
   trim(condition);
@@ -1068,7 +1068,7 @@ int pg_evaluateExpression(const char *expression, char *value)
   return 0;
 }
 
-int pg_manageGotoCommand(const char *text)
+long pg_manageGotoCommand(const char *text)
 {
   int start = indexOfWordBreak(text, 0);
   if (start < 0) {
@@ -1088,12 +1088,12 @@ int pg_manageGotoCommand(const char *text)
   return lbl->position;
 }
 
-int pg_manageGosubCommand(const char *text)
+long pg_manageGosubCommand(const char *text)
 {
   int start = indexOfWordBreak(text, 0);
   if (start < 0) {
     logWarning("gosub without label name");
-    return ftell(pg_game_status.fp);
+    return pg_game_status.fpPosition;
   }
 
   char labelName[256];
@@ -1102,13 +1102,16 @@ int pg_manageGosubCommand(const char *text)
   label *lbl = pg_get_label(labelName);
   if (lbl == NULL) {
     logWarning("Label %s not found", labelName);
-    return ftell(pg_game_status.fp);
+    return pg_game_status.fpPosition;
   }
 
   // TODO: manage arguments
-  pg_game_status.gosubPositionsCount++;
-  pg_game_status.gosubPositions[pg_game_status.gosubPositionsCount] = ftell(pg_game_status.fp);
+  pg_game_status.gosubCount++;
+  gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
+  gosub->fp = NULL;
+  gosub->position = pg_game_status.fpPosition;
   fseek(pg_game_status.fp, lbl->position, SEEK_SET);
+
   return lbl->position;
 }
 
@@ -1152,7 +1155,7 @@ void pg_manageTempCommand(const char *text)
   logDebug("\tTEMPVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
 }
 
-int pg_manageChoiceCommand(const char *text)
+long pg_manageChoiceCommand(const char *text)
 {
   char line[4096];
   int choiceIndentaion = -1;
