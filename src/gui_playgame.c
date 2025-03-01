@@ -436,6 +436,8 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
   if (pg_game_status.fpPosition == file_size) {
     logDebug("Reached EOF (file size=%i), going to the next scene", file_size);
     pg_goToNextScene();
+
+    return 0;
   }
 
   int textStarted = 0;

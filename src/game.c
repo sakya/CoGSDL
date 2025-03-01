@@ -51,11 +51,12 @@ int isCommand(const char *line, const char command)
 
 void addGameVar(game* game, enum var_types type, const char* name, const char* value)
 {
-  game->variables[game->variablesCount].type = type;
-  game->variables[game->variablesCount].name = malloc(strlen(name) + 1);
-  strcpy(game->variables[game->variablesCount].name, name);
-  game->variables[game->variablesCount].value = malloc(strlen(value + 1));
-  strcpy(game->variables[game->variablesCount].value, value);
+  variable *var = &game->variables[game->variablesCount];
+  var->type = type;
+  var->name = malloc(strlen(name) + 1);
+  strcpy(var->name, name);
+  var->value = malloc(strlen(value) + 1);
+  strcpy(var->value, value);
   game->variablesCount++;
 }
 
