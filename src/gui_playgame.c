@@ -463,6 +463,11 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
       char command[256];
       pg_getCommand(line, command);
       logDebug("Command [%s]=%s", command, line);
+      if (strcmp(command, "label") == 0) {
+        // We can just skip labels
+        continue;
+      }
+
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
@@ -520,11 +525,18 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
           continue;
         }
 
-        long newPosition = pg_game_status.gosub[pg_game_status.gosubCount].position;
+        gosub_info *info = &pg_game_status.gosub[pg_game_status.gosubCount];
+        long newPosition = info->position;
         pg_game_status.fpPosition = newPosition;
         pg_game_status.gosubCount--;
         indentation = -1;
         logDebug("%s -> %i", line, newPosition);
+
+        info->position = 0;
+        if (info->fp != NULL) {
+          fclose(info->fp);
+          info->fp = NULL;
+        }
         continue;
       }
 
@@ -567,11 +579,6 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         logDebug("Choice -> %i", newPosition);
         pg_game_status.fpPosition = newPosition;
         break;
-      }
-
-      if (strcmp(command, "label") == 0) {
-        // We can just skip labels
-        continue;
       }
 
       logWarning("Unknown command: %s", command);
@@ -1163,6 +1170,8 @@ long pg_manageChoiceCommand()
   int choiceIndentation = -1;
   int lineStartPosition = 0;
   long nextLineStartPosition = 0;
+
+  pg_game_status.choicesCount = 0;
   while (fgets(line, sizeof(line), pg_game_status.fp)) {
     lineStartPosition = nextLineStartPosition;
     nextLineStartPosition = ftell(pg_game_status.fp);
@@ -1218,6 +1227,10 @@ long pg_manageChoiceCommand()
         logDebug("\tChoice: %s (pos=%li, reusable=%i)", choice->text, choice->position, choice->reusable);
       }
     }
+  }
+
+  if (pg_game_status.choicesCount == 0) {
+    logWarning("Empty choice");
   }
   return lineStartPosition;
 }
