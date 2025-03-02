@@ -442,14 +442,16 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
 
   int textStarted = 0;
   while (fgets(line, sizeof(line), fp)) {
+    logDebug("line=%s", line);
     int lineIndentation = isEmpty(line)
       ? indentation
       : getIndentation(line);
     if (indentation < 0)
       indentation = lineIndentation;
 
-    if (lineIndentation != indentation) {
+    if (lineIndentation < indentation) {
       // Indentation changed, we don't need to read further
+      logDebug("indentation=%i, lineIndentation=%i", indentation, lineIndentation);
       break;
     }
 
@@ -528,6 +530,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         gosub_info *info = &pg_game_status.gosub[pg_game_status.gosubCount];
         long newPosition = info->position;
         pg_game_status.fpPosition = newPosition;
+        fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
         pg_game_status.gosubCount--;
         indentation = -1;
         logDebug("%s -> %i", line, newPosition);
@@ -1118,7 +1121,7 @@ long pg_manageGosubCommand(const char *text)
   pg_game_status.gosubCount++;
   gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
   gosub->fp = NULL;
-  gosub->position = pg_game_status.fpPosition;
+  gosub->position = ftell(pg_game_status.fp);
   fseek(pg_game_status.fp, lbl->position, SEEK_SET);
 
   return lbl->position;
@@ -1168,6 +1171,7 @@ long pg_manageChoiceCommand()
 {
   char line[4096];
   int choiceIndentation = -1;
+  int ifIndentation = -1;
   int lineStartPosition = 0;
   long nextLineStartPosition = 0;
 
@@ -1188,7 +1192,32 @@ long pg_manageChoiceCommand()
     }
 
     trim(line);
-    if (lineIndentation == choiceIndentation) {
+    if (lineIndentation == choiceIndentation || lineIndentation == ifIndentation) {
+      if (line[0] == '*') {
+        int managed = 0;
+        char command[256];
+        pg_getCommand(line, command);
+
+        if (strcmp(command, "if") == 0) {
+          long new_pos = pg_manageIfCommand(line, choiceIndentation);
+          logDebug("%s -> %i", line, new_pos);
+          fseek(pg_game_status.fp, new_pos, SEEK_SET);
+          // Get indentation of the next line
+          fgets(line, sizeof(line), pg_game_status.fp);
+          ifIndentation = getIndentation(line);
+          fseek(pg_game_status.fp, new_pos, SEEK_SET);
+          managed = 1;
+        } else if (strcmp(command, "hide_reuse") == 0) {
+          // Managed with the text
+        } else {
+          logWarning("Unsupported command in choice: %s", command);
+          managed = 1;
+        }
+
+        if (managed)
+          continue;
+      }
+
       int start = indexOf(line, '#', 0);
       if (start >= 0) {
         pg_game_status.choicesCount++;
@@ -1216,13 +1245,11 @@ long pg_manageChoiceCommand()
         char temp_line[4096];
         while (fgets(temp_line, sizeof(temp_line), pg_game_status.fp)) {
           int tempIndentation = getIndentation(temp_line);
-          logDebug("temp_line=%s, tempIndentation=%i", temp_line, tempIndentation);
           if (tempIndentation > choiceIndentation) {
             choice->position = pos;
             break;
           }
         }
-        choice->position = ftell(pg_game_status.fp);
         subString(line, choice->text, start, strlen(line) - start);
         logDebug("\tChoice: %s (pos=%li, reusable=%i)", choice->text, choice->position, choice->reusable);
       }
