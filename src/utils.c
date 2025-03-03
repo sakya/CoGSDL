@@ -7,13 +7,15 @@ int indexOfWordBreak(const char *string, const int startFrom)
 
   int idx = startFrom;
   int len = strlen(string);
+  if (startFrom >= len -1)
+    return -1;
   while (idx < len) {
     if (string[idx] == ' ' || string[idx] == '\t')
       return idx;
     idx++;
   }
 
-  return -1;
+  return idx;
 }
 
 int indexOf(const char *string, const char character, const int startFrom)

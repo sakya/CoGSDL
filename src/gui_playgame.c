@@ -41,7 +41,8 @@ long pg_manageIfCommand(const char *text, int indentation, long *endPosition);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
 /// @param condition The condition
 /// @return 1 if true, 0 if false
-int pg_evaluateCondition(const char *condition);
+int pg_evaluateSimpleCondition(const char *condition);
+int pg_evaluateCondition(const char *condition, int indentation);
 int pg_evaluateExpression(const char *expression, char *value);
 /// @brief Manage the goto command
 /// @param text The text of the line with the goto command
@@ -58,6 +59,7 @@ long pg_manageChoiceCommand();
 /// @brief Manage the finish command
 /// @param text
 void pg_manageFinishCommand(const char *text);
+void pg_manageCheckPurchaseCommand(const char *text);
 
 int pg_get_operator(const char *condition, char *operator);
 void pg_clear_image_cache();
@@ -472,6 +474,12 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
+      if (strcmp(command, "check_purchase") == 0) {
+        // check_purchase name1 name2
+        pg_manageCheckPurchaseCommand(line);
+        continue;
+      }
+
       if (strcmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
@@ -562,7 +570,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
-      if (strcmp(command, "if") == 0 || strcmp(command, "elseif") == 0) {
+      if (strcmp(command, "if") == 0) {
         // if
         long end_pos;
         long newPosition = pg_manageIfCommand(line, lineIndentation, &end_pos);
@@ -863,70 +871,46 @@ long pg_manageIfCommand(const char *text, int indentation, long *endPosition)
   char condition[4096];
   trim(condition);
   int textLen = strlen(text);
-  int start = 0;
-  if (startsWith("*if", text)) {
-    start = 3;
-  } else if (startsWith("*elseif", text)) {
-    start = 7;
-  }
-  subString(text, condition, start, textLen - start);
+  subString(text, condition, 3, textLen - 3);
   trim(condition);
   textLen = strlen(text);
 
   *endPosition = pg_get_if_end(pg_game_status.fp, indentation);
   logDebug("if condition=%s, indentation=%i, end position=%li", condition, indentation, *endPosition);
 
-  // First check parentheses
-  parentheses par[20];
-  int parIdx = 0;
-  int idx = 0;
-  while (idx < textLen) {
-    if (condition[idx] == '(') {
-      par[parIdx++].open = idx;
-    } else if (condition[idx] == ')') {
-      for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
-        if (par[pIdx].close == 0) {
-          par[pIdx].close = idx;
-          break;
-        }
+  if (pg_evaluateCondition(condition, indentation)) {
+    return ftell(pg_game_status.fp);
+  } else {
+    // Search for elseif, else or end
+    char line[4096];
+
+    while (fgets(line, sizeof(line), pg_game_status.fp)) {
+      line[strcspn(line, "\r")] = '\0';
+      line[strcspn(line, "\n")] = '\0';
+
+      int lineIndentation = getIndentation(line);
+      if (lineIndentation < indentation) {
+        return *endPosition;
       }
-    }
-    idx++;
-  }
 
-  if (parIdx == 0) {
-    // Single condition
-    if (pg_evaluateCondition(condition)) {
-      return ftell(pg_game_status.fp);
-    } else {
-      // Search for the else or end
-      char line[4096];
-      int lineStartPosition = 0;
-      long nextLineStartPosition = 0;
-
-      while (fgets(line, sizeof(line), pg_game_status.fp)) {
-        lineStartPosition = nextLineStartPosition;
-        nextLineStartPosition = ftell(pg_game_status.fp);
-        line[strcspn(line, "\r")] = '\0';
-        line[strcspn(line, "\n")] = '\0';
-
-        int lineIndentation = getIndentation(line);
+      if (lineIndentation == indentation) {
         trim(line);
-        if (lineIndentation == indentation) {
-          if (strcmp(line, "*else") == 0) {
+        if (strcmp(line, "*else") == 0) {
+          return ftell(pg_game_status.fp);
+        } else if (startsWith("*elseif", line)) {
+          subString(text, condition, 7, textLen - 7);
+          if (pg_evaluateCondition(condition, indentation)) {
             return ftell(pg_game_status.fp);
-          } else if (startsWith("*elseif", line)) {
-            return lineStartPosition;
           }
-
-          return lineStartPosition;
+        } else {
+          return *endPosition;
         }
       }
     }
   }
 
   logWarning("If not managed: %s", text);
-  return 0;
+  return *endPosition;
 }
 
 int pg_get_operator(const char *condition, char *operator)
@@ -969,7 +953,37 @@ int pg_get_operator(const char *condition, char *operator)
   return -1;
 }
 
-int pg_evaluateCondition(const char *condition)
+int pg_evaluateCondition(const char *condition, int indentation)
+{
+  // First check parentheses
+  int textLen = strlen(condition);
+  parentheses par[20];
+  int parIdx = 0;
+  int idx = 0;
+  while (idx < textLen) {
+    if (condition[idx] == '(') {
+      par[parIdx++].open = idx;
+    } else if (condition[idx] == ')') {
+      for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
+        if (par[pIdx].close == 0) {
+          par[pIdx].close = idx;
+          break;
+        }
+      }
+    }
+    idx++;
+  }
+
+  if (parIdx == 0) {
+    // Single condition
+    return pg_evaluateSimpleCondition(condition);
+  }
+
+  logWarning("Condition not managed: %s", condition);
+  return 0;
+}
+
+int pg_evaluateSimpleCondition(const char *condition)
 {
   char operator[3];
   int res;
@@ -1282,6 +1296,22 @@ void pg_manageFinishCommand(const char *text)
   }
 }
 
+void pg_manageCheckPurchaseCommand(const char *text)
+{
+  int start = 16;
+  int end;
+  while ((end = indexOfWordBreak(text, start)) >= 0) {
+    char word[256];
+    subString(text, word, start, end - start);
+    start = end + 1;
+
+    char var_name[300];
+    sprintf(var_name, "choice_purchased_%s", word);
+    addGameVar(runningGame, boolean, var_name, "true");
+    logDebug("check_purchase %s=%s", var_name, "true");
+  };
+}
+
 void pg_clear_image_cache()
 {
   for (int i = 0; i < image_cache_count; i++) {
@@ -1511,20 +1541,23 @@ long pg_get_if_end(FILE *fp, int indentation)
   char line[4096];
   char command[256];
   long pos = ftell(fp);
+  long start_line_pos = pos;
   while (fgets(line, sizeof(line), fp)) {
     int line_indentation = getIndentation(line);
     if (line_indentation < indentation)
       break;
 
     if (indentation == line_indentation) {
+      trim(line);
       pg_getCommand(line, command);
       if (strcmp(command, "else") == 0 || strcmp(command, "elseif") == 0)
         continue;
 
-      long res = ftell(fp);
       fseek(fp, pos, SEEK_SET);
-      return res;
+      return start_line_pos;
     }
+
+    start_line_pos = ftell(fp);
   }
 
   fseek(fp, pos, SEEK_SET);
