@@ -16,6 +16,7 @@ variable* pg_getVar(const char *varName);
 int pg_setVarValue(const char *varName, const char *value);
 void pg_clearTempVars();
 void pg_clearChoices();
+long pg_get_if_end(FILE *fp, int indentation);
 /// @brief Get the next line from text
 /// @param text The string
 /// @param position The starting position. Updated to the starting position of the next line.
@@ -34,8 +35,9 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
 /// @brief Manage an if
 /// @param text The text of the line with the if command
 /// @param indentation The line indentation
+/// @param endPosition The end position of the if statement
 /// @return The new file position where continue execution
-long pg_manageIfCommand(const char *text, int indentation);
+long pg_manageIfCommand(const char *text, int indentation, long *endPosition);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
 /// @param condition The condition
 /// @return 1 if true, 0 if false
@@ -562,7 +564,8 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
 
       if (strcmp(command, "if") == 0 || strcmp(command, "elseif") == 0) {
         // if
-        long newPosition = pg_manageIfCommand(line, lineIndentation);
+        long end_pos;
+        long newPosition = pg_manageIfCommand(line, lineIndentation, &end_pos);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
         fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -855,7 +858,7 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
   return 0;
 }
 
-long pg_manageIfCommand(const char *text, int indentation)
+long pg_manageIfCommand(const char *text, int indentation, long *endPosition)
 {
   char condition[4096];
   trim(condition);
@@ -870,7 +873,8 @@ long pg_manageIfCommand(const char *text, int indentation)
   trim(condition);
   textLen = strlen(text);
 
-  logDebug("if condition=%s", condition);
+  *endPosition = pg_get_if_end(pg_game_status.fp, indentation);
+  logDebug("if condition=%s, indentation=%i, end position=%li", condition, indentation, *endPosition);
 
   // First check parentheses
   parentheses par[20];
@@ -1199,7 +1203,8 @@ long pg_manageChoiceCommand()
         pg_getCommand(line, command);
 
         if (strcmp(command, "if") == 0) {
-          long new_pos = pg_manageIfCommand(line, choiceIndentation);
+          long end_pos;
+          long new_pos = pg_manageIfCommand(line, choiceIndentation, &end_pos);
           logDebug("%s -> %i", line, new_pos);
           fseek(pg_game_status.fp, new_pos, SEEK_SET);
           // Get indentation of the next line
@@ -1499,4 +1504,29 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     *startPosition = endOfLinePosition;
   }
   return res;
+}
+
+long pg_get_if_end(FILE *fp, int indentation)
+{
+  char line[4096];
+  char command[256];
+  long pos = ftell(fp);
+  while (fgets(line, sizeof(line), fp)) {
+    int line_indentation = getIndentation(line);
+    if (line_indentation < indentation)
+      break;
+
+    if (indentation == line_indentation) {
+      pg_getCommand(line, command);
+      if (strcmp(command, "else") == 0 || strcmp(command, "elseif") == 0)
+        continue;
+
+      long res = ftell(fp);
+      fseek(fp, pos, SEEK_SET);
+      return res;
+    }
+  }
+
+  fseek(fp, pos, SEEK_SET);
+  return -1;
 }
