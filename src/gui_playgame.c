@@ -1307,6 +1307,7 @@ void pg_manageCheckPurchaseCommand(const char *text)
 
     char var_name[300];
     sprintf(var_name, "choice_purchased_%s", word);
+    // Always se the var value to "true"
     addGameVar(runningGame, boolean, var_name, "true");
     logDebug("check_purchase %s=%s", var_name, "true");
   };

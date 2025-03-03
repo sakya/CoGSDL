@@ -49,17 +49,6 @@ int isCommand(const char *line, const char command)
   return idx == strlen(c) ? 1 : 0;
 }
 
-void addGameVar(game* game, enum var_types type, const char* name, const char* value)
-{
-  variable *var = &game->variables[game->variablesCount];
-  var->type = type;
-  var->name = malloc(strlen(name) + 1);
-  strcpy(var->name, name);
-  var->value = malloc(strlen(value) + 1);
-  strcpy(var->value, value);
-  game->variablesCount++;
-}
-
 int loadGame(const char* path, game* game, int forListing)
 {
   if (game == NULL)
@@ -364,7 +353,7 @@ int listGames(const char* path, game *games)
   return count;
 }
 
-variable* getGameVar(const char *varName, game* game)
+variable* getGameVarPrimitive(const char *varName, game* game)
 {
   int i = 0;
   for (i = 0; i < game->variablesCount; i++) {
@@ -372,8 +361,33 @@ variable* getGameVar(const char *varName, game* game)
       return &game->variables[i];
   }
 
-  logWarning("Variable %s not found", varName);
   return NULL;
+}
+
+variable* getGameVar(const char *varName, game* game)
+{
+  variable* res = getGameVarPrimitive(varName, game);
+  if (res == NULL)
+    logWarning("Variable %s not found", varName);
+  return res;
+}
+
+void addGameVar(game* game, enum var_types type, const char* name, const char* value)
+{
+  variable *var = getGameVarPrimitive(name, game);
+  if (var == NULL) {
+    var = &game->variables[game->variablesCount];
+    var->type = type;
+    var->name = malloc(strlen(name) + 1);
+    strcpy(var->name, name);
+    game->variablesCount++;
+  } else {
+    if (var->type != type) {
+      logWarning("addGameVar different type: %i != %i", var->type, type);
+    }
+  }
+  var->value = malloc(strlen(value) + 1);
+  strcpy(var->value, value);
 }
 
 char* getGameVarValue(const char *varName, game* game)
