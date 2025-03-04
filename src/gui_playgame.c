@@ -459,6 +459,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
 
   int textStarted = 0;
   while (fgets(line, sizeof(line), fp)) {
+    logDebug("line=%s", line);
     int lineIndentation = isEmpty(line)
       ? indentation
       : getIndentation(line);
@@ -469,8 +470,10 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
       // Indentation changed, check if
       if (pg_game_status.ifInfoCount > 0) {
         if_info *ifInfo = &pg_game_status.ifInfo[pg_game_status.ifInfoCount - 1];
+        logDebug("ifInfo: indentation=%i, end_position=%i, pos=%i", ifInfo->indentation, ifInfo->end_position, pg_game_status.fpPosition);
         if (ifInfo->indentation == lineIndentation && pg_game_status.fpPosition == ifInfo->end_position) {
           indentation = ifInfo->indentation;
+          fseek(fp, ifInfo->end_position, SEEK_SET);
 
           ifInfo->indentation = 0;
           ifInfo->end_position = 0;
@@ -479,9 +482,6 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
           continue;
         }
       }
-
-      logDebug("indentation=%i, lineIndentation=%i", indentation, lineIndentation);
-      break;
     }
 
     if (isComment(line))
@@ -494,44 +494,44 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
       char command[256];
       pg_getCommand(line, command);
       logDebug("Command [%s]=%s", command, line);
-      if (strcmp(command, "label") == 0) {
+      if (stricmp(command, "label") == 0) {
         // We can just skip labels
         continue;
       }
 
-      if (strcmp(command, "check_purchase") == 0) {
+      if (stricmp(command, "check_purchase") == 0) {
         // check_purchase name1 name2
         pg_manageCheckPurchaseCommand(line);
         pg_game_status.fpPosition = ftell(fp);
         continue;
       }
 
-      if (strcmp(command, "page_break") == 0) {
+      if (stricmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
         pg_game_status.fpPosition = ftell(fp);
         break;
       }
 
-      if (strcmp(command, "line_break") == 0) {
+      if (stricmp(command, "line_break") == 0) {
         pg_appendText("\n", 0);
         continue;
       }
 
-      if (strcmp(command, "text_image") == 0 || strcmp(command, "image") == 0) {
+      if (stricmp(command, "text_image") == 0 || stricmp(command, "image") == 0) {
         // Add the command to the text as it should be rendered with it
         pg_appendText(line, 1);
         continue;
       }
 
-      if (strcmp(command, "finish") == 0) {
+      if (stricmp(command, "finish") == 0) {
         pg_manageFinishCommand(line);
         pg_game_status.showPageBreak = 1;
         pg_game_status.fpPosition = file_size;
         break;
       }
 
-      if (strcmp(command, "goto") == 0) {
+      if (stricmp(command, "goto") == 0) {
         // goto
         long newPosition = pg_manageGotoCommand(line);
         logDebug("%s -> %i", line, newPosition);
@@ -544,7 +544,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
-      if (strcmp(command, "gosub") == 0) {
+      if (stricmp(command, "gosub") == 0) {
         //gosub
         long newPosition = pg_manageGosubCommand(line);
         logDebug("%s -> %i", line, newPosition);
@@ -557,7 +557,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
-      if (strcmp(command, "return") == 0) {
+      if (stricmp(command, "return") == 0) {
         if (pg_game_status.gosubCount == 0) {
           logWarning("No previous position found");
           continue;
@@ -579,7 +579,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
-      if (strcmp(command, "set") == 0) {
+      if (stricmp(command, "set") == 0) {
         // set varName expression
         int idx = 5;
         int wordEnd = pg_indexOfWordEnd(line, idx);
@@ -596,7 +596,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
-      if (strcmp(command, "if") == 0) {
+      if (stricmp(command, "if") == 0) {
         // if
         long end_pos;
         long newPosition = pg_manageIfCommand(line, lineIndentation, &end_pos);
@@ -612,13 +612,13 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
-      if (strcmp(command, "temp") == 0) {
+      if (stricmp(command, "temp") == 0) {
         // temp varName value
         pg_manageTempCommand(line);
         continue;
       }
 
-      if (strcmp(command, "choice") == 0 || strcmp(command, "fake_choice") == 0) {
+      if (stricmp(command, "choice") == 0 || stricmp(command, "fake_choice") == 0) {
         // choice
         long newPosition = pg_manageChoiceCommand();
         logDebug("Choice -> %i", newPosition);
@@ -791,8 +791,7 @@ void pg_goToNextScene()
     lineStartPosition = nextLineStartPosition;
     nextLineStartPosition = ftell(pg_game_status.fp);
 
-    line[strcspn(line, "\r")] = '\0';
-    line[strcspn(line, "\n")] = '\0';
+    trim(line);
     if (startsWithWord("*label", line)) {
       pg_game_status.labelsCount++;
       if (pg_game_status.labels == NULL) {
@@ -883,9 +882,9 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
 
     int deltaX = surface->w - destRect.w;
     if (deltaX > 0) {
-      if (strcmp(alignment, "center") == 0) {
+      if (stricmp(alignment, "center") == 0) {
         destRect.x += deltaX / 2;
-      } else if (strcmp(alignment, "right") == 0) {
+      } else if (stricmp(alignment, "right") == 0) {
         destRect.x = deltaX;
       }
     }
@@ -927,7 +926,7 @@ long pg_manageIfCommand(const char *text, int indentation, long *endPosition)
 
       if (lineIndentation == indentation) {
         trim(line);
-        if (strcmp(line, "*else") == 0) {
+        if (stricmp(line, "*else") == 0) {
           return ftell(pg_game_status.fp);
         } else if (startsWith("*elseif", line)) {
           subString(text, condition, 7, textLen - 7);
@@ -1027,7 +1026,7 @@ int pg_evaluateSimpleCondition(const char *condition)
     if (var == NULL) {
       return 0;
     }
-    res = var->value != NULL && strcmp(var->value, "true") == 0;
+    res = var->value != NULL && stricmp(var->value, "true") == 0;
     logDebug("\tCondition (%s) -> %s", condition, res ? "true" : "false");
     return res;
   }
@@ -1054,18 +1053,18 @@ int pg_evaluateSimpleCondition(const char *condition)
   }
 
   logDebug("\tleft=%s (%s), right=%s (%s), op='%s'", left_expression, left_value, right_expression, right_value, operator);
-  if (strcmp(operator, "=") == 0) {
-    res = strcmp(left_value, right_value) == 0 ? 1 : 0;
-  } else if (strcmp(operator, "!=") == 0) {
-    res = strcmp(left_value, right_value) != 0 ? 1 : 0;
-  } else if (strcmp(operator, ">") == 0) {
-    res = strcmp(left_value, right_value) > 0 ? 1 : 0;
-  } else if (strcmp(operator, ">=") == 0) {
-    res = strcmp(left_value, right_value) >= 0 ? 1 : 0;
-  } else if (strcmp(operator, "<") == 0) {
-    res = strcmp(left_value, right_value) < 0 ? 1 : 0;
-  } else if (strcmp(operator, "<=") == 0) {
-    res = strcmp(left_value, right_value) <= 0 ? 1 : 0;
+  if (stricmp(operator, "=") == 0) {
+    res = stricmp(left_value, right_value) == 0 ? 1 : 0;
+  } else if (stricmp(operator, "!=") == 0) {
+    res = stricmp(left_value, right_value) != 0 ? 1 : 0;
+  } else if (stricmp(operator, ">") == 0) {
+    res = stricmp(left_value, right_value) > 0 ? 1 : 0;
+  } else if (stricmp(operator, ">=") == 0) {
+    res = stricmp(left_value, right_value) >= 0 ? 1 : 0;
+  } else if (stricmp(operator, "<") == 0) {
+    res = stricmp(left_value, right_value) < 0 ? 1 : 0;
+  } else if (stricmp(operator, "<=") == 0) {
+    res = stricmp(left_value, right_value) <= 0 ? 1 : 0;
   } else {
     logWarning("\tUnknown operator: %s", operator);
     return 0;
@@ -1114,7 +1113,7 @@ int pg_evaluateExpression(const char *expression, char *value)
   }
 
   // Boolean value
-  if (strcmp(expression, "true") == 0 || strcmp(expression, "false") == 0) {
+  if (stricmp(expression, "true") == 0 || stricmp(expression, "false") == 0) {
     strcpy(value, expression);
     return 1;
   }
@@ -1206,7 +1205,7 @@ void pg_manageTempCommand(const char *text)
   int valueLen = strlen(tempValue);
   if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
     var->type = string;
-  } else if (strcmp(tempValue, "true") == 0 || strcmp(tempValue, "false") == 0) {
+  } else if (stricmp(tempValue, "true") == 0 || stricmp(tempValue, "false") == 0) {
     var->type = boolean;
   } else {
     var->type = number;
@@ -1248,7 +1247,7 @@ long pg_manageChoiceCommand()
         char command[256];
         pg_getCommand(line, command);
 
-        if (strcmp(command, "if") == 0) {
+        if (stricmp(command, "if") == 0) {
           long end_pos;
           long new_pos = pg_manageIfCommand(line, choiceIndentation, &end_pos);
           logDebug("%s -> %i", line, new_pos);
@@ -1258,7 +1257,7 @@ long pg_manageChoiceCommand()
           ifIndentation = getIndentation(line);
           fseek(pg_game_status.fp, new_pos, SEEK_SET);
           managed = 1;
-        } else if (strcmp(command, "hide_reuse") == 0) {
+        } else if (stricmp(command, "hide_reuse") == 0) {
           // Managed with the text
         } else {
           logWarning("Unsupported command in choice: %s", command);
@@ -1361,7 +1360,7 @@ void pg_clear_image_cache()
 image_cache_item* pg_get_image_from_cache(const char *name)
 {
   for (int i = 0; i < image_cache_count; i++) {
-    if (strcmp(image_cache[i].name, name) == 0)
+    if (stricmp(image_cache[i].name, name) == 0)
       return &image_cache[i];
   }
 
@@ -1407,7 +1406,7 @@ label* pg_get_label(const char *labelName)
 {
   int i = 0;
   while (i < pg_game_status.labelsCount) {
-    if (strcmp(pg_game_status.labels[i].name, labelName) == 0)
+    if (stricmp(pg_game_status.labels[i].name, labelName) == 0)
       return &pg_game_status.labels[i];
     i++;
   }
@@ -1418,7 +1417,7 @@ variable* pg_getVar(const char *varName)
 {
   int i = 0;
   for (i = 0; i < pg_game_status.tempVariablesCount; i++) {
-    if (strcmp(pg_game_status.tempVariables[i].name, varName) == 0) {
+    if (stricmp(pg_game_status.tempVariables[i].name, varName) == 0) {
       return &pg_game_status.tempVariables[i];
     }
   }
@@ -1592,7 +1591,7 @@ long pg_get_if_end(FILE *fp, int indentation)
     if (indentation == line_indentation) {
       trim(line);
       pg_getCommand(line, command);
-      if (strcmp(command, "else") == 0 || strcmp(command, "elseif") == 0)
+      if (stricmp(command, "else") == 0 || stricmp(command, "elseif") == 0)
         continue;
 
       fseek(fp, pos, SEEK_SET);

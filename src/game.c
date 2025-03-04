@@ -2,7 +2,7 @@
 
 int compareByTitle(const void *a, const void *b)
 {
-  return strcmp(((struct game*)a)->title, ((struct game*)b)->title);
+  return stricmp(((struct game*)a)->title, ((struct game*)b)->title);
 }
 
 int isComment(const char *line)
@@ -127,7 +127,7 @@ int loadGame(const char* path, game* game, int forListing)
       continue;
     }
 
-    if (strcmp(line, "*scene_list") == 0) {
+    if (stricmp(line, "*scene_list") == 0) {
       sceneIdx = 0;
     } else if (startsWithWord("*title", line)) {
       game->title = malloc(strlen(line) - 7 + 1);
@@ -160,7 +160,7 @@ int loadGame(const char* path, game* game, int forListing)
       int valueLen = strlen(tempValue);
       if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
         var->type = string;
-      } else if (strcmp(tempValue, "true") == 0 || strcmp(tempValue, "false") == 0) {
+      } else if (stricmp(tempValue, "true") == 0 || stricmp(tempValue, "false") == 0) {
         var->type = boolean;
       } else {
         var->type = number;
@@ -327,7 +327,7 @@ int listGames(const char* path, game *games)
 
   int count = 0;
   while ((entry = readdir(dir)) != NULL) {
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+    if (stricmp(entry->d_name, ".") == 0 || stricmp(entry->d_name, "..") == 0)
       continue;
 
     char subDirPath[256];
@@ -357,7 +357,7 @@ variable* getGameVarPrimitive(const char *varName, game* game)
 {
   int i = 0;
   for (i = 0; i < game->variablesCount; i++) {
-    if (strcmp(game->variables[i].name, varName) == 0)
+    if (stricmp(game->variables[i].name, varName) == 0)
       return &game->variables[i];
   }
 
@@ -455,7 +455,7 @@ void setVarValue(variable *var, const char *value)
       }
       break;
     case boolean:
-      if (strcmp(tempValue, "true") != 0 && strcmp(tempValue, "false") != 0) {
+      if (stricmp(tempValue, "true") != 0 && stricmp(tempValue, "false") != 0) {
         logWarning("Invalid value for boolean variable %s: %s", var->name, tempValue);
         strcpy(tempValue, "false");
       }

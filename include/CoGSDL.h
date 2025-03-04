@@ -222,6 +222,11 @@ void trim(char *string);
 /// @return 1 if the file exists
 int fileExists(const char *filename);
 int is_number(const char *text, int *value);
+/// @brief Compare two strings ignoring case
+/// @param s1 The first string
+/// @param s2 The second string
+/// @return 0 if the strings are equals, 1 if s1 > s2, -1 if s1 < s2
+int stricmp(const char *s1, const char *s2);
 
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);

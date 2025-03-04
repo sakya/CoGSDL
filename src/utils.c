@@ -233,3 +233,26 @@ int is_number(const char *text, int *value)
     *value = atoi(text);
   return 1;
 }
+
+int stricmp(const char *s1, const char *s2)
+{
+  int end = strlen(s1);
+  int string2_len = strlen(s2);
+  for (int i = 0; i < end; i++) {
+    if (i == string2_len)
+      return 1;
+
+    char char1 = tolower(s1[i]);
+    char char2 = tolower(s2[i]);
+    if (char1 > char2)
+      return 1;
+    if (char1 < char2)
+      return -1;
+  }
+
+  if (string2_len > end) {
+    return -1;
+  }
+
+  return 0;
+}
