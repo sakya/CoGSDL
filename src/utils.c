@@ -236,10 +236,10 @@ int is_number(const char *text, int *value)
 
 int stricmp(const char *s1, const char *s2)
 {
-  int end = strlen(s1);
-  int string2_len = strlen(s2);
-  for (int i = 0; i < end; i++) {
-    if (i == string2_len)
+  int s1_len = strlen(s1);
+  int s2_len = strlen(s2);
+  for (int i = 0; i < s1_len; i++) {
+    if (i == s2_len)
       return 1;
 
     char char1 = tolower(s1[i]);
@@ -250,7 +250,7 @@ int stricmp(const char *s1, const char *s2)
       return -1;
   }
 
-  if (string2_len > end) {
+  if (s2_len > s1_len) {
     return -1;
   }
 

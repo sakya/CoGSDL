@@ -336,7 +336,7 @@ int listGames(const char* path, game *games)
 
     DIR *subDir = opendir(subDirPath);
     if (subDir == NULL)
-        continue;
+      continue;
     closedir(subDir);
 
     game g;
