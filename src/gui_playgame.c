@@ -12,10 +12,21 @@ void pg_goToNextScene();
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
+/// @brief Get a variable (temp or global)
+/// @param varName The variable name
+/// @return The varible or NULL
 variable* pg_getVar(const char *varName);
+/// @brief Set a variable (temp or global) value
+/// @param varName The variable name
+/// @param value The value
+/// @return 1 on success
 int pg_setVarValue(const char *varName, const char *value);
 void pg_clearTempVars();
 void pg_clearChoices();
+/// @brief Get the end position of an if statement
+/// @param fp The file pointer
+/// @param indentation The if indentation
+/// @return The ebd if position
 long pg_get_if_end(FILE *fp, int indentation);
 /// @brief Get the next line from text
 /// @param text The string
@@ -202,6 +213,7 @@ void pg_init()
   pg_game_status.lastRenderedY = 0;
   pg_game_status.selectedChoiceIndex = -1;
   pg_game_status.gosubCount = 0;
+  pg_game_status.ifInfoCount = 0;
 
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -234,6 +246,7 @@ void pg_dispose()
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
   pg_game_status.gosubCount = 0;
+  pg_game_status.ifInfoCount = 0;
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
@@ -446,7 +459,6 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
 
   int textStarted = 0;
   while (fgets(line, sizeof(line), fp)) {
-    logDebug("line=%s", line);
     int lineIndentation = isEmpty(line)
       ? indentation
       : getIndentation(line);
@@ -454,7 +466,20 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
       indentation = lineIndentation;
 
     if (lineIndentation < indentation) {
-      // Indentation changed, we don't need to read further
+      // Indentation changed, check if
+      if (pg_game_status.ifInfoCount > 0) {
+        if_info *ifInfo = &pg_game_status.ifInfo[pg_game_status.ifInfoCount - 1];
+        if (ifInfo->indentation == lineIndentation && pg_game_status.fpPosition == ifInfo->end_position) {
+          indentation = ifInfo->indentation;
+
+          ifInfo->indentation = 0;
+          ifInfo->end_position = 0;
+          pg_game_status.ifInfoCount--;
+
+          continue;
+        }
+      }
+
       logDebug("indentation=%i, lineIndentation=%i", indentation, lineIndentation);
       break;
     }
@@ -477,6 +502,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
       if (strcmp(command, "check_purchase") == 0) {
         // check_purchase name1 name2
         pg_manageCheckPurchaseCommand(line);
+        pg_game_status.fpPosition = ftell(fp);
         continue;
       }
 
@@ -575,6 +601,11 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         long end_pos;
         long newPosition = pg_manageIfCommand(line, lineIndentation, &end_pos);
         logDebug("%s -> %i", line, newPosition);
+
+        pg_game_status.ifInfo[pg_game_status.ifInfoCount].indentation = lineIndentation;
+        pg_game_status.ifInfo[pg_game_status.ifInfoCount].end_position = end_pos;
+        pg_game_status.ifInfoCount++;
+
         pg_game_status.fpPosition = newPosition;
         fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
         indentation = -1;
@@ -607,6 +638,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         // New paragraph
         pg_appendText("\n\n", 0);
       }
+      pg_game_status.fpPosition = ftell(fp);
     }
   }
   if (ftell(fp) == file_size) {
@@ -1347,6 +1379,10 @@ image_cache_item *pg_add_image_to_cache(const char *name)
     free(image_cache[image_cache_count].name);
     image_cache[image_cache_count].name = NULL;
   }
+  if (image_cache[image_cache_count].surface != NULL) {
+    SDL_FreeSurface(image_cache[image_cache_count].surface);
+    image_cache[image_cache_count].surface = NULL;
+  }
 
   image_cache[image_cache_count].name = malloc(strlen(name) + 1);
   strcpy(image_cache[image_cache_count].name, name);
@@ -1448,7 +1484,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
   char test[5];
   int width = 0;
   int endOfLinePosition = *startPosition;
-  int endOfPreviousWordPosition = 0;
+  int endOfPreviousWordPosition = -1;
   int previousWordWidth = 0;
   int i = *startPosition;
   int is_command = -1;
@@ -1497,7 +1533,12 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     TTF_MeasureUTF8(font, test, _Globals.windowWidth, &charWidth, NULL);
     if (!is_command && width + charWidth > maxWidth) {
       // Wrap line
-      endOfLinePosition = endOfPreviousWordPosition;
+      if (endOfPreviousWordPosition < 0) {
+        // We cannot word-break
+        endOfLinePosition--;
+      } else {
+        endOfLinePosition = endOfPreviousWordPosition;
+      }
       if (wordWrap != NULL)
         *wordWrap = 1;
       if (last_x != NULL)
