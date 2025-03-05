@@ -477,8 +477,8 @@ int pg_exec_primitive()
       if (pg_game_status.ifInfoCount > 0) {
         trim(line);
         if_info *ifInfo = &pg_game_status.ifInfo[pg_game_status.ifInfoCount - 1];
-        logDebug("ifInfo: indentation=%i, end_position=%i, pos=%i", ifInfo->indentation, ifInfo->end_position, pg_game_status.fpPosition);
-        if (ifInfo->indentation == lineIndentation && (pg_game_status.fpPosition == ifInfo->end_position || startsWith("*else", line) || startsWith("*elseif", line))) {
+        int if_ended = pg_game_status.fpPosition == ifInfo->end_position || startsWith("*else", line) || startsWith("*elseif", line);
+        if (ifInfo->indentation == lineIndentation && if_ended) {
           indentation = ifInfo->indentation;
           fseek(pg_game_status.fp, ifInfo->end_position, SEEK_SET);
 
