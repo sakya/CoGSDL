@@ -415,9 +415,43 @@ void pg_expandVariables(char* text)
   if (!text)
     return;
 
-  int idx = indexOf(text, '$', 0);
-  while (idx >= 0) {
-    idx = indexOf(text, '$', ++idx);
+  int textLen = strlen(text);
+  parentheses par[20];
+  int parIdx = 0;
+  int idx = 0;
+  while (idx < textLen) {
+    if (idx < textLen - 1 && (text[idx] == '$' || text[idx] == '@') && text[idx + 1] == '{') {
+      par[parIdx].open = idx;
+      par[parIdx].close = 0;
+      parIdx++;
+    } else if (text[idx] == '}') {
+      for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
+        if (par[pIdx].close == 0) {
+          par[pIdx].close = idx;
+          break;
+        }
+      }
+    }
+    idx++;
+  }
+
+  if (parIdx > 0) {
+    logDebug("Parentheses:");
+    for (int i = 0; i < parIdx; i++) {
+      logDebug("\tOpen=%i, close=%i", par[i].open, par[i].close);
+
+      char *var = malloc(par[i].close - par[i].open + 1);
+      if (text[par[i].open] == '$') {
+        subString(text, var, par[i].open + 2, par[i].close - par[i].open - 2);
+        char evaluated[1024];
+        pg_evaluateExpression(var, evaluated);
+        logDebug("\tValue=%s (%s)", var, evaluated);
+      } else if (text[par[i].open] == '@') {
+        // TODO
+      }
+
+      free(var);
+    }
   }
 }
 
@@ -699,6 +733,7 @@ int pg_exec_primitive()
 
     return 0;
   } else {
+    pg_expandVariables(pg_game_status.text);
     logDebug("Text to render:\n%s", pg_game_status.text);
   }
 
@@ -995,7 +1030,9 @@ int pg_evaluateCondition(const char *condition, int indentation)
   int idx = 0;
   while (idx < textLen) {
     if (condition[idx] == '(') {
-      par[parIdx++].open = idx;
+      par[parIdx].open = idx;
+      par[parIdx].close = 0;
+      parIdx++;
     } else if (condition[idx] == ')') {
       for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
         if (par[pIdx].close == 0) {
@@ -1010,6 +1047,11 @@ int pg_evaluateCondition(const char *condition, int indentation)
   if (parIdx == 0) {
     // Single condition
     return pg_evaluateSimpleCondition(condition);
+  } else {
+    logDebug("Parentheses:");
+    for (int i = 0; i < parIdx; i++) {
+      logDebug("\tOpen=%i, close=%i", par[i].open, par[i].close);
+    }
   }
 
   logWarning("Condition not managed: %s", condition);
@@ -1167,7 +1209,6 @@ long pg_manageGosubCommand(const char *text)
     subString(text, par_value, start + 1, end - start - 1);
     start = end;
 
-    logDebug("par_value=%s", par_value);
     if (word_count == 0) {
       // label name
       lbl = pg_get_label(par_value);
