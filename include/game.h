@@ -64,11 +64,4 @@ struct game
   long startPosition;
 } typedef game;
 
-struct scene
-{
-  char path[256];
-
-  label labels[4096];
-} typedef scene;
-
 #endif

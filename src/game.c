@@ -283,14 +283,6 @@ void freeGame(game *game)
   free(game);
 }
 
-int loadScene(const char* path, scene* scene)
-{
-  if (scene == NULL)
-    return -1;
-
-  return 0;
-}
-
 int listGames(const char* path, game *games)
 {
   struct dirent *entry;

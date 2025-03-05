@@ -141,11 +141,6 @@ int loadGame(const char *path, game *game, int forListing);
 /// @brief Free memory allocated by a game
 /// @param game The game
 void freeGame(game *game);
-/// @brief Load a game section
-/// @param path The path to the section file
-/// @param section The section
-/// @return 0 on success
-int loadScene(const char *path, scene *section);
 /// @brief List all games in a directory
 /// @param path The directory path
 /// @param games A pointer to an array of games
