@@ -475,9 +475,10 @@ int pg_exec_primitive()
     if (lineIndentation < indentation) {
       // Indentation changed, check if
       if (pg_game_status.ifInfoCount > 0) {
+        trim(line);
         if_info *ifInfo = &pg_game_status.ifInfo[pg_game_status.ifInfoCount - 1];
         logDebug("ifInfo: indentation=%i, end_position=%i, pos=%i", ifInfo->indentation, ifInfo->end_position, pg_game_status.fpPosition);
-        if (ifInfo->indentation == lineIndentation && pg_game_status.fpPosition == ifInfo->end_position) {
+        if (ifInfo->indentation == lineIndentation && (pg_game_status.fpPosition == ifInfo->end_position || startsWith("*else", line) || startsWith("*elseif", line))) {
           indentation = ifInfo->indentation;
           fseek(pg_game_status.fp, ifInfo->end_position, SEEK_SET);
 
