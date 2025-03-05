@@ -157,14 +157,7 @@ int loadGame(const char* path, game* game, int forListing)
       char *tempValue = malloc(strlen(line) - idx + 1);
       subString(line, tempValue, idx + 1, strlen(line) - idx);
       trim(tempValue);
-      int valueLen = strlen(tempValue);
-      if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
-        var->type = string;
-      } else if (stricmp(tempValue, "true") == 0 || stricmp(tempValue, "false") == 0) {
-        var->type = boolean;
-      } else {
-        var->type = number;
-      }
+      var->type = get_var_type(tempValue);
       setVarValue(&game->variables[game->variablesCount], tempValue);
       free(tempValue);
 
@@ -468,6 +461,18 @@ void setVarValue(variable *var, const char *value)
   }
   var->value = malloc(strlen(tempValue) + 1);
   strcpy(var->value, tempValue);
-  logDebug("Variable set %s=%s", var->name, tempValue);
+  logDebug("Variable set %s=%s (%s)", var->name, tempValue, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
   free(tempValue);
+}
+
+enum var_types get_var_type(const char *value)
+{
+  int valueLen = strlen(value);
+  if (valueLen > 1 && value[0] == '"' && value[valueLen - 1] == '"') {
+    return string;
+  } else if (stricmp(value, "true") == 0 || stricmp(value, "false") == 0) {
+    return boolean;
+  }
+
+  return number;
 }

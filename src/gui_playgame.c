@@ -21,6 +21,8 @@ variable* pg_getVar(const char *varName);
 /// @param value The value
 /// @return 1 on success
 int pg_setVarValue(const char *varName, const char *value);
+variable* pg_add_temp_var();
+int pg_delete_temp_var(int index);
 void pg_clearTempVars();
 void pg_clearChoices();
 /// @brief Get the end position of an if statement
@@ -498,6 +500,11 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         // We can just skip labels
         continue;
       }
+      if (stricmp(command, "params") == 0) {
+        // We can just skip params because we create the temporary variable
+        // when executing the gosub command
+        continue;
+      }
 
       if (stricmp(command, "check_purchase") == 0) {
         // check_purchase name1 name2
@@ -575,6 +582,15 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         if (info->fp != NULL) {
           fclose(info->fp);
           info->fp = NULL;
+        }
+
+        // Clear params temp variables
+        for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
+          if (startsWith("param_", pg_game_status.tempVariables[i].name)) {
+            if (pg_delete_temp_var(i)) {
+              i--;
+            }
+          }
         }
         continue;
       }
@@ -1157,16 +1173,43 @@ long pg_manageGosubCommand(const char *text)
     return pg_game_status.fpPosition;
   }
 
-  char labelName[256];
-  subString(text, labelName, start + 1, strlen(text) - start - 1);
+  label *lbl = NULL;
+  int end;
+  int word_count = 0;
+  while ((end = indexOfWordBreak(text, start + 1)) >= 0) {
+    char *par_value = malloc(end - start + 1);
+    subString(text, par_value, start + 1, end - start - 1);
+    start = end;
 
-  label *lbl = pg_get_label(labelName);
-  if (lbl == NULL) {
-    logWarning("Label %s not found", labelName);
-    return pg_game_status.fpPosition;
+    logDebug("par_value=%s", par_value);
+    if (word_count == 0) {
+      // label name
+      lbl = pg_get_label(par_value);
+      if (lbl == NULL) {
+        logWarning("Label %s not found", par_value);
+        return pg_game_status.fpPosition;
+      }
+    } else {
+      // parameter
+      variable *var = pg_add_temp_var();
+      var->name = malloc(32);
+      sprintf(var->name, "param_%i", word_count);
+      var->type = get_var_type(par_value);
+      setVarValue(var, par_value);
+    }
+
+    free(par_value);
+    word_count++;
   }
 
-  // TODO: manage arguments
+  variable *var = pg_add_temp_var();
+  var->name = malloc(32);
+  strcpy(var->name, "param_count");
+  var->type = number;
+  char count[11];
+  sprintf(count, "%i", word_count);
+  setVarValue(var, count);
+
   pg_game_status.gosubCount++;
   gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
   gosub->fp = NULL;
@@ -1180,21 +1223,7 @@ void pg_manageTempCommand(const char *text)
 {
   int idx = indexOfWordBreak(text, 6);
 
-  pg_game_status.tempVariablesCount++;
-  if (pg_game_status.tempVariables == NULL) {
-    pg_game_status.tempVariables = malloc(sizeof(variable) * pg_game_status.tempVariablesCount);
-  } else {
-    variable *tmp = realloc(pg_game_status.tempVariables, sizeof(variable) * pg_game_status.tempVariablesCount);
-    if (tmp != NULL) {
-      pg_game_status.tempVariables = tmp;
-      tmp = NULL;
-    } else {
-      logWarning("Realloc failed");
-      return;
-    }
-  }
-
-  variable *var = &pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1];
+  variable *var = pg_add_temp_var();
   var->name = malloc(idx - 6 + 1);
   subString(text, var->name, 6, idx - 6);
   var->value = NULL;
@@ -1202,14 +1231,7 @@ void pg_manageTempCommand(const char *text)
   char *tempValue = malloc(strlen(text) - idx + 1);
   subString(text, tempValue, idx + 1, strlen(text) - idx);
   trim(tempValue);
-  int valueLen = strlen(tempValue);
-  if (valueLen > 1 && tempValue[0] == '"' && tempValue[valueLen - 1] == '"') {
-    var->type = string;
-  } else if (stricmp(tempValue, "true") == 0 || stricmp(tempValue, "false") == 0) {
-    var->type = boolean;
-  } else {
-    var->type = number;
-  }
+  var->type = get_var_type(tempValue);
   setVarValue(var, tempValue);
   free(tempValue);
 
@@ -1437,6 +1459,63 @@ int pg_setVarValue(const char *varName, const char *value)
   return 1;
 }
 
+variable* pg_add_temp_var()
+{
+  if (pg_game_status.tempVariables == NULL) {
+    pg_game_status.tempVariables = malloc(sizeof(variable) * (pg_game_status.tempVariablesCount + 1));
+  } else {
+    variable *tmp = realloc(pg_game_status.tempVariables, sizeof(variable) * (pg_game_status.tempVariablesCount + 1));
+    if (tmp != NULL) {
+      pg_game_status.tempVariables = tmp;
+      tmp = NULL;
+    } else {
+      logWarning("Realloc failed");
+      return NULL;
+    }
+  }
+
+  variable *res = &pg_game_status.tempVariables[pg_game_status.tempVariablesCount++];
+  res->name = NULL;
+  res->value = NULL;
+  return res;
+}
+
+int pg_delete_temp_var(int index)
+{
+  if (index < 0 || index >= pg_game_status.tempVariablesCount)
+    return 0;
+
+  variable *var = &pg_game_status.tempVariables[index];
+  free(var->name);
+  var->name = NULL;
+  free(var->value);
+  var->value =  NULL;
+
+  if (pg_game_status.tempVariablesCount == 1) {
+    free(pg_game_status.tempVariables);
+    pg_game_status.tempVariables = NULL;
+    pg_game_status.tempVariablesCount = 0;
+
+    return 1;
+  }
+
+  for (int i = index; i < pg_game_status.tempVariablesCount - 1; i++) {
+    pg_game_status.tempVariables[i] = pg_game_status.tempVariables[i + 1];
+  }
+  pg_game_status.tempVariablesCount--;
+
+  variable *tmp = realloc(pg_game_status.tempVariables, sizeof(variable) * (pg_game_status.tempVariablesCount));
+  if (tmp != NULL) {
+    pg_game_status.tempVariables = tmp;
+    tmp = NULL;
+  } else {
+    logWarning("Realloc failed");
+    return 0;
+  }
+
+  return 1;
+}
+
 void pg_clearTempVars()
 {
   if (pg_game_status.tempVariables != NULL) {
@@ -1537,11 +1616,11 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
         endOfLinePosition--;
       } else {
         endOfLinePosition = endOfPreviousWordPosition;
+        if (wordWrap != NULL)
+          *wordWrap = 1;
+        if (last_x != NULL)
+          *last_x = previousWordWidth;
       }
-      if (wordWrap != NULL)
-        *wordWrap = 1;
-      if (last_x != NULL)
-        *last_x = previousWordWidth;
       break;
     }
     width += charWidth;

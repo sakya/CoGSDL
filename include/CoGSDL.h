@@ -168,6 +168,7 @@ void setVarValue(variable *var, const char *value);
 int isComment(const char *line);
 int isCommand(const char *line, const char command);
 void addGameVar(game* game, enum var_types type, const char* name, const char* value);
+enum var_types get_var_type(const char *value);
 
 /* utils.c */
 /// @brief Check if a string is empty or all whitespaces
