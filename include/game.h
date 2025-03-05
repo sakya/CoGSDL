@@ -61,9 +61,6 @@ struct game
   int achievementsCount;
   achievement achievements[4096];
 
-  int labelsCount;
-  label labels[4096];
-
   long startPosition;
 } typedef game;
 

@@ -104,7 +104,6 @@ int loadGame(const char* path, game* game, int forListing)
   game->scenesCount = 0;
   game->variablesCount = 0;
   game->achievementsCount = 0;
-  game->labelsCount = 0;
   game->startPosition = 0;
   while (fgets(line, sizeof(line), fp)) {
     lineStartPosition = nextLineStartPosition;
@@ -194,17 +193,7 @@ int loadGame(const char* path, game* game, int forListing)
       logDebug("\tACH name=%s, title=%s, points=%i, visible=%i", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
       game->achievementsCount++;
     } else if (startsWithWord("*label", line)) {
-      if (game->labelsCount == sizeof(game->labels) / sizeof(label)) {
-        logWarning("Reached maximum number of labels (%i)", game->labelsCount);
-        continue;
-      }
-
-      game->labels[game->labelsCount].name = malloc(strlen(line) - 7 + 1);
-      subString(line, game->labels[game->labelsCount].name, 7, strlen(line) - 7);
-
-      game->labels[game->labelsCount].position = lineStartPosition;
-      logDebug("\tLabel name=%s, position=%li", game->labels[game->labelsCount].name, game->labels[game->labelsCount].position);
-      game->labelsCount++;
+      continue;
     } else if (startsWithWord("*product", line)) {
       // Don't know what's this
     } else {
@@ -248,7 +237,6 @@ int loadGame(const char* path, game* game, int forListing)
     logInfo("\tScenes      : %i", game->scenesCount);
     logInfo("\tVariables   : %i", game->variablesCount);
     logInfo("\tAchievements: %i", game->achievementsCount);
-    logInfo("\tLabels      : %i", game->labelsCount);
     logInfo("\tStart       : %i", game->startPosition);
   }
 
@@ -291,12 +279,6 @@ void freeGame(game *game)
     game->achievements[i].postEarnedDescription = NULL;
   }
   game->achievementsCount = 0;
-
-  for (i = 0; i < game->labelsCount; i++) {
-    free(game->labels[i].name);
-    game->labels[i].name = NULL;
-  }
-  game->labelsCount = 0;
 
   free(game);
 }
