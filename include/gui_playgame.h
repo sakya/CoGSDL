@@ -12,7 +12,9 @@ struct if_info
 
 struct gosub_info
 {
+  /// @brief FILE to return
   FILE *fp;
+  /// @brief Position to return
   long position;
 } typedef gosub_info;
 

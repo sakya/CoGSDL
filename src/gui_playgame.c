@@ -62,6 +62,7 @@ int pg_evaluateExpression(const char *expression, char *value);
 /// @return The new file position
 long pg_manageGotoCommand(const char *text);
 long pg_manageGosubCommand(const char *text);
+long pg_manageGosubSceneCommand(const char *text);
 /// @brief Manage the temp command
 /// @param text The text of the line with the temp command
 /// @return The new file position
@@ -78,6 +79,9 @@ int pg_get_operator(const char *condition, char *operator);
 void pg_clear_image_cache();
 image_cache_item* pg_get_image_from_cache(const char *name);
 image_cache_item* pg_add_image_to_cache(const char *name);
+
+void pg_read_labels();
+void pg_clear_labels();
 
 game_status pg_game_status;
 static int line_height = 0;
@@ -197,6 +201,7 @@ void pg_init()
     return;
   }
   logInfo("Opened file %s", filePath);
+  pg_clear_labels();
 
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
@@ -205,8 +210,6 @@ void pg_init()
   pg_clearChoices();
   pg_game_status.showPageBreak = 0;
   pg_game_status.tempVariables = NULL;
-  pg_game_status.labels = runningGame->labels;
-  pg_game_status.labelsCount = runningGame->labelsCount;
   pg_game_status.text = NULL;
   pg_game_status.sceneIndex = 0;
   pg_game_status.fpPosition = runningGame->startPosition;
@@ -239,6 +242,7 @@ void pg_dispose()
   pg_clear_image_cache();
   pg_clearTempVars();
   pg_clearChoices();
+  pg_clear_labels();
   if (text_surface) {
     SDL_FreeSurface(text_surface);
     text_surface = NULL;
@@ -434,7 +438,7 @@ int pg_renderPageBreak()
 
 /// @brief Exec the next line(s)
 /// @return 1 if something was executed
-int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
+int pg_exec_primitive()
 {
   char line[4096];
   int indentation = -1;
@@ -452,15 +456,15 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
   pg_game_status.scrollY = 0;
   pg_clearChoices();
 
-  if (pg_game_status.fpPosition == file_size) {
-    logDebug("Reached EOF (file size=%i), going to the next scene", file_size);
+  if (pg_game_status.fpPosition == pg_game_status.fpSize) {
+    logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
     pg_goToNextScene();
 
     return 0;
   }
 
   int textStarted = 0;
-  while (fgets(line, sizeof(line), fp)) {
+  while (fgets(line, sizeof(line), pg_game_status.fp)) {
     logDebug("line=%s", line);
     int lineIndentation = isEmpty(line)
       ? indentation
@@ -475,7 +479,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         logDebug("ifInfo: indentation=%i, end_position=%i, pos=%i", ifInfo->indentation, ifInfo->end_position, pg_game_status.fpPosition);
         if (ifInfo->indentation == lineIndentation && pg_game_status.fpPosition == ifInfo->end_position) {
           indentation = ifInfo->indentation;
-          fseek(fp, ifInfo->end_position, SEEK_SET);
+          fseek(pg_game_status.fp, ifInfo->end_position, SEEK_SET);
 
           ifInfo->indentation = 0;
           ifInfo->end_position = 0;
@@ -509,14 +513,14 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
       if (stricmp(command, "check_purchase") == 0) {
         // check_purchase name1 name2
         pg_manageCheckPurchaseCommand(line);
-        pg_game_status.fpPosition = ftell(fp);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
 
       if (stricmp(command, "page_break") == 0) {
         pg_game_status.showPageBreak = 1;
         strcpy(pg_game_status.pageBreakMessage, "Next");
-        pg_game_status.fpPosition = ftell(fp);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
         break;
       }
 
@@ -534,7 +538,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
       if (stricmp(command, "finish") == 0) {
         pg_manageFinishCommand(line);
         pg_game_status.showPageBreak = 1;
-        pg_game_status.fpPosition = file_size;
+        pg_game_status.fpPosition = pg_game_status.fpSize;
         break;
       }
 
@@ -564,6 +568,19 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         continue;
       }
 
+      if (stricmp(command, "gosub_scene") == 0) {
+        //gosub_scene
+        long newPosition = pg_manageGosubSceneCommand(line);
+        logDebug("%s -> %i", line, newPosition);
+        pg_game_status.fpPosition = newPosition;
+        indentation = -1;
+
+        if (textStarted)
+          pg_appendText("\n", 0);
+        textStarted = 0;
+        continue;
+      }
+
       if (stricmp(command, "return") == 0) {
         if (pg_game_status.gosubCount == 0) {
           logWarning("No previous position found");
@@ -573,16 +590,18 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         gosub_info *info = &pg_game_status.gosub[pg_game_status.gosubCount];
         long newPosition = info->position;
         pg_game_status.fpPosition = newPosition;
+        if (info->fp != NULL) {
+          fclose(pg_game_status.fp);
+          pg_game_status.fp = info->fp;
+          pg_clear_labels();
+        }
         fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
         pg_game_status.gosubCount--;
         indentation = -1;
         logDebug("%s -> %i", line, newPosition);
 
         info->position = 0;
-        if (info->fp != NULL) {
-          fclose(info->fp);
-          info->fp = NULL;
-        }
+        info->fp = NULL;
 
         // Clear params temp variables
         for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
@@ -654,11 +673,11 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
         // New paragraph
         pg_appendText("\n\n", 0);
       }
-      pg_game_status.fpPosition = ftell(fp);
+      pg_game_status.fpPosition = ftell(pg_game_status.fp);
     }
   }
-  if (ftell(fp) == file_size) {
-    pg_game_status.fpPosition = file_size;
+  if (ftell(pg_game_status.fp) == pg_game_status.fpSize) {
+    pg_game_status.fpPosition = pg_game_status.fpSize;
   }
 
   if (pg_game_status.text != NULL) {
@@ -673,8 +692,8 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
     }
   }
 
-  if (pg_game_status.text == NULL && pg_game_status.fpPosition == file_size) {
-    logDebug("Reached EOF (file size=%i), going to the next scene", file_size);
+  if (pg_game_status.text == NULL && pg_game_status.fpPosition == pg_game_status.fpSize) {
+    logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
     pg_goToNextScene();
 
     return 0;
@@ -687,8 +706,7 @@ int pg_exec_primitive(FILE *fp, long file_size, long *final_position)
 
 void pg_exec()
 {
-  long position;
-  while (!pg_exec_primitive(pg_game_status.fp, pg_game_status.fpSize, &position));
+  while (!pg_exec_primitive());
 }
 
 void pg_appendText(const char *text, int newLine)
@@ -773,8 +791,7 @@ void pg_goToNextScene()
 
   pg_game_status.sceneIndex++;
   pg_game_status.fpPosition = 0;
-  pg_game_status.labels = NULL;
-  pg_game_status.labelsCount = 0;
+  pg_clear_labels();
   pg_clearTempVars();
 
   char filePath[256];
@@ -794,42 +811,10 @@ void pg_goToNextScene()
     return;
   }
   logInfo("Opened file %s", filePath);
+  pg_clear_labels();
 
   fseek(pg_game_status.fp, 0L, SEEK_END);
   pg_game_status.fpSize = ftell(pg_game_status.fp);
-  fseek(pg_game_status.fp, 0L, SEEK_SET);
-
-  // Get labels
-  char line[4096];
-  int lineStartPosition = 0;
-  long nextLineStartPosition = 0;
-  while (fgets(line, sizeof(line), pg_game_status.fp)) {
-    lineStartPosition = nextLineStartPosition;
-    nextLineStartPosition = ftell(pg_game_status.fp);
-
-    trim(line);
-    if (startsWithWord("*label", line)) {
-      pg_game_status.labelsCount++;
-      if (pg_game_status.labels == NULL) {
-        pg_game_status.labels = malloc(sizeof(label) * pg_game_status.labelsCount);
-      } else {
-        label *tmp = realloc(pg_game_status.labels, sizeof(label) * pg_game_status.labelsCount);
-        if (tmp != NULL) {
-          pg_game_status.labels = tmp;
-          tmp = NULL;
-        } else {
-          logWarning("Realloc failed");
-          break;
-        }
-      }
-
-      pg_game_status.labels[pg_game_status.labelsCount - 1].name = malloc(strlen(line) - 7 + 1);
-      subString(line, pg_game_status.labels[pg_game_status.labelsCount - 1].name, 7, strlen(line) - 7);
-      pg_game_status.labels[pg_game_status.labelsCount - 1].position = lineStartPosition;
-
-      logDebug("\tLabel name=%s, position=%li", pg_game_status.labels[pg_game_status.labelsCount - 1].name, pg_game_status.labels[pg_game_status.labelsCount - 1].position);
-    }
-  }
   fseek(pg_game_status.fp, 0L, SEEK_SET);
   pg_game_status.fpPosition = 0;
 }
@@ -1219,6 +1204,80 @@ long pg_manageGosubCommand(const char *text)
   return lbl->position;
 }
 
+long pg_manageGosubSceneCommand(const char *text)
+{
+  int start = indexOfWordBreak(text, 0);
+  if (start < 0) {
+    logWarning("gosub_scene without scene name");
+    return pg_game_status.fpPosition;
+  }
+
+  char label_name[256];
+  FILE *fp = NULL;
+  int end;
+  int word_count = 0;
+  while ((end = indexOfWordBreak(text, start + 1)) >= 0) {
+    char *par_value = malloc(end - start + 1);
+    subString(text, par_value, start + 1, end - start - 1);
+    start = end;
+
+    logDebug("par_value=%s", par_value);
+    if (word_count == 0) {
+      // scene name
+      char filePath[256];
+      strcpy(filePath, runningGame->path);
+      strcat(filePath, "/scenes/");
+      strcat(filePath, par_value);
+      strcat(filePath, ".txt");
+
+      fp = fopen(filePath, "rb");
+      if (fp == NULL) {
+        logError("Failed to open file %s", filePath);
+      }
+    } else if (word_count == 1) {
+      // label name
+      strcpy(label_name, par_value);
+    } else {
+      // parameter
+      variable *var = pg_add_temp_var();
+      var->name = malloc(32);
+      sprintf(var->name, "param_%i", word_count);
+      var->type = get_var_type(par_value);
+      setVarValue(var, par_value);
+    }
+
+    free(par_value);
+    word_count++;
+  }
+
+  variable *var = pg_add_temp_var();
+  var->name = malloc(32);
+  strcpy(var->name, "param_count");
+  var->type = number;
+  char count[11];
+  sprintf(count, "%i", word_count);
+  setVarValue(var, count);
+
+  pg_game_status.gosubCount++;
+  gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
+  gosub->fp = pg_game_status.fp;
+  gosub->position = ftell(pg_game_status.fp);
+
+  pg_game_status.fp = fp;
+  pg_clear_labels();
+
+  label *lbl = NULL;
+  if (strlen(label_name)) {
+    lbl = pg_get_label(label_name);
+    if (lbl == NULL) {
+      logWarning("Label %s not found", label_name);
+    }
+  }
+  fseek(pg_game_status.fp, lbl == NULL ? 0 : lbl->position, SEEK_SET);
+
+  return lbl == NULL ? 0 : lbl->position;
+}
+
 void pg_manageTempCommand(const char *text)
 {
   int idx = indexOfWordBreak(text, 6);
@@ -1426,6 +1485,9 @@ image_cache_item *pg_add_image_to_cache(const char *name)
 
 label* pg_get_label(const char *labelName)
 {
+  if (pg_game_status.labelsCount < 0)
+    pg_read_labels();
+
   int i = 0;
   while (i < pg_game_status.labelsCount) {
     if (stricmp(pg_game_status.labels[i].name, labelName) == 0)
@@ -1682,4 +1744,60 @@ long pg_get_if_end(FILE *fp, int indentation)
 
   fseek(fp, pos, SEEK_SET);
   return -1;
+}
+
+void pg_clear_labels()
+{
+  if (pg_game_status.labels == NULL) {
+    pg_game_status.labelsCount = -1;
+    return;
+  }
+
+  for (int i = 0; i < pg_game_status.labelsCount; i++) {
+    label* lbl = &pg_game_status.labels[i];
+    free(lbl->name);
+  }
+
+  free(pg_game_status.labels);
+  pg_game_status.labels = NULL;
+  pg_game_status.labelsCount = -1;
+}
+
+void pg_read_labels()
+{
+  logDebug("Reading all labels");
+  long pos = ftell(pg_game_status.fp);
+  fseek(pg_game_status.fp, 0, SEEK_SET);
+  pg_game_status.labelsCount = 0;
+  char line[4096];
+  int lineStartPosition = 0;
+  long nextLineStartPosition = 0;
+  while (fgets(line, sizeof(line), pg_game_status.fp)) {
+    lineStartPosition = nextLineStartPosition;
+    nextLineStartPosition = ftell(pg_game_status.fp);
+
+    trim(line);
+    if (startsWithWord("*label", line)) {
+      pg_game_status.labelsCount++;
+      if (pg_game_status.labels == NULL) {
+        pg_game_status.labels = malloc(sizeof(label) * pg_game_status.labelsCount);
+      } else {
+        label *tmp = realloc(pg_game_status.labels, sizeof(label) * pg_game_status.labelsCount);
+        if (tmp != NULL) {
+          pg_game_status.labels = tmp;
+          tmp = NULL;
+        } else {
+          logWarning("Realloc failed");
+          break;
+        }
+      }
+
+      pg_game_status.labels[pg_game_status.labelsCount - 1].name = malloc(strlen(line) - 7 + 1);
+      subString(line, pg_game_status.labels[pg_game_status.labelsCount - 1].name, 7, strlen(line) - 7);
+      pg_game_status.labels[pg_game_status.labelsCount - 1].position = lineStartPosition;
+
+      logDebug("\tLabel name=%s, position=%li", pg_game_status.labels[pg_game_status.labelsCount - 1].name, pg_game_status.labels[pg_game_status.labelsCount - 1].position);
+    }
+  }
+  fseek(pg_game_status.fp, pos, SEEK_SET);
 }
