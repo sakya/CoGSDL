@@ -501,11 +501,11 @@ int pg_exec_primitive()
       pg_getCommand(line, command);
       logDebug("Command [%s]=%s", command, line);
       if (stricmp(command, "label") == 0) {
-        // We can just skip labels
+        // We can skip labels
         continue;
       }
       if (stricmp(command, "params") == 0) {
-        // We can just skip params because we create the temporary variable
+        // We can skip params because we create the temporary variable
         // when executing the gosub command
         continue;
       }
@@ -930,7 +930,7 @@ long pg_manageIfCommand(const char *text, int indentation, long *endPosition)
         if (stricmp(line, "*else") == 0) {
           return ftell(pg_game_status.fp);
         } else if (startsWith("*elseif", line)) {
-          subString(text, condition, 7, textLen - 7);
+          subString(line, condition, 8, strlen(line) - 8 + 1);
           if (pg_evaluateCondition(condition, indentation)) {
             return ftell(pg_game_status.fp);
           }
@@ -1729,7 +1729,7 @@ long pg_get_if_end(FILE *fp, int indentation)
     if (line_indentation < indentation)
       break;
 
-    if (indentation == line_indentation) {
+    if (indentation == line_indentation && !isEmpty(line)) {
       trim(line);
       pg_getCommand(line, command);
       if (stricmp(command, "else") == 0 || stricmp(command, "elseif") == 0)
