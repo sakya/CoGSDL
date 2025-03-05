@@ -1743,7 +1743,7 @@ long pg_get_if_end(FILE *fp, int indentation)
   }
 
   fseek(fp, pos, SEEK_SET);
-  return -1;
+  return start_line_pos;
 }
 
 void pg_clear_labels()
