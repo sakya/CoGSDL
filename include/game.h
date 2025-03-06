@@ -62,6 +62,7 @@ struct game
   achievement achievements[4096];
 
   long startPosition;
+  int hide_reuse;
 } typedef game;
 
 #endif

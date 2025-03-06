@@ -1411,7 +1411,11 @@ long pg_manageChoiceCommand()
 
         start++;
         choice->used = 0;
-        choice->reusable = startsWithWord("*hide_reuse", line) ? 0 : 1;
+        if (runningGame->hide_reuse) {
+          choice->reusable = 0;
+        } else {
+          choice->reusable = startsWithWord("*hide_reuse", line) ? 0 : 1;
+        }
         choice->text = malloc(strlen(line) - start + 1);
         // Get the position of the line to execute when the choice is selected
         long pos = ftell(pg_game_status.fp);

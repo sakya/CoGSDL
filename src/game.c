@@ -105,6 +105,7 @@ int loadGame(const char* path, game* game, int forListing)
   game->variablesCount = 0;
   game->achievementsCount = 0;
   game->startPosition = 0;
+  game->hide_reuse = 0;
   while (fgets(line, sizeof(line), fp)) {
     lineStartPosition = nextLineStartPosition;
     nextLineStartPosition = ftell(fp);
@@ -128,6 +129,8 @@ int loadGame(const char* path, game* game, int forListing)
 
     if (stricmp(line, "*scene_list") == 0) {
       sceneIdx = 0;
+    } else if (stricmp(line, "*hide_reuse") == 0) {
+      game->hide_reuse = 1;
     } else if (startsWithWord("*title", line)) {
       game->title = malloc(strlen(line) - 7 + 1);
       subString(line, game->title, 7, strlen(line) - 7);
