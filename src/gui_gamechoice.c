@@ -12,6 +12,9 @@ static int total_height = 0;
 void gc_init();
 void gc_dispose();
 void gc_draw();
+void gc_select_next();
+void gc_select_previous();
+
 void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY);
 char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap, int *last_x);
 
@@ -20,20 +23,10 @@ void drawGameChoice()
   const int old_selected_idx = selectedIdx;
   if (_Globals.input[_Keys.KeyDown] == 1 && selectedIdx >= 0) {
     _Globals.input[_Keys.KeyDown] = 0;
-    selectedIdx++;
-    if (selectedIdx == pg_game_status.choicesCount) {
-      selectedIdx = 0;
-      scroll_y = 0;
-    }
+    gc_select_next();
   } else if (_Globals.input[_Keys.KeyUp] == 1 && selectedIdx >= 0) {
     _Globals.input[_Keys.KeyUp] = 0;
-    selectedIdx--;
-    if (selectedIdx < 0) {
-      selectedIdx = pg_game_status.choicesCount - 1;
-      if (total_height > _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) {
-        scroll_y = total_height - (_Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) - choice_surface[selectedIdx]->h - 2;
-      }
-    }
+    gc_select_previous();
   } else if (_Globals.input[_Keys.KeyA] == 1) {
     _Globals.input[_Keys.KeyA] = 0;
     if (selectedIdx >= 0) {
@@ -98,7 +91,9 @@ void gc_init()
 
       choice_surface[choice_surface_count] = surface;
       choice_surface_count++;
-      total_height += surface->h + 2;
+      if (c->reusable || !c->used) {
+        total_height += surface->h + 2;
+      }
     }
   }
 }
@@ -121,8 +116,9 @@ void gc_draw()
     int height = choice_surface[i]->h + 2;
 
     if (!c->reusable && c->used) {
-      if (selectedIdx == i)
-        selectedIdx++;
+      if (selectedIdx == i) {
+        gc_select_next();
+      }
       continue;
     }
     if (y - scroll_y + height < HEADER_HEIGHT + TEXT_MARGIN || y - scroll_y > _Globals.windowHeight - HEADER_HEIGHT) {
@@ -175,4 +171,44 @@ void gc_draw()
   int width;
   TTF_MeasureUTF8(_Globals.defaultFont, select_msg, _Globals.windowWidth, &width, NULL);
   sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, select_msg, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
+}
+
+void gc_select_next()
+{
+  selectedIdx++;
+  if (selectedIdx == pg_game_status.choicesCount) {
+    selectedIdx = 0;
+  }
+
+  while (!pg_game_status.choices[selectedIdx].reusable && pg_game_status.choices[selectedIdx].used) {
+    selectedIdx++;
+    if (selectedIdx == pg_game_status.choicesCount) {
+      selectedIdx = 0;
+    }
+  }
+
+  if (selectedIdx == 0) {
+    scroll_y = 0;
+  }
+}
+
+void gc_select_previous()
+{
+  selectedIdx--;
+  if (selectedIdx < 0) {
+    selectedIdx = pg_game_status.choicesCount - 1;
+  }
+
+  while (!pg_game_status.choices[selectedIdx].reusable && pg_game_status.choices[selectedIdx].used) {
+    selectedIdx--;
+    if (selectedIdx < 0) {
+      selectedIdx = pg_game_status.choicesCount - 1;
+    }
+  }
+
+  if (selectedIdx == pg_game_status.choicesCount - 1) {
+    if (total_height > _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) {
+      scroll_y = total_height - (_Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) - choice_surface[selectedIdx]->h - 2;
+    }
+  }
 }
