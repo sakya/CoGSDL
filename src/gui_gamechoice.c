@@ -41,6 +41,9 @@ void drawGameChoice()
       pg_game_status.selectedChoiceIndex = selectedIdx;
       logInfo("Selected choice: %s (%i)", c->text, c->position);
       c->used = 1;
+      strcpy(pg_game_status.used_choices[pg_game_status.used_choices_count], c->id);
+      pg_game_status.used_choices_count++;
+
       _Globals.status = Game;
       gc_dispose();
       return;
@@ -117,8 +120,11 @@ void gc_draw()
     choice* c = &pg_game_status.choices[i];
     int height = choice_surface[i]->h + 2;
 
-    if (!c->reusable && c->used)
+    if (!c->reusable && c->used) {
+      if (selectedIdx == i)
+        selectedIdx++;
       continue;
+    }
     if (y - scroll_y + height < HEADER_HEIGHT + TEXT_MARGIN || y - scroll_y > _Globals.windowHeight - HEADER_HEIGHT) {
       y += height;
       continue;

@@ -33,6 +33,8 @@ struct achievement
 
 struct choice
 {
+  /// @brief Choice id
+  char id[32];
   /// @brief The choice text
   char *text;
   /// @brief The file position to go if the choice is selected

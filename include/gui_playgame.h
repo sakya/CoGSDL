@@ -44,18 +44,25 @@ struct game_status
     char pageBreakMessage[64];
     /// @brief Set to 1 if the text can be scrolled
     int canScrollDown;
+
     /// @brief The labels of the opened file
     label* labels;
     int labelsCount;
+
     /// @brief Temp variables
     variable* tempVariables;
     int tempVariablesCount;
+
     /// @brief The choices to display to the user
     choice *choices;
     int choicesCount;
     int selectedChoiceIndex;
+
     if_info ifInfo[32];
     int ifInfoCount;
+
+    char used_choices[1024][32];
+    int used_choices_count;
 } typedef game_status;
 
 struct image_cache_item

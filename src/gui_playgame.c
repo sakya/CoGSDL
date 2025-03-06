@@ -219,6 +219,7 @@ void pg_init()
   pg_game_status.selectedChoiceIndex = -1;
   pg_game_status.gosubCount = 0;
   pg_game_status.ifInfoCount = 0;
+  pg_game_status.used_choices_count = 0;
 
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -253,6 +254,7 @@ void pg_dispose()
   pg_game_status.lastRenderedY = 0;
   pg_game_status.gosubCount = 0;
   pg_game_status.ifInfoCount = 0;
+  pg_game_status.used_choices_count = 0;
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
@@ -689,7 +691,7 @@ int pg_exec_primitive()
       }
 
       if (stricmp(command, "choice") == 0 || stricmp(command, "fake_choice") == 0) {
-        // choice
+        // choice/fake_choice
         long newPosition = pg_manageChoiceCommand();
         logDebug("Choice -> %i", newPosition);
         pg_game_status.fpPosition = newPosition;
@@ -1410,20 +1412,18 @@ long pg_manageChoiceCommand()
         choice *choice = &pg_game_status.choices[pg_game_status.choicesCount - 1];
 
         start++;
-        choice->used = 0;
         if (runningGame->hide_reuse) {
           choice->reusable = 0;
         } else {
           choice->reusable = startsWithWord("*hide_reuse", line) ? 0 : 1;
         }
         choice->text = malloc(strlen(line) - start + 1);
-        // Get the position of the line to execute when the choice is selected
-        long pos = ftell(pg_game_status.fp);
-        char temp_line[4096];
-        while (fgets(temp_line, sizeof(temp_line), pg_game_status.fp)) {
-          int tempIndentation = getIndentation(temp_line);
-          if (tempIndentation > choiceIndentation) {
-            choice->position = pos;
+        choice->position = ftell(pg_game_status.fp);
+        sprintf(choice->id, "%i_%li", pg_game_status.sceneIndex, choice->position);
+        choice->used = 0;
+        for (int i = 0; i < pg_game_status.used_choices_count; i++) {
+          if (strcmp(choice->id, pg_game_status.used_choices[i]) == 0) {
+            choice->used = 1;
             break;
           }
         }
