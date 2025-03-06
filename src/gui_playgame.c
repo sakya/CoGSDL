@@ -1663,7 +1663,7 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     return NULL;
 
   int textLen = strlen(text);
-  if (!textLen || *startPosition == textLen - 1)
+  if (!textLen || *startPosition >= textLen - 1)
     return NULL;
 
   char *res = NULL;
@@ -1693,10 +1693,12 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
       if (i + 2 < textLen && text[i + 1] == 'i' && text[i + 2] == ']') {
         font = _Globals.textItalicFont;
         i += 3;
+        endOfLinePosition = i;
         continue;
       } else if (i + 3 < textLen && text[i + 1] == '/' && text[i + 2] == 'i' && text[i + 3] == ']') {
         font = _Globals.textFont;
         i += 4;
+        endOfLinePosition = i;
         continue;
       }
 
@@ -1704,10 +1706,12 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
       if (i + 2 < textLen && text[i + 1] == 'b' && text[i + 2] == ']') {
         font = _Globals.textBoldFont;
         i += 3;
+        endOfLinePosition = i;
         continue;
       } else if (i + 3 < textLen && text[i + 1] == '/' && text[i + 2] == 'b' && text[i + 3] == ']') {
         font = _Globals.textFont;
         i += 4;
+        endOfLinePosition = i;
         continue;
       }
     }
@@ -1743,7 +1747,6 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
   }
 
   res = malloc(endOfLinePosition - *startPosition + 2);
-  memset(res, 0, endOfLinePosition - *startPosition + 2);
   int idx = 0;
   for (int j = *startPosition; j <= endOfLinePosition; j++) {
     if (text[j] != '\r' && text[j] != '\n' && (idx > 0 || text[j] != ' '))
