@@ -539,11 +539,19 @@ int pg_exec_primitive()
       logDebug("Command [%s]=%s", command, line);
       if (stricmp(command, "label") == 0) {
         // We can skip labels
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
       if (stricmp(command, "params") == 0) {
         // We can skip params because we create the temporary variable
         // when executing the gosub command
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "bug") == 0) {
+        logWarning("Bug found (%i)", pg_game_status.fpPosition);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
 
@@ -563,12 +571,14 @@ int pg_exec_primitive()
 
       if (stricmp(command, "line_break") == 0) {
         pg_appendText("\n", 0);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
 
       if (stricmp(command, "text_image") == 0 || stricmp(command, "image") == 0) {
         // Add the command to the text as it should be rendered with it
         pg_appendText(line, 1);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
 
