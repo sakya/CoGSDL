@@ -1231,13 +1231,15 @@ long pg_manageGosubCommand(const char *text)
     word_count++;
   }
 
-  variable *var = pg_add_temp_var();
-  var->name = malloc(32);
-  strcpy(var->name, "param_count");
-  var->type = number;
-  char count[11];
-  sprintf(count, "%i", word_count);
-  setVarValue(var, count);
+  if (word_count - 1 >= 0) {
+    variable *var = pg_add_temp_var();
+    var->name = malloc(32);
+    strcpy(var->name, "param_count");
+    var->type = number;
+    char count[11];
+    sprintf(count, "%i", word_count - 1);
+    setVarValue(var, count);
+  }
 
   pg_game_status.gosubCount++;
   gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
@@ -1278,6 +1280,7 @@ long pg_manageGosubSceneCommand(const char *text)
       if (fp == NULL) {
         logError("Failed to open file %s", filePath);
       }
+      logInfo("Opened file %s", filePath);
     } else if (word_count == 1) {
       // label name
       strcpy(label_name, par_value);
@@ -1294,13 +1297,15 @@ long pg_manageGosubSceneCommand(const char *text)
     word_count++;
   }
 
-  variable *var = pg_add_temp_var();
-  var->name = malloc(32);
-  strcpy(var->name, "param_count");
-  var->type = number;
-  char count[11];
-  sprintf(count, "%i", word_count);
-  setVarValue(var, count);
+  if (word_count - 2 >= 0) {
+    variable *var = pg_add_temp_var();
+    var->name = malloc(32);
+    strcpy(var->name, "param_count");
+    var->type = number;
+    char count[11];
+    sprintf(count, "%i", word_count - 2);
+    setVarValue(var, count);
+  }
 
   pg_game_status.gosubCount++;
   gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
