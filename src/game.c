@@ -355,6 +355,10 @@ void addGameVar(game* game, enum var_types type, const char* name, const char* v
     if (var->type != type) {
       logWarning("addGameVar different type: %i != %i", var->type, type);
     }
+    if (var->value != NULL) {
+      free(var->value);
+      var->value = NULL;
+    }
   }
   var->value = malloc(strlen(value) + 1);
   strcpy(var->value, value);
