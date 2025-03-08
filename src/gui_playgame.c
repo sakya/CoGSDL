@@ -224,10 +224,8 @@ void pg_init()
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
 
-  SDL_Surface *surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", _theme->textColor);
-  line_height = surface->h;
-  logDebug("Line height %li", line_height);
-  SDL_FreeSurface(surface);
+  line_height = get_line_height(_Globals.textFont);
+  logDebug("Line height %i", line_height);
 
   if (_Globals.scroll == scroll_page) {
     int lines = (_Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) / line_height;

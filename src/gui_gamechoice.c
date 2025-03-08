@@ -63,10 +63,7 @@ void gc_init()
   selectedIdx = 0;
   scroll_y = 0;
 
-  SDL_Surface *surface = TTF_RenderUTF8_Blended(_Globals.textFont, "H", _theme->textColor);
-  line_height = surface->h;
-  SDL_FreeSurface(surface);
-
+  line_height = get_line_height(_Globals.textFont);
   pg_game_status.selectedChoiceIndex = -1;
   total_height = 0;
   if (!choice_surface_count) {

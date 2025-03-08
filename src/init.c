@@ -100,6 +100,21 @@ void load_images()
   dpad_up_down = IMG_Load("images/dpad_up_down.png");
 }
 
+void free_fonts()
+{
+  TTF_CloseFont(_Globals.defaultFont);
+  _Globals.defaultFont = NULL;
+
+  TTF_CloseFont(_Globals.textFont);
+  _Globals.textFont = NULL;
+
+  TTF_CloseFont(_Globals.textBoldFont);
+  _Globals.textBoldFont = NULL;
+
+  TTF_CloseFont(_Globals.textItalicFont);
+  _Globals.textItalicFont = NULL;
+}
+
 void free_images()
 {
   SDL_FreeSurface(app_icon);

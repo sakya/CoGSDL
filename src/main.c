@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
 
   free_images();
   free_sounds();
+  free_fonts();
   IMG_Quit();
   TTF_Quit();
   SDL_DestroyRenderer(_Globals.renderer);

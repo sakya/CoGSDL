@@ -215,6 +215,19 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
   SDL_DestroyTexture(texture);
 }
 
+int get_line_height(TTF_Font *font)
+{
+  if (font == NULL)
+    return 0;
+
+  SDL_Surface *surface = TTF_RenderUTF8_Blended(font, "H", _theme->textColor);
+  int res = surface->h;
+  SDL_FreeSurface(surface);
+  surface = NULL;
+
+  return res;
+}
+
 int is_number(const char *text, int *value)
 {
   if (!text)

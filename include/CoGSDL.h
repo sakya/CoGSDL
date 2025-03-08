@@ -125,6 +125,7 @@ int init();
 int draw();
 void free_images();
 void free_sounds();
+void free_fonts();
 
 /* events.c */
 /// @brief Manage SDL events
@@ -227,12 +228,13 @@ int stricmp(const char *s1, const char *s2);
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight);
+int get_line_height(TTF_Font *font);
 
 /* log.c */
 /// @brief Initialize log
 /// @param filePath The log file
 /// @return 1 on success
-int logInit(const char* filePath);
+int logInit(const char *filePath);
 /// @brief Log a debug message
 /// @param format The format
 /// @param ... The arguments
