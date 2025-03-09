@@ -221,6 +221,10 @@ int get_line_height(TTF_Font *font)
     return 0;
 
   SDL_Surface *surface = TTF_RenderUTF8_Blended(font, "H", _theme->textColor);
+  if (surface == NULL) {
+    logWarning("Failed to create surface");
+    return 0;
+  }
   int res = surface->h;
   SDL_FreeSurface(surface);
   surface = NULL;
