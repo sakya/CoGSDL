@@ -15,16 +15,21 @@ void gc_draw();
 void gc_select_next();
 void gc_select_previous();
 
-/// @brief Check if a choice is visible (hidden if used and not reusable)
-static int gc_is_visible(const choice *c)
-{
-  return c->reusable || !c->used;
-}
-
-/// @brief Check if a choice can be selected (*selectable_if, *disable_reuse)
+/// @brief Check if a choice can be selected
+/// Choices that cannot be selected (*selectable_if false, used with *hide_reuse or *disable_reuse) are hidden
 static int gc_is_enabled(const choice *c)
 {
-  return gc_is_visible(c) && c->selectable && !(c->disable_reuse && c->used);
+  if (!c->selectable)
+    return 0;
+  if (c->used && (!c->reusable || c->disable_reuse))
+    return 0;
+  return 1;
+}
+
+/// @brief Check if a choice is visible (only selectable choices are shown)
+static int gc_is_visible(const choice *c)
+{
+  return gc_is_enabled(c);
 }
 
 void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY);
@@ -173,11 +178,6 @@ void gc_draw()
     y += 1;
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, choice_surface[i]);
-    if (!gc_is_enabled(c)) {
-      // Disabled choice: draw it faded (grey)
-      SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-      SDL_SetTextureAlphaMod(texture, 100);
-    }
     SDL_Rect crop = { 0, delta_y, choice_surface[i]->w, height - 2};
     SDL_Rect rect = { TEXT_MARGIN, y - scroll_y + delta_y, choice_surface[i]->w, height - 2 };
     SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, 0, NULL, SDL_FLIP_NONE);

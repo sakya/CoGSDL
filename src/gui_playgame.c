@@ -58,6 +58,7 @@ int pg_evaluateSimpleCondition(const char *condition);
 int pg_evaluateCondition(const char *condition, int indentation);
 int pg_evaluateExpression(const char *expression, char *value);
 int pg_evaluateBoolean(const char *condition);
+int pg_evaluateArithmetic(const char *expression, double *result);
 /// @brief Replace ${}, $!{}, $!!{} and @{} in a text
 /// @param text The text
 /// @return The expanded text (must be freed) or NULL
@@ -1388,6 +1389,136 @@ int pg_evaluateSimpleCondition(const char *condition)
   return res;
 }
 
+/* ---------------------------------------------------------------------------
+ * Arithmetic expressions: numbers, variables, parentheses, + - * / modulo
+ * ------------------------------------------------------------------------- */
+
+static int pg_arithExpr(const char **p, double *out);
+
+static void pg_arithSkipSpaces(const char **p)
+{
+  while (**p && isspace((unsigned char)**p))
+    (*p)++;
+}
+
+static int pg_arithFactor(const char **p, double *out)
+{
+  pg_arithSkipSpaces(p);
+  if (**p == '(') {
+    (*p)++;
+    if (!pg_arithExpr(p, out))
+      return 0;
+    pg_arithSkipSpaces(p);
+    if (**p != ')')
+      return 0;
+    (*p)++;
+    return 1;
+  }
+
+  if (**p == '-') {
+    (*p)++;
+    if (!pg_arithFactor(p, out))
+      return 0;
+    *out = -*out;
+    return 1;
+  }
+
+  if (isdigit((unsigned char)**p) || **p == '.') {
+    char *end;
+    *out = strtod(*p, &end);
+    *p = end;
+    return 1;
+  }
+
+  if (isalpha((unsigned char)**p) || **p == '_') {
+    char name[256];
+    int len = 0;
+    while ((isalnum((unsigned char)**p) || **p == '_') && len < (int)sizeof(name) - 1) {
+      name[len++] = **p;
+      (*p)++;
+    }
+    name[len] = '\0';
+
+    variable *var = pg_getVar(name);
+    if (var == NULL || var->value == NULL)
+      return 0;
+    char *end;
+    *out = strtod(var->value, &end);
+    if (end == var->value) {
+      logWarning("Variable %s is not a number (%s)", name, var->value);
+      return 0;
+    }
+    return 1;
+  }
+
+  return 0;
+}
+
+static int pg_arithTerm(const char **p, double *out)
+{
+  if (!pg_arithFactor(p, out))
+    return 0;
+
+  while (1) {
+    pg_arithSkipSpaces(p);
+    char op = **p;
+    if (op == '*' || op == '/') {
+      (*p)++;
+    } else if (pg_strnicmp(*p, "modulo", 6) == 0 && !isalnum((unsigned char)(*p)[6]) && (*p)[6] != '_') {
+      op = '%';
+      *p += 6;
+    } else {
+      return 1;
+    }
+
+    double right;
+    if (!pg_arithFactor(p, &right))
+      return 0;
+    if (op == '*') {
+      *out *= right;
+    } else if (right == 0) {
+      logWarning("Division by zero");
+      return 0;
+    } else if (op == '/') {
+      *out /= right;
+    } else {
+      *out = fmod(*out, right);
+    }
+  }
+}
+
+static int pg_arithExpr(const char **p, double *out)
+{
+  if (!pg_arithTerm(p, out))
+    return 0;
+
+  while (1) {
+    pg_arithSkipSpaces(p);
+    char op = **p;
+    if (op != '+' && op != '-')
+      return 1;
+    (*p)++;
+
+    double right;
+    if (!pg_arithTerm(p, &right))
+      return 0;
+    *out = op == '+' ? *out + right : *out - right;
+  }
+}
+
+/// @brief Evaluate an arithmetic expression
+/// @param expression The expression
+/// @param result The result
+/// @return 1 on success
+int pg_evaluateArithmetic(const char *expression, double *result)
+{
+  const char *p = expression;
+  if (!pg_arithExpr(&p, result))
+    return 0;
+  pg_arithSkipSpaces(&p);
+  return *p == '\0';
+}
+
 int pg_evaluateExpression(const char *expression, char *value)
 {
   value[0] = '\0';
@@ -1438,6 +1569,18 @@ int pg_evaluateExpression(const char *expression, char *value)
   if (stricmp(expression, "true") == 0 || stricmp(expression, "false") == 0) {
     strcpy(value, expression);
     return 1;
+  }
+
+  // Arithmetic expression: 3 * (var + 1)
+  if (strpbrk(expression, "+-*/()") != NULL || strstr(expression, " modulo ") != NULL) {
+    double result;
+    if (pg_evaluateArithmetic(expression, &result)) {
+      if (fabs(result - round(result)) < 1e-9)
+        sprintf(value, "%li", (long)round(result));
+      else
+        sprintf(value, "%g", result);
+      return 1;
+    }
   }
 
   // Variable name
@@ -1648,34 +1791,89 @@ long pg_manageChoiceCommand()
 
     trim(line);
     if (lineIndentation == choiceIndentation || lineIndentation == ifIndentation) {
-      if (line[0] == '*') {
-        int managed = 0;
+      // Option modifiers: *hide_reuse, *disable_reuse, *allow_reuse, *selectable_if (cond), *if (cond)
+      int start = 0;
+      int lineLen = strlen(line);
+      int reusable = runningGame->hide_reuse ? 0 : 1;
+      int disableReuse = 0;
+      int selectable = 1;
+      int visible = 1;
+      int isBlockIf = 0;
+      int unsupported = 0;
+      while (start < lineLen && line[start] == '*') {
         char command[256];
-        pg_getCommand(line, command);
+        pg_getCommand(line + start, command);
+        int next = start + 1 + strlen(command);
+        while (next < lineLen && isspace((unsigned char)line[next]))
+          next++;
 
-        if (stricmp(command, "if") == 0) {
-          long end_pos;
-          long new_pos = pg_manageIfCommand(line, choiceIndentation, &end_pos);
-          logDebug("%s -> %i", line, new_pos);
-          fseek(pg_game_status.fp, new_pos, SEEK_SET);
-          // Get indentation of the next line
-          fgets(line, sizeof(line), pg_game_status.fp);
-          ifIndentation = getIndentation(line);
-          fseek(pg_game_status.fp, new_pos, SEEK_SET);
-          managed = 1;
-        } else if (stricmp(command, "hide_reuse") == 0) {
-          // Managed with the text
+        if (stricmp(command, "hide_reuse") == 0) {
+          reusable = 0;
+          disableReuse = 0;
+        } else if (stricmp(command, "disable_reuse") == 0) {
+          reusable = 1;
+          disableReuse = 1;
+        } else if (stricmp(command, "allow_reuse") == 0) {
+          reusable = 1;
+          disableReuse = 0;
+        } else if (stricmp(command, "selectable_if") == 0 || stricmp(command, "if") == 0) {
+          // The condition must be enclosed in parentheses
+          int condEnd = line[next] == '(' ? pg_findClosing(line, next) : -1;
+          if (condEnd < 0 || indexOf(line, '#', condEnd) < 0) {
+            if (stricmp(command, "if") == 0)
+              isBlockIf = 1;
+            else
+              unsupported = 1;
+            break;
+          }
+
+          char *condition = pg_strndup(line + next, condEnd - next + 1);
+          int res = pg_evaluateCondition(condition, choiceIndentation);
+          logDebug("\t*%s %s -> %s", command, condition, res ? "true" : "false");
+          free(condition);
+          if (stricmp(command, "if") == 0) {
+            visible = visible && res;
+          } else {
+            selectable = selectable && res;
+          }
+
+          next = condEnd + 1;
+          while (next < lineLen && isspace((unsigned char)line[next]))
+            next++;
         } else {
-          logWarning("Unsupported command in choice: %s", command);
-          managed = 1;
+          unsupported = 1;
+          break;
         }
-
-        if (managed)
-          continue;
+        start = next;
       }
 
-      int start = indexOf(line, '#', 0);
-      if (start >= 0) {
+      if (isBlockIf) {
+        // *if block containing options
+        long end_pos;
+        long new_pos = pg_manageIfCommand(line, choiceIndentation, &end_pos);
+        logDebug("%s -> %i", line, new_pos);
+        fseek(pg_game_status.fp, new_pos, SEEK_SET);
+        // Get indentation of the next line
+        fgets(line, sizeof(line), pg_game_status.fp);
+        ifIndentation = getIndentation(line);
+        fseek(pg_game_status.fp, new_pos, SEEK_SET);
+        nextLineStartPosition = new_pos;
+        continue;
+      }
+
+      if (unsupported) {
+        char command[256];
+        pg_getCommand(line + start, command);
+        logWarning("Unsupported command in choice: %s", command);
+        continue;
+      }
+
+      if (start < lineLen && line[start] == '#') {
+        if (!visible) {
+          logDebug("\tChoice hidden: %s", line);
+          continue;
+        }
+
         pg_game_status.choicesCount++;
         if (pg_game_status.choices == NULL) {
           pg_game_status.choices = malloc(sizeof(choice) * pg_game_status.choicesCount);
@@ -1686,6 +1884,7 @@ long pg_manageChoiceCommand()
             tmp = NULL;
           } else {
             logWarning("Realloc failed");
+            pg_game_status.choicesCount--;
             continue;
           }
         }
@@ -1693,11 +1892,9 @@ long pg_manageChoiceCommand()
         choice *choice = &pg_game_status.choices[pg_game_status.choicesCount - 1];
 
         start++;
-        if (runningGame->hide_reuse) {
-          choice->reusable = 0;
-        } else {
-          choice->reusable = startsWithWord("*hide_reuse", line) ? 0 : 1;
-        }
+        choice->reusable = reusable;
+        choice->disable_reuse = disableReuse;
+        choice->selectable = selectable;
         choice->text = malloc(strlen(line) - start + 1);
         choice->position = ftell(pg_game_status.fp);
         sprintf(choice->id, "%i_%li", pg_game_status.sceneIndex, choice->position);
@@ -1714,7 +1911,7 @@ long pg_manageChoiceCommand()
           free(choice->text);
           choice->text = expanded;
         }
-        logDebug("\tChoice: %s (pos=%li, reusable=%i)", choice->text, choice->position, choice->reusable);
+        logDebug("\tChoice: %s (pos=%li, reusable=%i, selectable=%i)", choice->text, choice->position, choice->reusable, choice->selectable);
       }
     }
   }
