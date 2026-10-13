@@ -391,7 +391,8 @@ void setVarValue(variable *var, const char *value)
     var->value[0] = '\0';
   }
 
-  char *tempValue = malloc(strlen(value) + 1);
+  // Extra space: the value can be replaced by a computed number (sprintf)
+  char *tempValue = malloc(strlen(value) + 32);
   strcpy(tempValue, value);
   trim(tempValue);
   int valueLen = strlen(tempValue);

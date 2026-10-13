@@ -25,11 +25,6 @@ variable* pg_add_temp_var();
 int pg_delete_temp_var(int index);
 void pg_clearTempVars();
 void pg_clearChoices();
-/// @brief Get the end position of an if statement
-/// @param fp The file pointer
-/// @param indentation The if indentation
-/// @return The ebd if position
-long pg_get_if_end(FILE *fp, int indentation);
 /// @brief Get the next line from text
 /// @param text The string
 /// @param position The starting position. Updated to the starting position of the next line.
@@ -45,12 +40,15 @@ char *pg_getNextLine(const char *text, int *position, int maxWidth, int *wordWra
 /// @param y The y value where the image have to be drawn
 /// @return The height of the image
 int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y);
-/// @brief Manage an if
+/// @brief Manage an if (and the following *elseif/*else)
 /// @param text The text of the line with the if command
 /// @param indentation The line indentation
-/// @param endPosition The end position of the if statement
-/// @return The new file position where continue execution
-long pg_manageIfCommand(const char *text, int indentation, long *endPosition);
+/// @return The new file position where continue execution (the file is positioned there)
+long pg_manageIfCommand(const char *text, int indentation);
+/// @brief Skip the *elseif/*else branches following an executed branch
+/// @param indentation The *elseif/*else indentation
+/// @return The new file position where continue execution (the file is positioned there)
+long pg_skipElseChain(int indentation);
 /// @brief Evaluate an if condition. The condition does not contains parentheses or AND/OR
 /// @param condition The condition
 /// @return 1 if true, 0 if false
@@ -224,7 +222,6 @@ void pg_init()
   pg_game_status.lastRenderedY = 0;
   pg_game_status.selectedChoiceIndex = -1;
   pg_game_status.gosubCount = 0;
-  pg_game_status.ifInfoCount = 0;
   pg_game_status.used_choices_count = 0;
 
   logDebug("Position set to %li", pg_game_status.fpPosition);
@@ -257,7 +254,6 @@ void pg_dispose()
   pg_game_status.textFullyRendered = 0;
   pg_game_status.lastRenderedY = 0;
   pg_game_status.gosubCount = 0;
-  pg_game_status.ifInfoCount = 0;
   pg_game_status.used_choices_count = 0;
 
   free(pg_game_status.text);
@@ -763,7 +759,6 @@ int pg_renderPageBreak()
 int pg_exec_primitive()
 {
   char line[4096];
-  int indentation = -1;
 
   if(pg_game_status.text != NULL) {
     free(pg_game_status.text);
@@ -788,30 +783,7 @@ int pg_exec_primitive()
   int textStarted = 0;
   while (fgets(line, sizeof(line), pg_game_status.fp)) {
     logDebug("line=%s", line);
-    int lineIndentation = isEmpty(line)
-      ? indentation
-      : getIndentation(line);
-    if (indentation < 0)
-      indentation = lineIndentation;
-
-    if (lineIndentation < indentation) {
-      // Indentation changed, check if
-      if (pg_game_status.ifInfoCount > 0) {
-        trim(line);
-        if_info *ifInfo = &pg_game_status.ifInfo[pg_game_status.ifInfoCount - 1];
-        int if_ended = pg_game_status.fpPosition == ifInfo->end_position || startsWith("*else", line) || startsWith("*elseif", line);
-        if (ifInfo->indentation == lineIndentation && if_ended) {
-          indentation = ifInfo->indentation;
-          fseek(pg_game_status.fp, ifInfo->end_position, SEEK_SET);
-
-          ifInfo->indentation = 0;
-          ifInfo->end_position = 0;
-          pg_game_status.ifInfoCount--;
-
-          continue;
-        }
-      }
-    }
+    int lineIndentation = getIndentation(line);
 
     if (isComment(line))
       continue;
@@ -880,7 +852,6 @@ int pg_exec_primitive()
         long newPosition = pg_manageGotoCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
-        indentation = -1;
 
         if (textStarted)
           pg_appendText("\n", 0);
@@ -893,7 +864,6 @@ int pg_exec_primitive()
         long newPosition = pg_manageGosubCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
-        indentation = -1;
 
         if (textStarted)
           pg_appendText("\n", 0);
@@ -906,7 +876,6 @@ int pg_exec_primitive()
         long newPosition = pg_manageGosubSceneCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
-        indentation = -1;
 
         if (textStarted)
           pg_appendText("\n", 0);
@@ -930,7 +899,6 @@ int pg_exec_primitive()
         }
         fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
         pg_game_status.gosubCount--;
-        indentation = -1;
         logDebug("%s -> %i", line, newPosition);
 
         info->position = 0;
@@ -965,18 +933,18 @@ int pg_exec_primitive()
       }
 
       if (stricmp(command, "if") == 0) {
-        // if
-        long end_pos;
-        long newPosition = pg_manageIfCommand(line, lineIndentation, &end_pos);
-        logDebug("%s -> %i", line, newPosition);
-
-        pg_game_status.ifInfo[pg_game_status.ifInfoCount].indentation = lineIndentation;
-        pg_game_status.ifInfo[pg_game_status.ifInfoCount].end_position = end_pos;
-        pg_game_status.ifInfoCount++;
-
+        // if: continue in the first branch with a true condition
+        long newPosition = pg_manageIfCommand(line, lineIndentation);
+        logDebug("%s -> %li", line, newPosition);
         pg_game_status.fpPosition = newPosition;
-        fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
-        indentation = -1;
+        continue;
+      }
+
+      if (stricmp(command, "else") == 0 || stricmp(command, "elseif") == 0 || stricmp(command, "elsif") == 0) {
+        // Reached at the end of the executed branch: skip the remaining branches
+        long newPosition = pg_skipElseChain(lineIndentation);
+        logDebug("%s -> %li", line, newPosition);
+        pg_game_status.fpPosition = newPosition;
         continue;
       }
 
@@ -1235,51 +1203,129 @@ int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
   return 0;
 }
 
-long pg_manageIfCommand(const char *text, int indentation, long *endPosition)
+/// @brief Read a line from the current file, removing the line terminator
+/// @param line The buffer
+/// @param size The buffer size
+/// @param lineStart Set to the position of the line start
+/// @return 0 on EOF
+static int pg_readLine(char *line, int size, long *lineStart)
 {
+  *lineStart = ftell(pg_game_status.fp);
+  if (!fgets(line, size, pg_game_status.fp))
+    return 0;
+  line[strcspn(line, "\r\n")] = '\0';
+  return 1;
+}
+
+/// @brief Check if a line is empty or contains only whitespaces
+static int pg_isBlank(const char *line)
+{
+  for (int i = 0; line[i]; i++) {
+    if (!isspace((unsigned char)line[i]))
+      return 0;
+  }
+  return 1;
+}
+
+/// @brief Get the arguments of a command (the text after the command name)
+/// @param line The trimmed line (*command args)
+/// @param args The buffer for the arguments
+/// @param size The buffer size
+static void pg_getCommandArgs(const char *line, char *args, int size)
+{
+  int i = 0;
+  if (line[i] == '*')
+    i++;
+  while (line[i] && !isspace((unsigned char)line[i]))
+    i++;
+  while (line[i] && isspace((unsigned char)line[i]))
+    i++;
+  snprintf(args, size, "%s", line + i);
+  trim(args);
+}
+
+static int pg_isElseCommand(const char *command)
+{
+  return stricmp(command, "else") == 0 || stricmp(command, "elseif") == 0 || stricmp(command, "elsif") == 0;
+}
+
+/// @brief Skip the body of a false branch and search the next branch to execute
+/// @param indentation The indentation of the *if/*elseif/*else lines
+/// @return The position of the body of the first true *elseif or of the *else,
+///         or the position of the first line after the if
+static long pg_findNextBranch(int indentation)
+{
+  char line[4096];
+  char command[256];
   char condition[4096];
-  trim(condition);
-  int textLen = strlen(text);
-  subString(text, condition, 3, textLen - 3);
-  trim(condition);
-  textLen = strlen(text);
+  long lineStart;
+  while (pg_readLine(line, sizeof(line), &lineStart)) {
+    if (pg_isBlank(line) || isComment(line))
+      continue;
 
-  *endPosition = pg_get_if_end(pg_game_status.fp, indentation);
-  logDebug("if condition=%s, indentation=%i, end position=%li", condition, indentation, *endPosition);
+    int lineIndentation = getIndentation(line);
+    if (lineIndentation > indentation)
+      continue; // Body of the false branch
+    if (lineIndentation < indentation)
+      break;
 
-  if (pg_evaluateCondition(condition, indentation)) {
-    return ftell(pg_game_status.fp);
-  } else {
-    // Search for elseif, else or end
-    char line[4096];
-
-    while (fgets(line, sizeof(line), pg_game_status.fp)) {
-      line[strcspn(line, "\r")] = '\0';
-      line[strcspn(line, "\n")] = '\0';
-
-      int lineIndentation = getIndentation(line);
-      if (lineIndentation < indentation) {
-        return *endPosition;
-      }
-
-      if (lineIndentation == indentation) {
-        trim(line);
-        if (stricmp(line, "*else") == 0) {
-          return ftell(pg_game_status.fp);
-        } else if (startsWith("*elseif", line)) {
-          subString(line, condition, 8, strlen(line) - 8 + 1);
-          if (pg_evaluateCondition(condition, indentation)) {
-            return ftell(pg_game_status.fp);
-          }
-        } else {
-          return *endPosition;
-        }
-      }
+    trim(line);
+    pg_getCommand(line, command);
+    if (stricmp(command, "else") == 0) {
+      return ftell(pg_game_status.fp);
     }
+    if (stricmp(command, "elseif") == 0 || stricmp(command, "elsif") == 0) {
+      pg_getCommandArgs(line, condition, sizeof(condition));
+      int res = pg_evaluateCondition(condition, indentation);
+      logDebug("\t*%s %s -> %s", command, condition, res ? "true" : "false");
+      if (res)
+        return ftell(pg_game_status.fp);
+      continue;
+    }
+    break;
   }
 
-  logWarning("If not managed: %s", text);
-  return *endPosition;
+  fseek(pg_game_status.fp, lineStart, SEEK_SET);
+  return lineStart;
+}
+
+long pg_skipElseChain(int indentation)
+{
+  char line[4096];
+  char command[256];
+  long lineStart;
+  while (pg_readLine(line, sizeof(line), &lineStart)) {
+    if (pg_isBlank(line) || isComment(line))
+      continue;
+
+    int lineIndentation = getIndentation(line);
+    if (lineIndentation > indentation)
+      continue; // Body of a skipped branch
+    if (lineIndentation < indentation)
+      break;
+
+    trim(line);
+    pg_getCommand(line, command);
+    if (pg_isElseCommand(command))
+      continue;
+    break;
+  }
+
+  fseek(pg_game_status.fp, lineStart, SEEK_SET);
+  return lineStart;
+}
+
+long pg_manageIfCommand(const char *text, int indentation)
+{
+  char condition[4096];
+  pg_getCommandArgs(text, condition, sizeof(condition));
+
+  int res = pg_evaluateCondition(condition, indentation);
+  logDebug("\t*if %s -> %s", condition, res ? "true" : "false");
+  if (res)
+    return ftell(pg_game_status.fp);
+
+  return pg_findNextBranch(indentation);
 }
 
 int pg_get_operator(const char *condition, char *operator)
@@ -1765,161 +1811,230 @@ void pg_manageTempCommand(const char *text)
   logDebug("\tTEMPVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
 }
 
+/// @brief Add an option to the current choice
+/// @param line The option line (trimmed)
+/// @param start The position of the '#'
+static void pg_addChoiceOption(const char *line, int start, int reusable, int disableReuse, int selectable)
+{
+  pg_game_status.choicesCount++;
+  if (pg_game_status.choices == NULL) {
+    pg_game_status.choices = malloc(sizeof(choice) * pg_game_status.choicesCount);
+  } else {
+    choice *tmp = realloc(pg_game_status.choices, sizeof(choice) * pg_game_status.choicesCount);
+    if (tmp != NULL) {
+      pg_game_status.choices = tmp;
+      tmp = NULL;
+    } else {
+      logWarning("Realloc failed");
+      pg_game_status.choicesCount--;
+      return;
+    }
+  }
+
+  choice *choice = &pg_game_status.choices[pg_game_status.choicesCount - 1];
+
+  start++;
+  choice->reusable = reusable;
+  choice->disable_reuse = disableReuse;
+  choice->selectable = selectable;
+  choice->text = malloc(strlen(line) - start + 1);
+  choice->position = ftell(pg_game_status.fp);
+  sprintf(choice->id, "%i_%li", pg_game_status.sceneIndex, choice->position);
+  choice->used = 0;
+  for (int i = 0; i < pg_game_status.used_choices_count; i++) {
+    if (strcmp(choice->id, pg_game_status.used_choices[i]) == 0) {
+      choice->used = 1;
+      break;
+    }
+  }
+  subString(line, choice->text, start, strlen(line) - start);
+  char *expanded = pg_expandVariables(choice->text);
+  if (expanded) {
+    free(choice->text);
+    choice->text = expanded;
+  }
+  logDebug("\tChoice: %s (pos=%li, reusable=%i, selectable=%i)", choice->text, choice->position, choice->reusable, choice->selectable);
+}
+
+static void pg_parseChoiceBlock(int blockIndentation);
+
+/// @brief Parse the options inside an *if/*elseif/*else of a choice
+/// @param parentIndentation The indentation of the *if line
+static void pg_parseChoiceNestedBlock(int parentIndentation)
+{
+  char line[4096];
+  long bodyStart = ftell(pg_game_status.fp);
+  long lineStart;
+  int nestedIndentation = -1;
+  while (pg_readLine(line, sizeof(line), &lineStart)) {
+    if (pg_isBlank(line) || isComment(line))
+      continue;
+    nestedIndentation = getIndentation(line);
+    break;
+  }
+  fseek(pg_game_status.fp, bodyStart, SEEK_SET);
+
+  if (nestedIndentation > parentIndentation)
+    pg_parseChoiceBlock(nestedIndentation);
+}
+
+/// @brief Parse the options of a choice at the given indentation.
+/// Lines with a greater indentation are option bodies, a line with a lower indentation ends the block.
+/// On return the file is positioned at the start of the line ending the block.
+static void pg_parseChoiceBlock(int blockIndentation)
+{
+  char line[4096];
+  char command[256];
+  long lineStart;
+  // 0 = not in an *if chain, 1 = a branch was already used, 2 = no branch used yet
+  int ifChain = 0;
+
+  while (pg_readLine(line, sizeof(line), &lineStart)) {
+    if (pg_isBlank(line) || isComment(line))
+      continue;
+
+    int lineIndentation = getIndentation(line);
+    if (lineIndentation < blockIndentation)
+      break;
+    if (lineIndentation > blockIndentation)
+      continue; // Option body
+
+    trim(line);
+    int lineLen = strlen(line);
+    command[0] = '\0';
+    if (line[0] == '*')
+      pg_getCommand(line, command);
+
+    if (pg_isElseCommand(command)) {
+      if (ifChain == 2) {
+        int res = 1;
+        if (stricmp(command, "else") != 0) {
+          char condition[4096];
+          pg_getCommandArgs(line, condition, sizeof(condition));
+          res = pg_evaluateCondition(condition, blockIndentation);
+        }
+        logDebug("\t%s -> %s", line, res ? "true" : "false");
+        if (res) {
+          ifChain = 1;
+          pg_parseChoiceNestedBlock(blockIndentation);
+        }
+      } else if (ifChain == 0) {
+        logWarning("*%s without *if in choice", command);
+      }
+      continue;
+    }
+    ifChain = 0;
+
+    // Option modifiers: *hide_reuse, *disable_reuse, *allow_reuse, *selectable_if (cond), *if (cond)
+    int start = 0;
+    int reusable = runningGame->hide_reuse ? 0 : 1;
+    int disableReuse = 0;
+    int selectable = 1;
+    int visible = 1;
+    int isBlockIf = 0;
+    int unsupported = 0;
+    while (start < lineLen && line[start] == '*') {
+      pg_getCommand(line + start, command);
+      int next = start + 1 + strlen(command);
+      while (next < lineLen && isspace((unsigned char)line[next]))
+        next++;
+
+      if (stricmp(command, "hide_reuse") == 0) {
+        reusable = 0;
+        disableReuse = 0;
+      } else if (stricmp(command, "disable_reuse") == 0) {
+        reusable = 1;
+        disableReuse = 1;
+      } else if (stricmp(command, "allow_reuse") == 0) {
+        reusable = 1;
+        disableReuse = 0;
+      } else if (stricmp(command, "selectable_if") == 0 || stricmp(command, "if") == 0) {
+        // Inline condition: *if (cond) #option, the condition must be enclosed in parentheses
+        int condEnd = line[next] == '(' ? pg_findClosing(line, next) : -1;
+        if (condEnd < 0 || indexOf(line, '#', condEnd) < 0) {
+          if (stricmp(command, "if") == 0 && start == 0)
+            isBlockIf = 1;
+          else
+            unsupported = 1;
+          break;
+        }
+
+        char *condition = pg_strndup(line + next, condEnd - next + 1);
+        int res = pg_evaluateCondition(condition, blockIndentation);
+        logDebug("\t*%s %s -> %s", command, condition, res ? "true" : "false");
+        free(condition);
+        if (stricmp(command, "if") == 0) {
+          visible = visible && res;
+        } else {
+          selectable = selectable && res;
+        }
+
+        next = condEnd + 1;
+        while (next < lineLen && isspace((unsigned char)line[next]))
+          next++;
+      } else {
+        unsupported = 1;
+        break;
+      }
+      start = next;
+    }
+
+    if (isBlockIf) {
+      // *if block containing options
+      char condition[4096];
+      pg_getCommandArgs(line, condition, sizeof(condition));
+      int res = pg_evaluateCondition(condition, blockIndentation);
+      logDebug("\t%s -> %s", line, res ? "true" : "false");
+      if (res) {
+        ifChain = 1;
+        pg_parseChoiceNestedBlock(blockIndentation);
+      } else {
+        ifChain = 2;
+      }
+      continue;
+    }
+
+    if (unsupported) {
+      logWarning("Unsupported command in choice: %s", command);
+      continue;
+    }
+
+    if (start < lineLen && line[start] == '#') {
+      if (!visible) {
+        logDebug("\tChoice hidden: %s", line);
+        continue;
+      }
+      pg_addChoiceOption(line, start, reusable, disableReuse, selectable);
+    }
+  }
+
+  fseek(pg_game_status.fp, lineStart, SEEK_SET);
+}
+
 long pg_manageChoiceCommand()
 {
   char line[4096];
+  long lineStart;
+  long start = ftell(pg_game_status.fp);
   int choiceIndentation = -1;
-  int ifIndentation = -1;
-  int lineStartPosition = 0;
-  long nextLineStartPosition = 0;
 
   pg_game_status.choicesCount = 0;
-  while (fgets(line, sizeof(line), pg_game_status.fp)) {
-    lineStartPosition = nextLineStartPosition;
-    nextLineStartPosition = ftell(pg_game_status.fp);
-    line[strcspn(line, "\r")] = '\0';
-    line[strcspn(line, "\n")] = '\0';
-
-    if (choiceIndentation < 0) {
-      choiceIndentation = getIndentation(line);
-    }
-
-    int lineIndentation = getIndentation(line);
-    if (strlen(line) > 0 && lineIndentation < choiceIndentation) {
-      break;
-    }
-
-    trim(line);
-    if (lineIndentation == choiceIndentation || lineIndentation == ifIndentation) {
-      // Option modifiers: *hide_reuse, *disable_reuse, *allow_reuse, *selectable_if (cond), *if (cond)
-      int start = 0;
-      int lineLen = strlen(line);
-      int reusable = runningGame->hide_reuse ? 0 : 1;
-      int disableReuse = 0;
-      int selectable = 1;
-      int visible = 1;
-      int isBlockIf = 0;
-      int unsupported = 0;
-      while (start < lineLen && line[start] == '*') {
-        char command[256];
-        pg_getCommand(line + start, command);
-        int next = start + 1 + strlen(command);
-        while (next < lineLen && isspace((unsigned char)line[next]))
-          next++;
-
-        if (stricmp(command, "hide_reuse") == 0) {
-          reusable = 0;
-          disableReuse = 0;
-        } else if (stricmp(command, "disable_reuse") == 0) {
-          reusable = 1;
-          disableReuse = 1;
-        } else if (stricmp(command, "allow_reuse") == 0) {
-          reusable = 1;
-          disableReuse = 0;
-        } else if (stricmp(command, "selectable_if") == 0 || stricmp(command, "if") == 0) {
-          // The condition must be enclosed in parentheses
-          int condEnd = line[next] == '(' ? pg_findClosing(line, next) : -1;
-          if (condEnd < 0 || indexOf(line, '#', condEnd) < 0) {
-            if (stricmp(command, "if") == 0)
-              isBlockIf = 1;
-            else
-              unsupported = 1;
-            break;
-          }
-
-          char *condition = pg_strndup(line + next, condEnd - next + 1);
-          int res = pg_evaluateCondition(condition, choiceIndentation);
-          logDebug("\t*%s %s -> %s", command, condition, res ? "true" : "false");
-          free(condition);
-          if (stricmp(command, "if") == 0) {
-            visible = visible && res;
-          } else {
-            selectable = selectable && res;
-          }
-
-          next = condEnd + 1;
-          while (next < lineLen && isspace((unsigned char)line[next]))
-            next++;
-        } else {
-          unsupported = 1;
-          break;
-        }
-        start = next;
-      }
-
-      if (isBlockIf) {
-        // *if block containing options
-        long end_pos;
-        long new_pos = pg_manageIfCommand(line, choiceIndentation, &end_pos);
-        logDebug("%s -> %i", line, new_pos);
-        fseek(pg_game_status.fp, new_pos, SEEK_SET);
-        // Get indentation of the next line
-        fgets(line, sizeof(line), pg_game_status.fp);
-        ifIndentation = getIndentation(line);
-        fseek(pg_game_status.fp, new_pos, SEEK_SET);
-        nextLineStartPosition = new_pos;
-        continue;
-      }
-
-      if (unsupported) {
-        char command[256];
-        pg_getCommand(line + start, command);
-        logWarning("Unsupported command in choice: %s", command);
-        continue;
-      }
-
-      if (start < lineLen && line[start] == '#') {
-        if (!visible) {
-          logDebug("\tChoice hidden: %s", line);
-          continue;
-        }
-
-        pg_game_status.choicesCount++;
-        if (pg_game_status.choices == NULL) {
-          pg_game_status.choices = malloc(sizeof(choice) * pg_game_status.choicesCount);
-        } else {
-          choice *tmp = realloc(pg_game_status.choices, sizeof(choice) * pg_game_status.choicesCount);
-          if (tmp != NULL) {
-            pg_game_status.choices = tmp;
-            tmp = NULL;
-          } else {
-            logWarning("Realloc failed");
-            pg_game_status.choicesCount--;
-            continue;
-          }
-        }
-
-        choice *choice = &pg_game_status.choices[pg_game_status.choicesCount - 1];
-
-        start++;
-        choice->reusable = reusable;
-        choice->disable_reuse = disableReuse;
-        choice->selectable = selectable;
-        choice->text = malloc(strlen(line) - start + 1);
-        choice->position = ftell(pg_game_status.fp);
-        sprintf(choice->id, "%i_%li", pg_game_status.sceneIndex, choice->position);
-        choice->used = 0;
-        for (int i = 0; i < pg_game_status.used_choices_count; i++) {
-          if (strcmp(choice->id, pg_game_status.used_choices[i]) == 0) {
-            choice->used = 1;
-            break;
-          }
-        }
-        subString(line, choice->text, start, strlen(line) - start);
-        char *expanded = pg_expandVariables(choice->text);
-        if (expanded) {
-          free(choice->text);
-          choice->text = expanded;
-        }
-        logDebug("\tChoice: %s (pos=%li, reusable=%i, selectable=%i)", choice->text, choice->position, choice->reusable, choice->selectable);
-      }
-    }
+  // The options indentation is the indentation of the first line
+  while (pg_readLine(line, sizeof(line), &lineStart)) {
+    if (pg_isBlank(line) || isComment(line))
+      continue;
+    choiceIndentation = getIndentation(line);
+    break;
   }
+  fseek(pg_game_status.fp, start, SEEK_SET);
+
+  if (choiceIndentation >= 0)
+    pg_parseChoiceBlock(choiceIndentation);
 
   if (pg_game_status.choicesCount == 0) {
     logWarning("Empty choice");
   }
-  return lineStartPosition;
+  return ftell(pg_game_status.fp);
 }
 
 void pg_manageFinishCommand(const char *text)
@@ -2248,34 +2363,6 @@ char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wo
     *startPosition = endOfLinePosition;
   }
   return res;
-}
-
-long pg_get_if_end(FILE *fp, int indentation)
-{
-  char line[4096];
-  char command[256];
-  long pos = ftell(fp);
-  long start_line_pos = pos;
-  while (fgets(line, sizeof(line), fp)) {
-    int line_indentation = getIndentation(line);
-    if (line_indentation < indentation)
-      break;
-
-    if (indentation == line_indentation && !isEmpty(line)) {
-      trim(line);
-      pg_getCommand(line, command);
-      if (stricmp(command, "else") == 0 || stricmp(command, "elseif") == 0)
-        continue;
-
-      fseek(fp, pos, SEEK_SET);
-      return start_line_pos;
-    }
-
-    start_line_pos = ftell(fp);
-  }
-
-  fseek(fp, pos, SEEK_SET);
-  return start_line_pos;
 }
 
 void pg_clear_labels()

@@ -4,12 +4,6 @@
 #include <SDL2/SDL_image.h>
 #include "game.h"
 
-struct if_info
-{
-  int indentation;
-  long end_position;
-} typedef if_info;
-
 struct gosub_info
 {
   /// @brief FILE to return
@@ -57,9 +51,6 @@ struct game_status
     choice *choices;
     int choicesCount;
     int selectedChoiceIndex;
-
-    if_info ifInfo[32];
-    int ifInfoCount;
 
     char used_choices[1024][32];
     int used_choices_count;
