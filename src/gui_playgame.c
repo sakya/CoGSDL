@@ -33,8 +33,13 @@ long pg_manageGotoSceneCommand(const char *text);
 void pg_manageParamsCommand(const char *text);
 /// @brief Manage the achieve command: mark the achievement as earned and show it
 void pg_manageAchieveCommand(const char *text);
+/// @brief Load the achievements earned in all the games played (./saves/<game folder>/achievements.txt)
+static void pg_loadAchievements();
+/// @brief Save the earned achievements
+static int pg_saveAchievements();
 /// @brief Manage the rand command: *rand variable min max
 void pg_manageRandCommand(const char *text);
+static void pg_setTempVar(const char *name, const char *value);
 /// @brief Random number in [0, 1)
 static double pg_random();
 /// @brief Initialize the random number generator (if needed)
@@ -375,6 +380,7 @@ void pg_init()
   pg_game_status.choiceReuse = runningGame->hide_reuse ? reuse_hide : reuse_allow;
   pg_game_status.loopLimit = 1000;
   pg_game_status.labelVisitsCount = 0;
+  pg_loadAchievements();
   pg_game_status.fpPosition = runningGame->startPosition;
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
@@ -1057,6 +1063,17 @@ int pg_exec_primitive()
       if (stricmp(command, "rand") == 0) {
         // rand variable min max
         pg_manageRandCommand(line);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "check_achievements") == 0) {
+        // Same as ChoiceScript: a temporary variable choice_achieved_<name> for each achievement
+        for (int i = 0; i < runningGame->achievementsCount; i++) {
+          char name[300];
+          snprintf(name, sizeof(name), "choice_achieved_%s", runningGame->achievements[i].name);
+          pg_setTempVar(name, runningGame->achievements[i].achieved ? "true" : "false");
+        }
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
@@ -2699,6 +2716,7 @@ void pg_manageAchieveCommand(const char *text)
     return;
 
   ach->achieved = 1;
+  pg_saveAchievements();
   const char *description = ach->postEarnedDescription ? ach->postEarnedDescription : ach->preEarnedDescription;
   logInfo("Achievement earned: %s (%s)", ach->name, ach->title);
 
@@ -3814,6 +3832,92 @@ static int pg_makeFolder(const char *path)
 #endif
 }
 
+#define ACHIEVEMENTS_HEADER "CoGSDL achievements 1"
+
+static void pg_getAchievementsPath(char *path, int size)
+{
+  char folder[512];
+  pg_getSaveFolder(folder, sizeof(folder));
+  snprintf(path, size, "%s/achievements.txt", folder);
+}
+
+static void pg_loadAchievements()
+{
+  if (runningGame == NULL)
+    return;
+
+  char path[600];
+  pg_getAchievementsPath(path, sizeof(path));
+  FILE *fp = fopen(path, "rb");
+  if (fp == NULL)
+    return;
+
+  char line[512];
+  int valid = 0;
+  int count = 0;
+  while (fgets(line, sizeof(line), fp)) {
+    line[strcspn(line, "\r\n")] = '\0';
+    if (!valid) {
+      valid = strcmp(line, ACHIEVEMENTS_HEADER) == 0;
+      if (!valid)
+        break;
+      continue;
+    }
+    for (int i = 0; i < runningGame->achievementsCount; i++) {
+      if (stricmp(runningGame->achievements[i].name, line) == 0) {
+        runningGame->achievements[i].achieved = 1;
+        count++;
+        break;
+      }
+    }
+  }
+  fclose(fp);
+  if (!valid)
+    logWarning("Invalid achievements file: %s", path);
+  else
+    logInfo("Achievements earned: %i (%s)", count, path);
+}
+
+static int pg_saveAchievements()
+{
+  if (runningGame == NULL)
+    return 0;
+
+  char folder[512];
+  pg_getSaveFolder(folder, sizeof(folder));
+  if (!pg_makeFolder("./saves") || !pg_makeFolder(folder)) {
+    logError("Cannot create the folder %s", folder);
+    return 0;
+  }
+
+  char path[600];
+  char tmpPath[610];
+  pg_getAchievementsPath(path, sizeof(path));
+  snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", path);
+  FILE *fp = fopen(tmpPath, "wb");
+  if (fp == NULL) {
+    logError("Cannot write %s", tmpPath);
+    return 0;
+  }
+  int ok = fprintf(fp, "%s\n", ACHIEVEMENTS_HEADER) > 0;
+  for (int i = 0; i < runningGame->achievementsCount; i++) {
+    if (runningGame->achievements[i].achieved)
+      ok = fprintf(fp, "%s\n", runningGame->achievements[i].name) > 0 && ok;
+  }
+  ok = (fclose(fp) == 0) && ok;
+  if (!ok) {
+    logError("Cannot write %s", tmpPath);
+    remove(tmpPath);
+    return 0;
+  }
+  remove(path);
+  if (rename(tmpPath, path) != 0) {
+    logError("Cannot rename %s to %s", tmpPath, path);
+    return 0;
+  }
+  return 1;
+}
+
 /// @brief Build the name of a save from the position in the game: scene name and beginning of the page
 static void pg_buildSaveName(char *name, int size)
 {
@@ -4263,8 +4367,7 @@ static long pg_applyState(char **lines, int start, int end)
     SDL_FreeSurface(text_surface);
     text_surface = NULL;
   }
-  for (int i = 0; i < runningGame->achievementsCount; i++)
-    runningGame->achievements[i].achieved = 0;
+  // The achievements are not restored: they stay earned (they are saved in achievements.txt)
 
   // The variables created after the save (e.g. by *check_purchase) are removed
   char *loadedVars = calloc(sizeof(runningGame->variables) / sizeof(variable), 1);
