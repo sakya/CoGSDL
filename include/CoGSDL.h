@@ -13,6 +13,10 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <time.h>
+#include <stdarg.h>
+#ifdef _WIN32
+#include <direct.h>
+#endif
 
 #include "game.h"
 #include "KeyMap.h"

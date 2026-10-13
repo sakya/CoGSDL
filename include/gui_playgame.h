@@ -1,6 +1,7 @@
 #ifndef PLAYGAME_H__
 #define PLAYGAME_H__
 #include <stdio.h>
+#include <time.h>
 #include <SDL2/SDL_image.h>
 #include "game.h"
 
@@ -138,5 +139,31 @@ void pg_statsClose();
 int pg_isStatsActive();
 /// @brief Manage the input and draw the current page (text, page break, choice button)
 void pg_drawPage();
+
+/// @brief Close the running game and free its memory
+void pg_dispose();
+
+/// @brief Number of save slots for each game
+#define SAVE_SLOTS 5
+
+struct save_info
+{
+  /// @brief Set to 1 if the slot contains a save
+  int used;
+  /// @brief Name of the save (built from the position in the game)
+  char name[256];
+  /// @brief Time of the save
+  time_t time;
+} typedef save_info;
+
+/// @brief Read the information of a save slot of the running game
+/// @return 1 if the slot contains a save
+int pg_getSaveInfo(int slot, save_info *info);
+/// @brief Save the state at the start of the current page in a slot
+/// @return 1 on success
+int pg_saveGame(int slot);
+/// @brief Load a saved game and execute the saved page
+/// @return 1 on success
+int pg_loadGame(int slot);
 
 #endif

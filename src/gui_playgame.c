@@ -3,6 +3,9 @@
 
 void pg_init();
 void pg_dispose();
+/// @brief Save the state at the start of the page (used by pg_saveGame)
+static void pg_takeSnapshot();
+static void pg_freeSnapshot();
 static void pg_clearParams();
 void pg_exec();
 void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY);
@@ -378,6 +381,7 @@ void pg_init()
 
 void pg_dispose()
 {
+  pg_freeSnapshot();
   pg_clearGosubStack();
   pg_clearParams();
   pg_game_status.gameEnded = 0;
@@ -1258,6 +1262,9 @@ int pg_exec_primitive()
 
 void pg_exec()
 {
+  // The saves contain the state at the start of the page
+  if (!pg_statsActive)
+    pg_takeSnapshot();
   while (!pg_exec_primitive());
 }
 
@@ -3465,3 +3472,606 @@ void pg_read_labels()
   }
   fseek(pg_game_status.fp, pos, SEEK_SET);
 }
+
+/* ---------------------------------------------------------------------------
+ * Save / load
+ *
+ * As in ChoiceScript, the saved state is the state at the start of the current
+ * page: loading a game executes the page again, showing the same text and
+ * choices without applying twice the commands of the page (*set...).
+ *
+ * The saves are text files: ./saves/<game folder>/slot<N>.sav
+ * ------------------------------------------------------------------------- */
+
+#define SAVE_HEADER "CoGSDL save 1"
+
+/// @brief Copy a string, truncated to the buffer size
+static void pg_copyString(char *dst, size_t size, const char *src)
+{
+  size_t len = strlen(src);
+  if (len >= size)
+    len = size - 1;
+  memcpy(dst, src, len);
+  dst[len] = '\0';
+}
+
+/// @brief Append a string, truncated to the buffer size
+static void pg_appendString(char *dst, size_t size, const char *src)
+{
+  size_t len = strlen(dst);
+  if (len < size)
+    pg_copyString(dst + len, size - len, src);
+}
+
+/// @brief The state at the start of the current page (serialized)
+static char *pg_pageSnapshot = NULL;
+/// @brief The scene at the start of the current page (used for the name of the save)
+static char pg_snapshotScene[256];
+
+static void pg_sbPrintf(pg_strbuf *sb, const char *format, ...)
+{
+  va_list args;
+  va_start(args, format);
+  int len = vsnprintf(NULL, 0, format, args);
+  va_end(args);
+  if (len <= 0)
+    return;
+
+  char *tmp = malloc(len + 1);
+  if (tmp == NULL)
+    return;
+  va_start(args, format);
+  vsnprintf(tmp, len + 1, format, args);
+  va_end(args);
+  pg_sb_append(sb, tmp, len);
+  free(tmp);
+}
+
+/// @brief Append a value escaping backslashes and new lines
+static void pg_sbEscaped(pg_strbuf *sb, const char *value)
+{
+  if (value == NULL)
+    return;
+  for (const char *c = value; *c; c++) {
+    if (*c == '\\')
+      pg_sb_append(sb, "\\\\", 2);
+    else if (*c == '\n')
+      pg_sb_append(sb, "\\n", 2);
+    else if (*c == '\r')
+      pg_sb_append(sb, "\\r", 2);
+    else
+      pg_sb_append(sb, c, 1);
+  }
+}
+
+static void pg_unescape(char *value)
+{
+  char *out = value;
+  for (char *c = value; *c; c++) {
+    if (*c == '\\' && c[1]) {
+      c++;
+      *out++ = *c == 'n' ? '\n' : *c == 'r' ? '\r' : *c;
+    } else {
+      *out++ = *c;
+    }
+  }
+  *out = '\0';
+}
+
+static void pg_sbVariable(pg_strbuf *sb, const char *prefix, variable *var)
+{
+  if (var->name == NULL)
+    return;
+  pg_sbPrintf(sb, "%s %i %s ", prefix, (int)var->type, var->name);
+  pg_sbEscaped(sb, var->value ? var->value : "");
+  pg_sb_append(sb, "\n", 1);
+}
+
+static void pg_takeSnapshot()
+{
+  if (runningGame == NULL || pg_game_status.fp == NULL)
+    return;
+
+  pg_strbuf sb = { NULL, 0, 0 };
+  pg_sbPrintf(&sb, "scene %s\n", pg_game_status.sceneName);
+  pg_sbPrintf(&sb, "sceneindex %i\n", pg_game_status.sceneIndex);
+  // After *finish the scene is ended (fpPosition = fpSize) even if the file is not at its end
+  long position = pg_game_status.fpPosition == pg_game_status.fpSize ? pg_game_status.fpSize : ftell(pg_game_status.fp);
+  pg_sbPrintf(&sb, "position %li\n", position);
+  pg_sbPrintf(&sb, "reuse %i\n", (int)pg_game_status.choiceReuse);
+  pg_sbPrintf(&sb, "looplimit %i\n", pg_game_status.loopLimit);
+  pg_sbPrintf(&sb, "ended %i\n", pg_game_status.gameEnded);
+
+  for (int i = 0; i < runningGame->variablesCount; i++)
+    pg_sbVariable(&sb, "var", &runningGame->variables[i]);
+  for (int i = 0; i < pg_game_status.tempVariablesCount; i++)
+    pg_sbVariable(&sb, "temp", &pg_game_status.tempVariables[i]);
+  for (int i = 0; i < pg_game_status.paramsCount; i++) {
+    pg_sb_append(&sb, "param ", 6);
+    pg_sbEscaped(&sb, pg_game_status.params[i]);
+    pg_sb_append(&sb, "\n", 1);
+  }
+  for (int i = 0; i < pg_game_status.used_choices_count; i++)
+    pg_sbPrintf(&sb, "used %s\n", pg_game_status.used_choices[i]);
+  for (int i = 0; i < runningGame->achievementsCount; i++) {
+    if (runningGame->achievements[i].achieved)
+      pg_sbPrintf(&sb, "achieved %s\n", runningGame->achievements[i].name);
+  }
+  for (int i = 0; i < pg_game_status.choiceContextsCount; i++) {
+    choice_context *ctx = &pg_game_status.choiceContexts[i];
+    pg_sbPrintf(&sb, "context %li %i %i\n", ctx->endPosition, ctx->indentation, ctx->gosubCount);
+  }
+  for (int i = 1; i <= pg_game_status.gosubCount; i++) {
+    gosub_info *frame = &pg_game_status.gosub[i];
+    pg_sbPrintf(&sb, "frame %i %i %li %i %i %i %s\n", i, frame->fp != NULL, frame->position, frame->sceneIndex,
+                (int)frame->choiceReuse, frame->loopLimit, frame->fp != NULL ? frame->sceneName : "-");
+    for (int j = 0; j < frame->tempVariablesCount; j++) {
+      char prefix[32];
+      snprintf(prefix, sizeof(prefix), "frametemp %i", i);
+      pg_sbVariable(&sb, prefix, &frame->tempVariables[j]);
+    }
+  }
+
+  free(pg_pageSnapshot);
+  pg_pageSnapshot = sb.buf;
+  pg_copyString(pg_snapshotScene, sizeof(pg_snapshotScene), pg_game_status.sceneName);
+}
+
+static void pg_freeSnapshot()
+{
+  free(pg_pageSnapshot);
+  pg_pageSnapshot = NULL;
+}
+
+/// @brief Get the folder of the saves of the running game (./saves/<game folder>)
+static void pg_getSaveFolder(char *folder, int size)
+{
+  const char *name = runningGame->path;
+  for (const char *c = runningGame->path; *c; c++) {
+    if ((*c == '/' || *c == '\\') && c[1])
+      name = c + 1;
+  }
+  snprintf(folder, size, "./saves/%s", name);
+  // Remove a trailing separator
+  int len = strlen(folder);
+  if (len > 0 && (folder[len - 1] == '/' || folder[len - 1] == '\\'))
+    folder[len - 1] = '\0';
+}
+
+static void pg_getSavePath(int slot, char *path, int size)
+{
+  char folder[512];
+  pg_getSaveFolder(folder, sizeof(folder));
+  snprintf(path, size, "%s/slot%i.sav", folder, slot + 1);
+}
+
+static int pg_makeFolder(const char *path)
+{
+  if (fileExists(path))
+    return 1;
+#ifdef _WIN32
+  return mkdir(path) == 0;
+#else
+  return mkdir(path, 0755) == 0;
+#endif
+}
+
+/// @brief Build the name of a save from the position in the game: scene name and beginning of the page
+static void pg_buildSaveName(char *name, int size)
+{
+  // Text of the page without commands (images, stat bars) and formatting
+  pg_strbuf sb = { NULL, 0, 0 };
+  const char *text = pg_game_status.text;
+  if ((text == NULL || pg_isBlank(text)) && pg_game_status.choicesCount > 0)
+    text = pg_game_status.choices[0].text;
+  if (text != NULL) {
+    int lineStart = 1;
+    int lastSpace = 1;
+    for (const char *c = text; *c; c++) {
+      if (lineStart && *c == '*') {
+        // Skip the command line
+        while (*c && *c != '\n')
+          c++;
+        if (!*c)
+          break;
+        continue;
+      }
+      lineStart = *c == '\n';
+      if (*c == '[') {
+        const char *close = strchr(c, ']');
+        if (close != NULL && close - c <= 3) {
+          c = close;
+          continue;
+        }
+      }
+      if (isspace((unsigned char)*c)) {
+        if (!lastSpace)
+          pg_sb_append(&sb, " ", 1);
+        lastSpace = 1;
+      } else {
+        pg_sb_append(&sb, c, 1);
+        lastSpace = 0;
+      }
+    }
+  }
+
+  char excerpt[128] = "";
+  if (sb.buf != NULL) {
+    trim(sb.buf);
+    const int maxLen = 45;
+    int len = strlen(sb.buf);
+    if (len <= maxLen) {
+      snprintf(excerpt, sizeof(excerpt), "%s", sb.buf);
+    } else {
+      // Cut at a word boundary (or at a UTF-8 character boundary)
+      int cut = maxLen;
+      while (cut > maxLen / 2 && sb.buf[cut] != ' ')
+        cut--;
+      if (sb.buf[cut] != ' ') {
+        cut = maxLen;
+        while (cut > 0 && !isutf(sb.buf[cut]))
+          cut--;
+      }
+      snprintf(excerpt, sizeof(excerpt), "%.*s...", cut, sb.buf);
+    }
+    free(sb.buf);
+  }
+
+  pg_copyString(name, size, pg_snapshotScene);
+  if (strlen(excerpt)) {
+    pg_appendString(name, size, ": ");
+    pg_appendString(name, size, excerpt);
+  }
+}
+
+int pg_getSaveInfo(int slot, save_info *info)
+{
+  memset(info, 0, sizeof(save_info));
+  if (runningGame == NULL || slot < 0 || slot >= SAVE_SLOTS)
+    return 0;
+
+  char path[600];
+  pg_getSavePath(slot, path, sizeof(path));
+  FILE *fp = fopen(path, "rb");
+  if (fp == NULL)
+    return 0;
+
+  char line[1024];
+  int valid = 0;
+  while (fgets(line, sizeof(line), fp)) {
+    line[strcspn(line, "\r\n")] = '\0';
+    if (!valid) {
+      valid = strcmp(line, SAVE_HEADER) == 0;
+      if (!valid)
+        break;
+    } else if (startsWith("name ", line)) {
+      pg_copyString(info->name, sizeof(info->name), line + 5);
+      pg_unescape(info->name);
+    } else if (startsWith("time ", line)) {
+      info->time = (time_t)atoll(line + 5);
+      break;
+    }
+  }
+  fclose(fp);
+
+  info->used = valid;
+  return valid;
+}
+
+int pg_saveGame(int slot)
+{
+  if (runningGame == NULL || pg_pageSnapshot == NULL || slot < 0 || slot >= SAVE_SLOTS) {
+    logWarning("Nothing to save");
+    return 0;
+  }
+
+  char folder[512];
+  pg_getSaveFolder(folder, sizeof(folder));
+  if (!pg_makeFolder("./saves") || !pg_makeFolder(folder)) {
+    logError("Cannot create the folder %s", folder);
+    return 0;
+  }
+
+  char name[256];
+  pg_buildSaveName(name, sizeof(name));
+
+  char path[600];
+  char tmpPath[610];
+  pg_getSavePath(slot, path, sizeof(path));
+  snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", path);
+
+  FILE *fp = fopen(tmpPath, "wb");
+  if (fp == NULL) {
+    logError("Cannot write %s", tmpPath);
+    return 0;
+  }
+
+  pg_strbuf sb = { NULL, 0, 0 };
+  const char *gameName = folder + strlen("./saves/");
+  pg_sbPrintf(&sb, "%s\n", SAVE_HEADER);
+  pg_sbPrintf(&sb, "game %s\n", gameName);
+  pg_sb_append(&sb, "name ", 5);
+  pg_sbEscaped(&sb, name);
+  pg_sb_append(&sb, "\n", 1);
+  pg_sbPrintf(&sb, "time %lld\n", (long long)time(NULL));
+  pg_sb_append(&sb, pg_pageSnapshot, strlen(pg_pageSnapshot));
+  pg_sbPrintf(&sb, "end\n");
+
+  int ok = fwrite(sb.buf, 1, sb.len, fp) == sb.len;
+  ok = (fclose(fp) == 0) && ok;
+  free(sb.buf);
+  if (!ok) {
+    logError("Cannot write %s", tmpPath);
+    remove(tmpPath);
+    return 0;
+  }
+
+  // Replace the old save only when the new one is complete
+  remove(path);
+  if (rename(tmpPath, path) != 0) {
+    logError("Cannot rename %s to %s", tmpPath, path);
+    return 0;
+  }
+  logInfo("Game saved in %s (%s)", path, name);
+  return 1;
+}
+
+static int pg_sceneExists(const char *sceneName)
+{
+  char path[512];
+  snprintf(path, sizeof(path), "%s/scenes/%s.txt", runningGame->path, sceneName);
+  return fileExists(path);
+}
+
+/// @brief Parse "<type> <name> <value>" of a saved variable
+/// @return 1 on success (name and value point inside the line)
+static int pg_parseSavedVariable(char *data, int *type, char **name, char **value)
+{
+  char *space = strchr(data, ' ');
+  if (space == NULL)
+    return 0;
+  *space = '\0';
+  *type = atoi(data);
+  *name = space + 1;
+  space = strchr(*name, ' ');
+  if (space == NULL) {
+    *value = *name + strlen(*name);
+  } else {
+    *space = '\0';
+    *value = space + 1;
+  }
+  pg_unescape(*value);
+  return strlen(*name) > 0;
+}
+
+int pg_loadGame(int slot)
+{
+  if (runningGame == NULL || slot < 0 || slot >= SAVE_SLOTS)
+    return 0;
+
+  char path[600];
+  pg_getSavePath(slot, path, sizeof(path));
+  FILE *fp = fopen(path, "rb");
+  if (fp == NULL) {
+    logWarning("Save not found: %s", path);
+    return 0;
+  }
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  char *content = malloc(size + 1);
+  if (content == NULL || fread(content, 1, size, fp) != (size_t)size) {
+    fclose(fp);
+    free(content);
+    return 0;
+  }
+  fclose(fp);
+  content[size] = '\0';
+
+  // Split the lines
+  int linesCount = 0;
+  for (long i = 0; i < size; i++) {
+    if (content[i] == '\n')
+      linesCount++;
+  }
+  char **lines = malloc(sizeof(char *) * (linesCount + 1));
+  linesCount = 0;
+  char *start = content;
+  for (char *c = content; ; c++) {
+    if (*c == '\n' || *c == '\0') {
+      int last = *c == '\0';
+      *c = '\0';
+      if (c > start && c[-1] == '\r')
+        c[-1] = '\0';
+      if (*start)
+        lines[linesCount++] = start;
+      if (last)
+        break;
+      start = c + 1;
+    }
+  }
+
+  // Validate before changing the state of the game
+  int valid = linesCount > 0 && strcmp(lines[0], SAVE_HEADER) == 0 && strcmp(lines[linesCount - 1], "end") == 0;
+  const char *sceneName = NULL;
+  for (int i = 1; valid && i < linesCount; i++) {
+    if (startsWith("scene ", lines[i])) {
+      sceneName = lines[i] + 6;
+      valid = pg_sceneExists(sceneName);
+    } else if (startsWith("frame ", lines[i])) {
+      int index, isScene, sceneIndex, reuse, loopLimit;
+      long position;
+      int nameStart = 0;
+      if (sscanf(lines[i] + 6, "%i %i %li %i %i %i %n", &index, &isScene, &position, &sceneIndex, &reuse, &loopLimit, &nameStart) < 6 ||
+          index < 1 || index >= (int)(sizeof(pg_game_status.gosub) / sizeof(gosub_info)) ||
+          (isScene && !pg_sceneExists(lines[i] + 6 + nameStart)))
+        valid = 0;
+    }
+  }
+  if (!valid || sceneName == NULL) {
+    logError("Invalid save: %s", path);
+    free(lines);
+    free(content);
+    return 0;
+  }
+
+  // Reset the state of the game
+  pg_statsClose();
+  pg_clearGosubStack();
+  pg_clearParams();
+  pg_clearTempVars();
+  pg_clearChoices();
+  pg_game_status.choiceContextsCount = 0;
+  pg_game_status.used_choices_count = 0;
+  pg_game_status.labelVisitsCount = 0;
+  pg_game_status.gameEnded = 0;
+  pg_game_status.showPageBreak = 0;
+  pg_game_status.scrollY = 0;
+  pg_game_status.selectedChoiceIndex = -1;
+  free(pg_game_status.text);
+  pg_game_status.text = NULL;
+  if (text_surface) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
+  }
+  for (int i = 0; i < runningGame->achievementsCount; i++)
+    runningGame->achievements[i].achieved = 0;
+
+  // The variables created after the save (e.g. by *check_purchase) are removed
+  char *loadedVars = calloc(sizeof(runningGame->variables) / sizeof(variable), 1);
+
+  long position = 0;
+  for (int i = 1; i < linesCount - 1; i++) {
+    char *line = lines[i];
+    char *data = strchr(line, ' ');
+    if (data == NULL)
+      continue;
+    *data++ = '\0';
+
+    int type;
+    char *name, *value;
+    if (strcmp(line, "scene") == 0) {
+      pg_openScene(data, 1);
+    } else if (strcmp(line, "sceneindex") == 0) {
+      pg_game_status.sceneIndex = atoi(data);
+    } else if (strcmp(line, "position") == 0) {
+      position = atol(data);
+    } else if (strcmp(line, "reuse") == 0) {
+      pg_game_status.choiceReuse = (enum choice_reuse)atoi(data);
+    } else if (strcmp(line, "looplimit") == 0) {
+      pg_game_status.loopLimit = atoi(data);
+    } else if (strcmp(line, "ended") == 0) {
+      pg_game_status.gameEnded = atoi(data);
+    } else if (strcmp(line, "var") == 0) {
+      if (pg_parseSavedVariable(data, &type, &name, &value)) {
+        variable *var = NULL;
+        for (int j = 0; j < runningGame->variablesCount; j++) {
+          if (stricmp(runningGame->variables[j].name, name) == 0) {
+            var = &runningGame->variables[j];
+            break;
+          }
+        }
+        if (var == NULL) {
+          addGameVar(runningGame, (enum var_types)type, name, value);
+          var = getGameVar(name, runningGame);
+        } else {
+          free(var->value);
+          var->value = pg_strndup(value, strlen(value));
+          var->type = (enum var_types)type;
+        }
+        if (var != NULL && loadedVars != NULL)
+          loadedVars[var - runningGame->variables] = 1;
+      }
+    } else if (strcmp(line, "temp") == 0) {
+      if (pg_parseSavedVariable(data, &type, &name, &value)) {
+        pg_setTempVar(name, value);
+        pg_game_status.tempVariables[pg_game_status.tempVariablesCount - 1].type = (enum var_types)type;
+      }
+    } else if (strcmp(line, "param") == 0) {
+      if (pg_game_status.paramsCount < (int)(sizeof(pg_game_status.params) / sizeof(char *))) {
+        pg_unescape(data);
+        pg_game_status.params[pg_game_status.paramsCount++] = pg_strndup(data, strlen(data));
+      }
+    } else if (strcmp(line, "used") == 0) {
+      if (pg_game_status.used_choices_count < (int)(sizeof(pg_game_status.used_choices) / sizeof(pg_game_status.used_choices[0])))
+        snprintf(pg_game_status.used_choices[pg_game_status.used_choices_count++], sizeof(pg_game_status.used_choices[0]), "%s", data);
+    } else if (strcmp(line, "achieved") == 0) {
+      for (int j = 0; j < runningGame->achievementsCount; j++) {
+        if (stricmp(runningGame->achievements[j].name, data) == 0)
+          runningGame->achievements[j].achieved = 1;
+      }
+    } else if (strcmp(line, "context") == 0) {
+      if (pg_game_status.choiceContextsCount < (int)(sizeof(pg_game_status.choiceContexts) / sizeof(choice_context))) {
+        choice_context *ctx = &pg_game_status.choiceContexts[pg_game_status.choiceContextsCount++];
+        sscanf(data, "%li %i %i", &ctx->endPosition, &ctx->indentation, &ctx->gosubCount);
+      }
+    } else if (strcmp(line, "frame") == 0) {
+      int index, isScene, sceneIndex, reuse, loopLimit;
+      long framePosition;
+      int nameStart = 0;
+      sscanf(data, "%i %i %li %i %i %i %n", &index, &isScene, &framePosition, &sceneIndex, &reuse, &loopLimit, &nameStart);
+      gosub_info *frame = &pg_game_status.gosub[index];
+      memset(frame, 0, sizeof(gosub_info));
+      frame->position = framePosition;
+      frame->sceneIndex = sceneIndex;
+      frame->choiceReuse = (enum choice_reuse)reuse;
+      frame->loopLimit = loopLimit;
+      if (isScene) {
+        pg_copyString(frame->sceneName, sizeof(frame->sceneName), data + nameStart);
+        char scenePath[600];
+        snprintf(scenePath, sizeof(scenePath), "%s/scenes/%s.txt", runningGame->path, frame->sceneName);
+        frame->fp = fopen(scenePath, "rb");
+        if (frame->fp != NULL) {
+          fseek(frame->fp, 0, SEEK_END);
+          frame->fpSize = ftell(frame->fp);
+          fseek(frame->fp, frame->position, SEEK_SET);
+        }
+      }
+      if (index > pg_game_status.gosubCount)
+        pg_game_status.gosubCount = index;
+    } else if (strcmp(line, "frametemp") == 0) {
+      char *space = strchr(data, ' ');
+      if (space == NULL)
+        continue;
+      *space = '\0';
+      int index = atoi(data);
+      if (index < 1 || index > pg_game_status.gosubCount)
+        continue;
+      if (pg_parseSavedVariable(space + 1, &type, &name, &value)) {
+        gosub_info *frame = &pg_game_status.gosub[index];
+        variable *tmp = realloc(frame->tempVariables, sizeof(variable) * (frame->tempVariablesCount + 1));
+        if (tmp == NULL)
+          continue;
+        frame->tempVariables = tmp;
+        variable *var = &frame->tempVariables[frame->tempVariablesCount++];
+        var->name = pg_strndup(name, strlen(name));
+        var->value = pg_strndup(value, strlen(value));
+        var->type = (enum var_types)type;
+      }
+    }
+  }
+  free(lines);
+  free(content);
+
+  if (loadedVars != NULL) {
+    int count = 0;
+    for (int i = 0; i < runningGame->variablesCount; i++) {
+      if (loadedVars[i]) {
+        runningGame->variables[count++] = runningGame->variables[i];
+      } else {
+        logDebug("Variable %s removed (not in the save)", runningGame->variables[i].name);
+        free(runningGame->variables[i].name);
+        free(runningGame->variables[i].value);
+      }
+    }
+    runningGame->variablesCount = count;
+    free(loadedVars);
+  }
+
+  // Execute the saved page again
+  fseek(pg_game_status.fp, position, SEEK_SET);
+  pg_game_status.fpPosition = position;
+  logInfo("Game loaded from %s", path);
+  pg_exec();
+  return 1;
+}
