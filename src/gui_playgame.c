@@ -1547,11 +1547,12 @@ void pg_getCommand(const char *line, char* command)
   if (!line || !command)
     return;
 
+  // Same as ChoiceScript: the command name contains only letters, digits and underscores,
+  // so "*if(condition)" is the command "if" followed by "(condition)"
   int idx = 0;
-  int lineLen = strlen(line);
-  if (lineLen > 0 && line[0] == '*') {
-    for (int i = 1; i < lineLen; i++) {
-      if (line[i] == ' ' || line[i] == '\t')
+  if (line[0] == '*') {
+    for (int i = 1; line[i] && idx < 255; i++) {
+      if (!isalnum((unsigned char)line[i]) && line[i] != '_')
         break;
       command[idx++] = line[i];
     }
@@ -1682,7 +1683,8 @@ static void pg_getCommandArgs(const char *line, char *args, int size)
   int i = 0;
   if (line[i] == '*')
     i++;
-  while (line[i] && !isspace((unsigned char)line[i]))
+  // Command name: letters, digits and underscores (see pg_getCommand)
+  while (line[i] && (isalnum((unsigned char)line[i]) || line[i] == '_'))
     i++;
   while (line[i] && isspace((unsigned char)line[i]))
     i++;
