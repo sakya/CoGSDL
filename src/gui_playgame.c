@@ -6,6 +6,17 @@ void pg_dispose();
 /// @brief Save the state at the start of the page (used by pg_saveGame)
 static void pg_takeSnapshot();
 static void pg_freeSnapshot();
+static void pg_clearCheckpoints();
+static void pg_setCheckpoint(const char *name, char *state);
+/// @brief Manage *save_checkpoint [slot]
+void pg_manageSaveCheckpointCommand(const char *text);
+/// @brief Manage *restore_checkpoint [slot]
+/// @return 1 if the checkpoint was restored (the execution continues from the checkpoint)
+int pg_restoreCheckpoint(const char *text);
+variable* getGameVarPrimitive(const char *varName, game* game);
+static int pg_splitLines(char *content, char ***lines);
+static int pg_validateState(char **lines, int start, int end);
+static long pg_applyState(char **lines, int start, int end);
 static void pg_clearParams();
 void pg_exec();
 void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY);
@@ -391,6 +402,7 @@ void pg_init()
 void pg_dispose()
 {
   pg_freeSnapshot();
+  pg_clearCheckpoints();
   pg_clearGosubStack();
   pg_clearParams();
   pg_game_status.gameEnded = 0;
@@ -1021,6 +1033,24 @@ int pg_exec_primitive()
         else
           logWarning("Invalid looplimit: %s", args);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "save_checkpoint") == 0) {
+        // save_checkpoint [slot]
+        pg_manageSaveCheckpointCommand(line);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "restore_checkpoint") == 0) {
+        // restore_checkpoint [slot]: a new page starts at the checkpoint
+        if (pg_restoreCheckpoint(line)) {
+          textStarted = 0;
+          pg_takeSnapshot();
+        } else {
+          pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        }
         continue;
       }
 
@@ -3172,6 +3202,17 @@ variable* pg_getVar(const char *varName)
     }
   }
 
+  // Same as ChoiceScript: choice_saved_checkpoint[_slot] is false until the checkpoint is saved
+  if (startsWith("choice_saved_checkpoint", varName)) {
+    variable *var = getGameVarPrimitive(varName, runningGame);
+    if (var != NULL)
+      return var;
+    static char falseName[] = "choice_saved_checkpoint";
+    static char falseValue[] = "false";
+    static variable falseVar = { falseName, falseValue, boolean };
+    return &falseVar;
+  }
+
   return getGameVar(varName, runningGame);
 }
 
@@ -3673,16 +3714,14 @@ static void pg_sbVariable(pg_strbuf *sb, const char *prefix, variable *var)
   pg_sb_append(sb, "\n", 1);
 }
 
-static void pg_takeSnapshot()
+/// @brief Serialize the state of the game
+/// @param position The position where the execution continues
+/// @return The state (must be freed)
+static char *pg_serializeState(long position)
 {
-  if (runningGame == NULL || pg_game_status.fp == NULL)
-    return;
-
   pg_strbuf sb = { NULL, 0, 0 };
   pg_sbPrintf(&sb, "scene %s\n", pg_game_status.sceneName);
   pg_sbPrintf(&sb, "sceneindex %i\n", pg_game_status.sceneIndex);
-  // After *finish the scene is ended (fpPosition = fpSize) even if the file is not at its end
-  long position = pg_game_status.fpPosition == pg_game_status.fpSize ? pg_game_status.fpSize : ftell(pg_game_status.fp);
   pg_sbPrintf(&sb, "position %li\n", position);
   pg_sbPrintf(&sb, "reuse %i\n", (int)pg_game_status.choiceReuse);
   pg_sbPrintf(&sb, "looplimit %i\n", pg_game_status.loopLimit);
@@ -3721,8 +3760,18 @@ static void pg_takeSnapshot()
     }
   }
 
+  return sb.buf;
+}
+
+static void pg_takeSnapshot()
+{
+  if (runningGame == NULL || pg_game_status.fp == NULL)
+    return;
+
+  // After *finish the scene is ended (fpPosition = fpSize) even if the file is not at its end
+  long position = pg_game_status.fpPosition == pg_game_status.fpSize ? pg_game_status.fpSize : ftell(pg_game_status.fp);
   free(pg_pageSnapshot);
-  pg_pageSnapshot = sb.buf;
+  pg_pageSnapshot = pg_serializeState(position);
   pg_copyString(pg_snapshotScene, sizeof(pg_snapshotScene), pg_game_status.sceneName);
 }
 
@@ -3867,6 +3916,186 @@ int pg_getSaveInfo(int slot, save_info *info)
   return valid;
 }
 
+/* ---------------------------------------------------------------------------
+ * Checkpoints: *save_checkpoint [slot], *restore_checkpoint [slot]
+ * ------------------------------------------------------------------------- */
+
+struct checkpoint
+{
+  char name[64];
+  /// @brief The serialized state
+  char *state;
+} typedef checkpoint;
+
+static checkpoint pg_checkpoints[16];
+static int pg_checkpointsCount = 0;
+
+static checkpoint *pg_getCheckpoint(const char *name)
+{
+  for (int i = 0; i < pg_checkpointsCount; i++) {
+    if (stricmp(pg_checkpoints[i].name, name) == 0)
+      return &pg_checkpoints[i];
+  }
+  return NULL;
+}
+
+/// @brief Set a checkpoint (the state is owned by the checkpoint)
+static void pg_setCheckpoint(const char *name, char *state)
+{
+  checkpoint *cp = pg_getCheckpoint(name);
+  if (cp == NULL) {
+    if (pg_checkpointsCount >= (int)(sizeof(pg_checkpoints) / sizeof(checkpoint))) {
+      logWarning("Too many checkpoints: %s not saved", name);
+      free(state);
+      return;
+    }
+    cp = &pg_checkpoints[pg_checkpointsCount++];
+    pg_copyString(cp->name, sizeof(cp->name), name);
+    cp->state = NULL;
+  }
+  free(cp->state);
+  cp->state = state;
+}
+
+static void pg_clearCheckpoints()
+{
+  for (int i = 0; i < pg_checkpointsCount; i++) {
+    free(pg_checkpoints[i].state);
+    pg_checkpoints[i].state = NULL;
+  }
+  pg_checkpointsCount = 0;
+}
+
+/// @brief Get the checkpoint slot of *save_checkpoint/*restore_checkpoint
+/// @param name Set to the checkpoint name
+/// @param variable Set to the name of the variable choice_saved_checkpoint[_slot]
+/// @return 0 if the slot name is not valid
+static int pg_getCheckpointSlot(const char *text, char *name, int nameSize, char *stateVar, int stateVarSize)
+{
+  char slot[256];
+  pg_getCommandArgs(text, slot, sizeof(slot));
+  for (char *c = slot; *c; c++) {
+    if (!isalnum((unsigned char)*c) && *c != '_') {
+      logWarning("Invalid checkpoint slot, must be only letters, numbers, and _ underscores: %s", slot);
+      return 0;
+    }
+    *c = tolower((unsigned char)*c);
+  }
+  if (strlen(slot)) {
+    pg_copyString(name, nameSize, slot);
+    snprintf(stateVar, stateVarSize, "choice_saved_checkpoint_%.*s", stateVarSize - 25, slot);
+  } else {
+    pg_copyString(name, nameSize, "checkpoint");
+    pg_copyString(stateVar, stateVarSize, "choice_saved_checkpoint");
+  }
+  return 1;
+}
+
+void pg_manageSaveCheckpointCommand(const char *text)
+{
+  char name[64];
+  char stateVar[128];
+  if (pg_statsActive) {
+    logWarning("Cannot *save_checkpoint in the stats screen");
+    return;
+  }
+  if (!pg_getCheckpointSlot(text, name, sizeof(name), stateVar, sizeof(stateVar)))
+    return;
+
+  // Same as ChoiceScript: the variables are set before saving the state
+  addGameVar(runningGame, boolean, stateVar, "true");
+  pg_setTempVar("choice_just_restored_checkpoint", "false");
+  pg_setCheckpoint(name, pg_serializeState(ftell(pg_game_status.fp)));
+  logInfo("Checkpoint %s saved", name);
+}
+
+int pg_restoreCheckpoint(const char *text)
+{
+  char name[64];
+  char stateVar[128];
+  if (pg_statsActive) {
+    logWarning("Cannot *restore_checkpoint in the stats screen");
+    return 0;
+  }
+  if (!pg_getCheckpointSlot(text, name, sizeof(name), stateVar, sizeof(stateVar)))
+    return 0;
+
+  checkpoint *cp = pg_getCheckpoint(name);
+  if (cp == NULL || cp->state == NULL) {
+    logWarning("*restore_checkpoint failed: checkpoint %s not saved (use *if %s)", name, stateVar);
+    return 0;
+  }
+
+  char *state = pg_strndup(cp->state, strlen(cp->state));
+  char **lines;
+  int linesCount = pg_splitLines(state, &lines);
+  if (!pg_validateState(lines, 0, linesCount)) {
+    logError("*restore_checkpoint: invalid checkpoint %s", name);
+    free(lines);
+    free(state);
+    return 0;
+  }
+
+  // checkpoint_exclusions: variables that keep their current value
+  char *exclusionNames[64];
+  char *exclusionValues[64];
+  int exclusionIsTemp[64];
+  int exclusionsCount = 0;
+  variable *exclusions = NULL;
+  for (int i = 0; i < pg_game_status.tempVariablesCount && exclusions == NULL; i++) {
+    if (stricmp(pg_game_status.tempVariables[i].name, "checkpoint_exclusions") == 0)
+      exclusions = &pg_game_status.tempVariables[i];
+  }
+  if (exclusions == NULL)
+    exclusions = getGameVarPrimitive("checkpoint_exclusions", runningGame);
+  if (exclusions != NULL && exclusions->value != NULL) {
+    char *list = pg_strndup(exclusions->value, strlen(exclusions->value));
+    for (char *word = strtok(list, " \t"); word != NULL && exclusionsCount < 64; word = strtok(NULL, " \t")) {
+      variable *var = NULL;
+      int isTemp = 0;
+      for (int i = 0; i < pg_game_status.tempVariablesCount && var == NULL; i++) {
+        if (stricmp(pg_game_status.tempVariables[i].name, word) == 0) {
+          var = &pg_game_status.tempVariables[i];
+          isTemp = 1;
+        }
+      }
+      if (var == NULL)
+        var = getGameVarPrimitive(word, runningGame);
+      if (var == NULL || var->value == NULL)
+        continue;
+      exclusionNames[exclusionsCount] = pg_strndup(word, strlen(word));
+      exclusionValues[exclusionsCount] = pg_strndup(var->value, strlen(var->value));
+      exclusionIsTemp[exclusionsCount] = isTemp;
+      exclusionsCount++;
+    }
+    free(list);
+  }
+
+  long position = pg_applyState(lines, 0, linesCount);
+  free(lines);
+  free(state);
+
+  for (int i = 0; i < exclusionsCount; i++) {
+    if (exclusionIsTemp[i]) {
+      pg_setTempVar(exclusionNames[i], exclusionValues[i]);
+    } else {
+      variable *var = getGameVarPrimitive(exclusionNames[i], runningGame);
+      if (var != NULL) {
+        free(var->value);
+        var->value = pg_strndup(exclusionValues[i], strlen(exclusionValues[i]));
+      }
+    }
+    free(exclusionNames[i]);
+    free(exclusionValues[i]);
+  }
+
+  pg_setTempVar("choice_just_restored_checkpoint", "true");
+  fseek(pg_game_status.fp, position, SEEK_SET);
+  pg_game_status.fpPosition = position;
+  logInfo("Checkpoint %s restored", name);
+  return 1;
+}
+
 int pg_saveGame(int slot)
 {
   if (runningGame == NULL || pg_pageSnapshot == NULL || slot < 0 || slot >= SAVE_SLOTS) {
@@ -3904,6 +4133,13 @@ int pg_saveGame(int slot)
   pg_sb_append(&sb, "\n", 1);
   pg_sbPrintf(&sb, "time %lld\n", (long long)time(NULL));
   pg_sb_append(&sb, pg_pageSnapshot, strlen(pg_pageSnapshot));
+  for (int i = 0; i < pg_checkpointsCount; i++) {
+    if (pg_checkpoints[i].state == NULL)
+      continue;
+    pg_sbPrintf(&sb, "checkpoint %s ", pg_checkpoints[i].name);
+    pg_sbEscaped(&sb, pg_checkpoints[i].state);
+    pg_sb_append(&sb, "\n", 1);
+  }
   pg_sbPrintf(&sb, "end\n");
 
   int ok = fwrite(sb.buf, 1, sb.len, fp) == sb.len;
@@ -3953,38 +4189,18 @@ static int pg_parseSavedVariable(char *data, int *type, char **name, char **valu
   return strlen(*name) > 0;
 }
 
-int pg_loadGame(int slot)
+/// @brief Split a text in lines (the text is modified)
+/// @param lines Set to the lines (must be freed)
+/// @return The number of lines
+static int pg_splitLines(char *content, char ***lines)
 {
-  if (runningGame == NULL || slot < 0 || slot >= SAVE_SLOTS)
-    return 0;
-
-  char path[600];
-  pg_getSavePath(slot, path, sizeof(path));
-  FILE *fp = fopen(path, "rb");
-  if (fp == NULL) {
-    logWarning("Save not found: %s", path);
-    return 0;
+  int count = 1;
+  for (char *c = content; *c; c++) {
+    if (*c == '\n')
+      count++;
   }
-  fseek(fp, 0, SEEK_END);
-  long size = ftell(fp);
-  fseek(fp, 0, SEEK_SET);
-  char *content = malloc(size + 1);
-  if (content == NULL || fread(content, 1, size, fp) != (size_t)size) {
-    fclose(fp);
-    free(content);
-    return 0;
-  }
-  fclose(fp);
-  content[size] = '\0';
-
-  // Split the lines
-  int linesCount = 0;
-  for (long i = 0; i < size; i++) {
-    if (content[i] == '\n')
-      linesCount++;
-  }
-  char **lines = malloc(sizeof(char *) * (linesCount + 1));
-  linesCount = 0;
+  *lines = malloc(sizeof(char *) * count);
+  count = 0;
   char *start = content;
   for (char *c = content; ; c++) {
     if (*c == '\n' || *c == '\0') {
@@ -3993,17 +4209,21 @@ int pg_loadGame(int slot)
       if (c > start && c[-1] == '\r')
         c[-1] = '\0';
       if (*start)
-        lines[linesCount++] = start;
+        (*lines)[count++] = start;
       if (last)
         break;
       start = c + 1;
     }
   }
+  return count;
+}
 
-  // Validate before changing the state of the game
-  int valid = linesCount > 0 && strcmp(lines[0], SAVE_HEADER) == 0 && strcmp(lines[linesCount - 1], "end") == 0;
+/// @brief Check that a saved state can be restored (the scenes exist)
+static int pg_validateState(char **lines, int start, int end)
+{
+  int valid = 1;
   const char *sceneName = NULL;
-  for (int i = 1; valid && i < linesCount; i++) {
+  for (int i = start; valid && i < end; i++) {
     if (startsWith("scene ", lines[i])) {
       sceneName = lines[i] + 6;
       valid = pg_sceneExists(sceneName);
@@ -4017,13 +4237,13 @@ int pg_loadGame(int slot)
         valid = 0;
     }
   }
-  if (!valid || sceneName == NULL) {
-    logError("Invalid save: %s", path);
-    free(lines);
-    free(content);
-    return 0;
-  }
+  return valid && sceneName != NULL;
+}
 
+/// @brief Restore a saved state (the lines are modified)
+/// @return The position where the execution continues
+static long pg_applyState(char **lines, int start, int end)
+{
   // Reset the state of the game
   pg_statsClose();
   pg_clearGosubStack();
@@ -4050,7 +4270,7 @@ int pg_loadGame(int slot)
   char *loadedVars = calloc(sizeof(runningGame->variables) / sizeof(variable), 1);
 
   long position = 0;
-  for (int i = 1; i < linesCount - 1; i++) {
+  for (int i = start; i < end; i++) {
     char *line = lines[i];
     char *data = strchr(line, ' ');
     if (data == NULL)
@@ -4140,6 +4360,14 @@ int pg_loadGame(int slot)
       }
       if (index > pg_game_status.gosubCount)
         pg_game_status.gosubCount = index;
+    } else if (strcmp(line, "checkpoint") == 0) {
+      // checkpoint <name> <escaped state>
+      char *space = strchr(data, ' ');
+      if (space != NULL) {
+        *space = '\0';
+        pg_unescape(space + 1);
+        pg_setCheckpoint(data, pg_strndup(space + 1, strlen(space + 1)));
+      }
     } else if (strcmp(line, "frametemp") == 0) {
       char *space = strchr(data, ' ');
       if (space == NULL)
@@ -4161,9 +4389,6 @@ int pg_loadGame(int slot)
       }
     }
   }
-  free(lines);
-  free(content);
-
   if (loadedVars != NULL) {
     int count = 0;
     for (int i = 0; i < runningGame->variablesCount; i++) {
@@ -4178,6 +4403,52 @@ int pg_loadGame(int slot)
     runningGame->variablesCount = count;
     free(loadedVars);
   }
+
+  return position;
+}
+
+int pg_loadGame(int slot)
+{
+  if (runningGame == NULL || slot < 0 || slot >= SAVE_SLOTS)
+    return 0;
+
+  char path[600];
+  pg_getSavePath(slot, path, sizeof(path));
+  FILE *fp = fopen(path, "rb");
+  if (fp == NULL) {
+    logWarning("Save not found: %s", path);
+    return 0;
+  }
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  char *content = malloc(size + 1);
+  if (content == NULL || fread(content, 1, size, fp) != (size_t)size) {
+    fclose(fp);
+    free(content);
+    return 0;
+  }
+  fclose(fp);
+  content[size] = '\0';
+
+  char **lines;
+  int linesCount = pg_splitLines(content, &lines);
+
+  // Validate before changing the state of the game
+  int valid = linesCount > 1 && strcmp(lines[0], SAVE_HEADER) == 0 && strcmp(lines[linesCount - 1], "end") == 0 &&
+              pg_validateState(lines, 1, linesCount - 1);
+  if (!valid) {
+    logError("Invalid save: %s", path);
+    free(lines);
+    free(content);
+    return 0;
+  }
+
+  // The checkpoints are saved with the game
+  pg_clearCheckpoints();
+  long position = pg_applyState(lines, 1, linesCount - 1);
+  free(lines);
+  free(content);
 
   // Execute the saved page again
   fseek(pg_game_status.fp, position, SEEK_SET);
