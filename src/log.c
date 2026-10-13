@@ -1,4 +1,5 @@
 #include "CoGSDL.h"
+#include <stdarg.h>
 
 static FILE *log_fp;
 
@@ -29,7 +30,8 @@ void logPrimitive(const char* level, const char *format, va_list args)
   struct tm *info = NULL;
 
   vsnprintf(msg, sizeof(msg), format, args);
-  int newline = msg[strlen(msg) - 1] == '\n' ? 0 : 1;
+  size_t msgLen = strlen(msg);
+  int newline = msgLen > 0 && msg[msgLen - 1] == '\n' ? 0 : 1;
   current_time = time(NULL);
   info = localtime(&current_time);
   strftime(timeString, sizeof(timeString), "[%Y-%m-%dT%H:%M:%S]", info);
@@ -42,11 +44,13 @@ void logPrimitive(const char* level, const char *format, va_list args)
     if (newline)
       fwrite("\n", sizeof(char), 1, log_fp);
   }
-  fprintf(stdout, timeString);
-  fprintf(stdout, levelString);
-  fprintf(stdout, msg);
+  // The message is already formatted: it must not be used as a format string
+  // (game text can contain '%')
+  fputs(timeString, stdout);
+  fputs(levelString, stdout);
+  fputs(msg, stdout);
   if (newline)
-    fprintf(stdout, "\n");
+    fputs("\n", stdout);
 }
 
 void logDebug(const char *format, ...)
