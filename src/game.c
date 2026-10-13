@@ -405,7 +405,7 @@ void setVarValue(variable *var, const char *value)
         subString(tempValue, tempValue, 1, valueLen - 2);
       }
       break;
-    case number:
+    case number: {
       int intValue;
       int isFairMath = valueLen > 2 && tempValue[0] == '%' && (tempValue[1] == '+' || tempValue[1] == '-');
       if (isFairMath) {
@@ -430,6 +430,7 @@ void setVarValue(variable *var, const char *value)
         }
       }
       break;
+    }
     case boolean:
       if (stricmp(tempValue, "true") != 0 && stricmp(tempValue, "false") != 0) {
         logWarning("Invalid value for boolean variable %s: %s", var->name, tempValue);
