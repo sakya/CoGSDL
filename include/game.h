@@ -43,6 +43,10 @@ struct choice
   int reusable;
   /// @brief Set to 1 if the choice has been used
   int used;
+  /// @brief Set to 0 if the choice is shown but cannot be selected (*selectable_if)
+  int selectable;
+  /// @brief Set to 1 if the choice is disabled after it has been used (*disable_reuse)
+  int disable_reuse;
 } typedef choice;
 
 struct game

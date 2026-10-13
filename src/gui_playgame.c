@@ -57,6 +57,11 @@ long pg_manageIfCommand(const char *text, int indentation, long *endPosition);
 int pg_evaluateSimpleCondition(const char *condition);
 int pg_evaluateCondition(const char *condition, int indentation);
 int pg_evaluateExpression(const char *expression, char *value);
+int pg_evaluateBoolean(const char *condition);
+/// @brief Replace ${}, $!{}, $!!{} and @{} in a text
+/// @param text The text
+/// @return The expanded text (must be freed) or NULL
+char *pg_expandVariables(const char *text);
 /// @brief Manage the goto command
 /// @param text The text of the line with the goto command
 /// @return The new file position
@@ -410,49 +415,331 @@ void pg_renderText(const char* text, int x, int y, int width, int height, int sc
   sdlBlitImage(text_surface, 0, HEADER_HEIGHT, 0, 0);
 }
 
-void pg_expandVariables(char* text)
+/* ---------------------------------------------------------------------------
+ * Text substitution ("Text tricks")
+ *
+ *   ${expr}            -> value of expr
+ *   $!{expr}           -> value of expr, first letter capitalized
+ *   $!!{expr}          -> value of expr, all letters capitalized
+ *   @{cond a|b}        -> a if cond is true, b if false
+ *   @{num a|b|c...}    -> the num-th option (1-based)
+ *   @!{...} / @!!{...} -> multireplace with capitalization
+ *
+ * Options of a multireplace can contain ${} substitutions.
+ * ------------------------------------------------------------------------- */
+
+struct pg_strbuf
 {
-  if (!text)
+  char *buf;
+  size_t len;
+  size_t cap;
+} typedef pg_strbuf;
+
+static void pg_sb_append(pg_strbuf *sb, const char *s, size_t n)
+{
+  if (!s || n == 0)
     return;
 
+  if (sb->len + n + 1 > sb->cap) {
+    size_t newCap = sb->cap ? sb->cap : 64;
+    while (sb->len + n + 1 > newCap)
+      newCap *= 2;
+    char *tmp = realloc(sb->buf, newCap);
+    if (tmp == NULL) {
+      logWarning("Realloc failed");
+      return;
+    }
+    sb->buf = tmp;
+    sb->cap = newCap;
+  }
+  memcpy(sb->buf + sb->len, s, n);
+  sb->len += n;
+  sb->buf[sb->len] = '\0';
+}
+
+static char *pg_strndup(const char *s, size_t n)
+{
+  char *res = malloc(n + 1);
+  if (res == NULL)
+    return NULL;
+  memcpy(res, s, n);
+  res[n] = '\0';
+  return res;
+}
+
+/// @brief Case insensitive compare of the first n chars
+static int pg_strnicmp(const char *s1, const char *s2, size_t n)
+{
+  for (size_t i = 0; i < n; i++) {
+    int c1 = tolower((unsigned char)s1[i]);
+    int c2 = tolower((unsigned char)s2[i]);
+    if (c1 != c2)
+      return c1 < c2 ? -1 : 1;
+    if (c1 == '\0')
+      return 0;
+  }
+  return 0;
+}
+
+/// @brief Find the char closing the one at position open ('{' -> '}', '(' -> ')'), handling nesting
+/// @return The position of the closing char or -1
+static int pg_findClosing(const char *text, int open)
+{
+  const char openChar = text[open];
+  const char closeChar = openChar == '{' ? '}' : ')';
+  int depth = 0;
+  int inQuote = 0;
+  for (int i = open; text[i]; i++) {
+    if (openChar == '(' && text[i] == '"' && (i == 0 || text[i - 1] != '\\')) {
+      inQuote = !inQuote;
+      continue;
+    }
+    if (inQuote)
+      continue;
+    if (text[i] == openChar) {
+      depth++;
+    } else if (text[i] == closeChar) {
+      depth--;
+      if (depth == 0)
+        return i;
+    }
+  }
+  return -1;
+}
+
+/// @brief Evaluate a boolean condition supporting parentheses, and, or, not
+/// @param condition The condition
+/// @return 1 if true, 0 if false
+int pg_evaluateBoolean(const char *condition)
+{
+  if (!condition)
+    return 0;
+
+  char *cond = pg_strndup(condition, strlen(condition));
+  trim(cond);
+
+  // Remove parentheses wrapping the whole condition
+  int len = strlen(cond);
+  while (len > 1 && cond[0] == '(' && pg_findClosing(cond, 0) == len - 1) {
+    memmove(cond, cond + 1, len - 2);
+    cond[len - 2] = '\0';
+    trim(cond);
+    len = strlen(cond);
+  }
+
+  // not(...)
+  if (len > 3 && pg_strnicmp(cond, "not", 3) == 0 && (cond[3] == '(' || isspace((unsigned char)cond[3]))) {
+    int res = !pg_evaluateBoolean(cond + 3);
+    free(cond);
+    return res;
+  }
+
+  // Search a top level "and"/"or"
+  int depth = 0;
+  int inQuote = 0;
+  for (int i = 0; i < len; i++) {
+    if (cond[i] == '"' && (i == 0 || cond[i - 1] != '\\'))
+      inQuote = !inQuote;
+    if (inQuote)
+      continue;
+    if (cond[i] == '(') {
+      depth++;
+    } else if (cond[i] == ')') {
+      depth--;
+    } else if (depth == 0 && (isspace((unsigned char)cond[i]) || cond[i] == ')')) {
+      int opLen = 0;
+      int isAnd = 0;
+      if (pg_strnicmp(&cond[i + 1], "and", 3) == 0 && (isspace((unsigned char)cond[i + 4]) || cond[i + 4] == '(')) {
+        opLen = 3;
+        isAnd = 1;
+      } else if (pg_strnicmp(&cond[i + 1], "or", 2) == 0 && (isspace((unsigned char)cond[i + 3]) || cond[i + 3] == '(')) {
+        opLen = 2;
+      }
+
+      if (opLen) {
+        char *left = pg_strndup(cond, i);
+        char *right = pg_strndup(&cond[i + 1 + opLen], len - i - 1 - opLen);
+        int l = pg_evaluateBoolean(left);
+        int r = pg_evaluateBoolean(right);
+        free(left);
+        free(right);
+        free(cond);
+        return isAnd ? (l && r) : (l || r);
+      }
+    }
+  }
+
+  int res = pg_evaluateSimpleCondition(cond);
+  free(cond);
+  return res;
+}
+
+static void pg_capitalize(char *text, int mode)
+{
+  if (!text || mode == 0)
+    return;
+
+  if (mode == 1) {
+    // First letter only
+    for (int i = 0; text[i]; i++) {
+      if (!isspace((unsigned char)text[i])) {
+        text[i] = toupper((unsigned char)text[i]);
+        break;
+      }
+    }
+  } else {
+    for (int i = 0; text[i]; i++)
+      text[i] = toupper((unsigned char)text[i]);
+  }
+}
+
+/// @brief Get the 0-based index of the option to use in a multireplace
+/// @param condition The multireplace condition (variable name or expression)
+/// @return The index or -1
+static int pg_multireplaceIndex(const char *condition)
+{
+  char opr[3];
+  int isSimpleValue = indexOf(condition, '(', 0) < 0 &&
+                      indexOf(condition, ' ', 0) < 0 &&
+                      pg_get_operator(condition, opr) < 0;
+
+  if (isSimpleValue) {
+    char value[4096];
+    pg_evaluateExpression(condition, value);
+    trim(value);
+    if (stricmp(value, "true") == 0)
+      return 0;
+    if (stricmp(value, "false") == 0)
+      return 1;
+    int intValue;
+    if (strlen(value) > 0 && is_number(value, &intValue))
+      return intValue - 1;
+
+    logWarning("Invalid multireplace value: %s=%s", condition, value);
+    return -1;
+  }
+
+  return pg_evaluateBoolean(condition) ? 0 : 1;
+}
+
+/// @brief Evaluate the content of a multireplace @{cond opt1|opt2|...}
+/// @param content The text between the braces
+/// @return The selected option (expanded). Must be freed.
+static char *pg_multireplace(const char *content)
+{
+  int len = strlen(content);
+  int start = 0;
+  while (start < len && isspace((unsigned char)content[start]))
+    start++;
+
+  // Condition
+  int condEnd;
+  if (content[start] == '(') {
+    condEnd = pg_findClosing(content, start);
+    if (condEnd < 0) {
+      logWarning("Multireplace: missing ')' in %s", content);
+      return pg_strndup("", 0);
+    }
+    condEnd++;
+  } else {
+    condEnd = start;
+    while (condEnd < len && !isspace((unsigned char)content[condEnd]))
+      condEnd++;
+  }
+  char *condition = pg_strndup(content + start, condEnd - start);
+
+  // Skip the separator between condition and options
+  int optStart = condEnd;
+  if (optStart < len && isspace((unsigned char)content[optStart]))
+    optStart++;
+
+  int index = pg_multireplaceIndex(condition);
+  logDebug("\tMultireplace %s -> option %i", condition, index + 1);
+  free(condition);
+
+  if (index < 0) {
+    return pg_strndup("", 0);
+  }
+
+  // Find the option (split on '|' outside nested braces)
+  int depth = 0;
+  int current = 0;
+  int partStart = optStart;
+  for (int i = optStart; i <= len; i++) {
+    if (i < len && content[i] == '{') {
+      depth++;
+    } else if (i < len && content[i] == '}') {
+      depth--;
+    } else if (i == len || (content[i] == '|' && depth == 0)) {
+      if (current == index) {
+        char *option = pg_strndup(content + partStart, i - partStart);
+        char *res = pg_expandVariables(option);
+        free(option);
+        return res;
+      }
+      current++;
+      partStart = i + 1;
+    }
+  }
+
+  logWarning("Multireplace: option %i not found in %s", index + 1, content);
+  return pg_strndup("", 0);
+}
+
+char *pg_expandVariables(const char *text)
+{
+  if (!text)
+    return NULL;
+
+  pg_strbuf sb = { NULL, 0, 0 };
+
   int textLen = strlen(text);
-  parentheses par[20];
-  int parIdx = 0;
-  int idx = 0;
-  while (idx < textLen) {
-    if (idx < textLen - 1 && (text[idx] == '$' || text[idx] == '@') && text[idx + 1] == '{') {
-      par[parIdx].open = idx;
-      par[parIdx].close = 0;
-      parIdx++;
-    } else if (text[idx] == '}') {
-      for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
-        if (par[pIdx].close == 0) {
-          par[pIdx].close = idx;
-          break;
+  int i = 0;
+  while (i < textLen) {
+    if (text[i] == '$' || text[i] == '@') {
+      // Capitalization: $!{} $!!{} @!{} @!!{}
+      int j = i + 1;
+      int caps = 0;
+      while (j < textLen && text[j] == '!' && caps < 2) {
+        caps++;
+        j++;
+      }
+
+      if (j < textLen && text[j] == '{') {
+        int close = pg_findClosing(text, j);
+        if (close > j) {
+          char *content = pg_strndup(text + j + 1, close - j - 1);
+          char *replacement = NULL;
+          if (text[i] == '$') {
+            trim(content);
+            char value[4096];
+            pg_evaluateExpression(content, value);
+            replacement = pg_strndup(value, strlen(value));
+          } else {
+            replacement = pg_multireplace(content);
+          }
+          pg_capitalize(replacement, caps);
+          logDebug("\tReplaced %.*s -> %s", close - i + 1, text + i, replacement);
+
+          if (replacement)
+            pg_sb_append(&sb, replacement, strlen(replacement));
+          free(replacement);
+          free(content);
+          i = close + 1;
+          continue;
+        } else {
+          logWarning("Missing '}' in %s", text + i);
         }
       }
     }
-    idx++;
+
+    pg_sb_append(&sb, &text[i], 1);
+    i++;
   }
 
-  if (parIdx > 0) {
-    logDebug("Parentheses:");
-    for (int i = 0; i < parIdx; i++) {
-      logDebug("\tOpen=%i, close=%i", par[i].open, par[i].close);
-
-      char *var = malloc(par[i].close - par[i].open + 1);
-      if (text[par[i].open] == '$') {
-        subString(text, var, par[i].open + 2, par[i].close - par[i].open - 2);
-        char evaluated[1024];
-        pg_evaluateExpression(var, evaluated);
-        logDebug("\tValue=%s (%s)", var, evaluated);
-      } else if (text[par[i].open] == '@') {
-        // TODO
-      }
-
-      free(var);
-    }
-  }
+  if (sb.buf == NULL)
+    return pg_strndup("", 0);
+  return sb.buf;
 }
 
 int pg_renderPageBreak()
@@ -710,9 +997,13 @@ int pg_exec_primitive()
     } else {
       // Text
       if (lineLen) {
-        if (pg_needsNewLine(line) && !endsWith("\n", pg_game_status.text))
+        // Expand variables now: following *set commands could change their values
+        char *expanded = pg_expandVariables(line);
+        const char *textLine = expanded ? expanded : line;
+        if (pg_needsNewLine(textLine) && !endsWith("\n", pg_game_status.text))
           pg_appendText("\n", 0);
-        pg_appendText(line, 0);
+        pg_appendText(textLine, 0);
+        free(expanded);
         textStarted = 1;
       } else if(textStarted) {
         // New paragraph
@@ -743,7 +1034,6 @@ int pg_exec_primitive()
 
     return 0;
   } else {
-    pg_expandVariables(pg_game_status.text);
     logDebug("Text to render:\n%s", pg_game_status.text);
   }
 
@@ -1033,39 +1323,8 @@ int pg_get_operator(const char *condition, char *operator)
 
 int pg_evaluateCondition(const char *condition, int indentation)
 {
-  // First check parentheses
-  int textLen = strlen(condition);
-  parentheses par[20];
-  int parIdx = 0;
-  int idx = 0;
-  while (idx < textLen) {
-    if (condition[idx] == '(') {
-      par[parIdx].open = idx;
-      par[parIdx].close = 0;
-      parIdx++;
-    } else if (condition[idx] == ')') {
-      for (int pIdx = parIdx - 1; pIdx >= 0; pIdx--) {
-        if (par[pIdx].close == 0) {
-          par[pIdx].close = idx;
-          break;
-        }
-      }
-    }
-    idx++;
-  }
-
-  if (parIdx == 0) {
-    // Single condition
-    return pg_evaluateSimpleCondition(condition);
-  } else {
-    logDebug("Parentheses:");
-    for (int i = 0; i < parIdx; i++) {
-      logDebug("\tOpen=%i, close=%i", par[i].open, par[i].close);
-    }
-  }
-
-  logWarning("Condition not managed: %s", condition);
-  return 0;
+  // Supports parentheses, and, or, not
+  return pg_evaluateBoolean(condition);
 }
 
 int pg_evaluateSimpleCondition(const char *condition)
@@ -1090,7 +1349,8 @@ int pg_evaluateSimpleCondition(const char *condition)
   subString(condition, left_expression, 0, opIdx);
   trim(left_expression);
   char right_expression[1024];
-  subString(condition, right_expression, opIdx + 1, strlen(condition) - opIdx - 1);
+  const int opLen = strlen(operator);
+  subString(condition, right_expression, opIdx + opLen, strlen(condition) - opIdx - opLen);
   trim(right_expression);
 
   char left_value[1024];
@@ -1136,8 +1396,16 @@ int pg_evaluateExpression(const char *expression, char *value)
 
   int expLen = strlen(expression);
   if (expLen > 1 && expression[0] == '"' && expression[expLen - 1] == '"') {
-    // String constant
+    // String constant (can contain ${} substitutions)
     subString(expression, value, 1, expLen - 2);
+    if (indexOf(value, '{', 0) >= 0) {
+      char *expanded = pg_expandVariables(value);
+      if (expanded) {
+        strncpy(value, expanded, 1023);
+        value[1023] = '\0';
+        free(expanded);
+      }
+    }
 
     return 1;
   }
@@ -1441,6 +1709,11 @@ long pg_manageChoiceCommand()
           }
         }
         subString(line, choice->text, start, strlen(line) - start);
+        char *expanded = pg_expandVariables(choice->text);
+        if (expanded) {
+          free(choice->text);
+          choice->text = expanded;
+        }
         logDebug("\tChoice: %s (pos=%li, reusable=%i)", choice->text, choice->position, choice->reusable);
       }
     }
@@ -1862,4 +2135,4 @@ void pg_read_labels()
     }
   }
   fseek(pg_game_status.fp, pos, SEEK_SET);
-}
+}

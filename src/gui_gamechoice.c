@@ -15,6 +15,18 @@ void gc_draw();
 void gc_select_next();
 void gc_select_previous();
 
+/// @brief Check if a choice is visible (hidden if used and not reusable)
+static int gc_is_visible(const choice *c)
+{
+  return c->reusable || !c->used;
+}
+
+/// @brief Check if a choice can be selected (*selectable_if, *disable_reuse)
+static int gc_is_enabled(const choice *c)
+{
+  return gc_is_visible(c) && c->selectable && !(c->disable_reuse && c->used);
+}
+
 void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY);
 char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap, int *last_x);
 
@@ -29,7 +41,7 @@ void drawGameChoice()
     gc_select_previous();
   } else if (_Globals.input[_Keys.KeyA] == 1) {
     _Globals.input[_Keys.KeyA] = 0;
-    if (selectedIdx >= 0) {
+    if (selectedIdx >= 0 && gc_is_enabled(&pg_game_status.choices[selectedIdx])) {
       choice* c = &pg_game_status.choices[selectedIdx];
       pg_game_status.selectedChoiceIndex = selectedIdx;
       logInfo("Selected choice: %s (%i)", c->text, c->position);
@@ -88,9 +100,18 @@ void gc_init()
 
       choice_surface[choice_surface_count] = surface;
       choice_surface_count++;
-      if (c->reusable || !c->used) {
+      if (gc_is_visible(c)) {
         total_height += surface->h + 2;
       }
+    }
+  }
+
+  // Select the first enabled choice
+  selectedIdx = -1;
+  for (int i = 0; i < pg_game_status.choicesCount; i++) {
+    if (gc_is_enabled(&pg_game_status.choices[i])) {
+      selectedIdx = i;
+      break;
     }
   }
 }
@@ -112,7 +133,7 @@ void gc_draw()
     choice* c = &pg_game_status.choices[i];
     int height = choice_surface[i]->h + 2;
 
-    if (!c->reusable && c->used) {
+    if (!gc_is_visible(c)) {
       if (selectedIdx == i) {
         gc_select_next();
       }
@@ -152,6 +173,11 @@ void gc_draw()
     y += 1;
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, choice_surface[i]);
+    if (!gc_is_enabled(c)) {
+      // Disabled choice: draw it faded (grey)
+      SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+      SDL_SetTextureAlphaMod(texture, 100);
+    }
     SDL_Rect crop = { 0, delta_y, choice_surface[i]->w, height - 2};
     SDL_Rect rect = { TEXT_MARGIN, y - scroll_y + delta_y, choice_surface[i]->w, height - 2 };
     SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, 0, NULL, SDL_FLIP_NONE);
@@ -172,16 +198,16 @@ void gc_draw()
 
 void gc_select_next()
 {
-  selectedIdx++;
-  if (selectedIdx == pg_game_status.choicesCount) {
-    selectedIdx = 0;
-  }
+  if (selectedIdx < 0 || pg_game_status.choicesCount == 0)
+    return;
 
-  while (!pg_game_status.choices[selectedIdx].reusable && pg_game_status.choices[selectedIdx].used) {
+  for (int n = 0; n < pg_game_status.choicesCount; n++) {
     selectedIdx++;
     if (selectedIdx == pg_game_status.choicesCount) {
       selectedIdx = 0;
     }
+    if (gc_is_enabled(&pg_game_status.choices[selectedIdx]))
+      break;
   }
 
   if (selectedIdx == 0) {
@@ -191,16 +217,16 @@ void gc_select_next()
 
 void gc_select_previous()
 {
-  selectedIdx--;
-  if (selectedIdx < 0) {
-    selectedIdx = pg_game_status.choicesCount - 1;
-  }
+  if (selectedIdx < 0 || pg_game_status.choicesCount == 0)
+    return;
 
-  while (!pg_game_status.choices[selectedIdx].reusable && pg_game_status.choices[selectedIdx].used) {
+  for (int n = 0; n < pg_game_status.choicesCount; n++) {
     selectedIdx--;
     if (selectedIdx < 0) {
       selectedIdx = pg_game_status.choicesCount - 1;
     }
+    if (gc_is_enabled(&pg_game_status.choices[selectedIdx]))
+      break;
   }
 
   if (selectedIdx == pg_game_status.choicesCount - 1) {
