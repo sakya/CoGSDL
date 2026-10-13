@@ -43,6 +43,13 @@ void pg_manageRandCommand(const char *text);
 void pg_manageConfigCommand(const char *text);
 /// @brief Manage the save_game command: save the variables for the next episode (./saves/episodes)
 void pg_manageSaveGameCommand(const char *text);
+/// @brief Manage *restore_game: show the saves of ./saves/episodes as a choice
+/// @return The position after the command (and its block)
+long pg_manageRestoreGameCommand(const char *text, int indentation);
+static int pg_selectRestoreOption(choice *c);
+static int pg_sceneExists(const char *sceneName);
+static int pg_parseSavedVariable(char *data, int *type, char **name, char **value);
+static void pg_unescape(char *value);
 static void pg_setTempVar(const char *name, const char *value);
 /// @brief Random number in [0, 1)
 static double pg_random();
@@ -89,6 +96,9 @@ void pg_selectChoice(int index);
 static int pg_isBlank(const char *line);
 /// @brief Remove the choice contexts of the current gosub level (or deeper)
 static void pg_clearChoiceContexts(int gosubCount);
+/// @brief Get the end of the choice of an option line (see choice_end)
+/// @return The position after the choice or -1
+long pg_findChoiceEnd(long position);
 /// @brief Get the next line from text
 /// @param text The string
 /// @param position The starting position. Updated to the starting position of the next line.
@@ -152,6 +162,25 @@ void pg_read_labels();
 void pg_clear_labels();
 
 game_status pg_game_status;
+
+#define RESTORE_MAX_SAVES 20
+struct restore_menu
+{
+  int active;
+  char cancelLabel[256];
+  /// @brief Where the execution continues after *restore_game (and its block)
+  long resumePosition;
+  int savesCount;
+  char savePaths[RESTORE_MAX_SAVES][600];
+  int unrestorableCount;
+  char unrestorableScenes[16][128];
+  char unrestorableMessages[16][512];
+} typedef restore_menu;
+
+/// @brief The menu of *restore_game
+static restore_menu pg_restoreMenu;
+/// @brief A message shown at the start of the next page
+static char *pg_pendingNotice = NULL;
 static int line_height = 0;
 static image_cache_item image_cache[32];
 static int image_cache_count = 0;
@@ -259,6 +288,10 @@ void pg_drawPage()
 void pg_selectChoice(int index)
 {
   choice *c = &pg_game_status.choices[index];
+
+  // Options of the *restore_game menu
+  if (pg_selectRestoreOption(c))
+    return;
 
   // When the option body ends, continue after the choice block
   if (pg_game_status.choiceContextsCount == sizeof(pg_game_status.choiceContexts) / sizeof(choice_context)) {
@@ -393,6 +426,7 @@ void pg_init()
   pg_game_status.gosubCount = 0;
   pg_game_status.used_choices_count = 0;
   pg_game_status.choiceContextsCount = 0;
+  pg_game_status.choiceEndsCount = 0;
 
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -431,6 +465,7 @@ void pg_dispose()
   pg_game_status.gosubCount = 0;
   pg_game_status.used_choices_count = 0;
   pg_game_status.choiceContextsCount = 0;
+  pg_game_status.choiceEndsCount = 0;
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
@@ -974,6 +1009,14 @@ int pg_exec_primitive()
   pg_game_status.showPageBreak = 0;
   pg_game_status.scrollY = 0;
   pg_clearChoices();
+  pg_restoreMenu.active = 0;
+  // A message to show at the start of the page (e.g. a save of *restore_game that cannot be restored)
+  if (pg_pendingNotice != NULL) {
+    pg_appendText(pg_pendingNotice, 0);
+    pg_appendParagraphBreak();
+    free(pg_pendingNotice);
+    pg_pendingNotice = NULL;
+  }
   // Same as ChoiceScript: *looplimit counts the visits to a label in a page
   pg_game_status.labelVisitsCount = 0;
 
@@ -985,7 +1028,11 @@ int pg_exec_primitive()
   }
 
   int textStarted = 0;
-  while (fgets(line, sizeof(line), pg_game_status.fp)) {
+  while (1) {
+    // Position of the line (commands can move the file position)
+    long currentLineStart = ftell(pg_game_status.fp);
+    if (!fgets(line, sizeof(line), pg_game_status.fp))
+      break;
     logDebug("line=%s", line);
     int lineIndentation = getIndentation(line);
 
@@ -997,6 +1044,19 @@ int pg_exec_primitive()
         pg_game_status.choiceContextsCount--;
         fseek(pg_game_status.fp, ctx->endPosition, SEEK_SET);
         pg_game_status.fpPosition = ctx->endPosition;
+        continue;
+      }
+    }
+
+    // Same as ChoiceScript: reaching an option line of a choice (e.g. after a *goto into an
+    // option body) is the end of the option body: continue after the choice block
+    if (!pg_isBlank(line) && !isComment(line)) {
+      long endPosition = pg_findChoiceEnd(currentLineStart);
+      if (endPosition >= 0) {
+        logDebug("End of option body (option line) -> %li", endPosition);
+        pg_clearChoiceContexts(pg_game_status.gosubCount);
+        fseek(pg_game_status.fp, endPosition, SEEK_SET);
+        pg_game_status.fpPosition = endPosition;
         continue;
       }
     }
@@ -1051,6 +1111,13 @@ int pg_exec_primitive()
         pg_manageConfigCommand(line);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
+      }
+
+      if (stricmp(command, "restore_game") == 0) {
+        // restore_game [cancel=label]: a choice between the saves of the previous episodes
+        long newPosition = pg_manageRestoreGameCommand(line, lineIndentation);
+        pg_game_status.fpPosition = newPosition;
+        break;
       }
 
       if (stricmp(command, "save_game") == 0) {
@@ -3000,6 +3067,50 @@ static void pg_addChoiceOption(const char *line, int start, int indentation, int
   logDebug("\tChoice: %s (pos=%li, reusable=%i, selectable=%i)", choice->text, choice->position, choice->reusable, choice->selectable);
 }
 
+/// @brief The option lines found while parsing the current choice
+static long pg_parsedOptionLines[256];
+static int pg_parsedOptionLinesCount = 0;
+
+static unsigned int pg_sceneHash(const char *sceneName)
+{
+  unsigned int hash = 5381;
+  for (const char *c = sceneName; *c; c++)
+    hash = hash * 33 + (unsigned char)tolower((unsigned char)*c);
+  return hash;
+}
+
+static void pg_addChoiceEnd(long position, long endPosition)
+{
+  unsigned int hash = pg_sceneHash(pg_game_status.sceneName);
+  for (int i = 0; i < pg_game_status.choiceEndsCount; i++) {
+    choice_end *ce = &pg_game_status.choiceEnds[i];
+    if (ce->sceneHash == hash && ce->position == position) {
+      ce->endPosition = endPosition;
+      return;
+    }
+  }
+  int max = sizeof(pg_game_status.choiceEnds) / sizeof(choice_end);
+  if (pg_game_status.choiceEndsCount == max) {
+    // Forget the oldest
+    memmove(&pg_game_status.choiceEnds[0], &pg_game_status.choiceEnds[1], sizeof(choice_end) * (max - 1));
+    pg_game_status.choiceEndsCount--;
+  }
+  choice_end *ce = &pg_game_status.choiceEnds[pg_game_status.choiceEndsCount++];
+  ce->sceneHash = hash;
+  ce->position = position;
+  ce->endPosition = endPosition;
+}
+
+long pg_findChoiceEnd(long position)
+{
+  unsigned int hash = pg_sceneHash(pg_game_status.sceneName);
+  for (int i = 0; i < pg_game_status.choiceEndsCount; i++) {
+    if (pg_game_status.choiceEnds[i].sceneHash == hash && pg_game_status.choiceEnds[i].position == position)
+      return pg_game_status.choiceEnds[i].endPosition;
+  }
+  return -1;
+}
+
 static void pg_parseChoiceBlock(int blockIndentation);
 
 /// @brief Parse the options inside an *if/*elseif/*else of a choice
@@ -3048,6 +3159,10 @@ static void pg_parseChoiceBlock(int blockIndentation)
     command[0] = '\0';
     if (line[0] == '*')
       pg_getCommand(line, command);
+
+    // Option line: reaching it at the end of an option body ends the choice
+    if (stricmp(command, "label") != 0 && pg_parsedOptionLinesCount < (int)(sizeof(pg_parsedOptionLines) / sizeof(long)))
+      pg_parsedOptionLines[pg_parsedOptionLinesCount++] = lineStart;
 
     if (pg_isElseCommand(command)) {
       if (ifChain == 2) {
@@ -3164,6 +3279,7 @@ long pg_manageChoiceCommand()
   int choiceIndentation = -1;
 
   pg_game_status.choicesCount = 0;
+  pg_parsedOptionLinesCount = 0;
   // The options indentation is the indentation of the first line
   while (pg_readLine(line, sizeof(line), &lineStart)) {
     if (pg_isBlank(line) || isComment(line))
@@ -3180,6 +3296,8 @@ long pg_manageChoiceCommand()
     logWarning("Empty choice");
   }
   pg_game_status.choiceEndPosition = ftell(pg_game_status.fp);
+  for (int i = 0; i < pg_parsedOptionLinesCount; i++)
+    pg_addChoiceEnd(pg_parsedOptionLines[i], pg_game_status.choiceEndPosition);
   return pg_game_status.choiceEndPosition;
 }
 
@@ -3843,6 +3961,10 @@ static char *pg_serializeState(long position)
     choice_context *ctx = &pg_game_status.choiceContexts[i];
     pg_sbPrintf(&sb, "context %li %i %i\n", ctx->endPosition, ctx->indentation, ctx->gosubCount);
   }
+  for (int i = 0; i < pg_game_status.choiceEndsCount; i++) {
+    choice_end *ce = &pg_game_status.choiceEnds[i];
+    pg_sbPrintf(&sb, "choiceend %u %li %li\n", ce->sceneHash, ce->position, ce->endPosition);
+  }
   for (int i = 1; i <= pg_game_status.gosubCount; i++) {
     gosub_info *frame = &pg_game_status.gosub[i];
     pg_sbPrintf(&sb, "frame %i %i %li %i %i %i %s\n", i, frame->fp != NULL, frame->position, frame->sceneIndex,
@@ -4359,6 +4481,266 @@ void pg_manageSaveGameCommand(const char *text)
   pg_appendParagraphBreak();
 }
 
+/* ---------------------------------------------------------------------------
+ * *restore_game [cancel=label]
+ *   scene Message shown when the save points to this scene (optional block)
+ *
+ * Shows the saves of ./saves/episodes (written by *save_game) as the options of
+ * a choice, plus "Cancel.". Restoring a save loads its variables and starts its
+ * destination scene.
+ * ------------------------------------------------------------------------- */
+
+/// @brief Positions of the options of the restore menu (real options have positions >= 0)
+#define RESTORE_CANCEL_POSITION (-2)
+#define RESTORE_SAVE_POSITION(i) (-100 - (i))
+
+
+
+struct episode_info
+{
+  char path[600];
+  char name[512];
+  char scene[256];
+  long long time;
+} typedef episode_info;
+
+static int pg_compareEpisodes(const void *a, const void *b)
+{
+  long long ta = ((const episode_info *)a)->time;
+  long long tb = ((const episode_info *)b)->time;
+  return ta < tb ? 1 : ta > tb ? -1 : 0;
+}
+
+/// @brief Read the header of a save of ./saves/episodes
+static int pg_readEpisodeInfo(const char *path, episode_info *info)
+{
+  memset(info, 0, sizeof(episode_info));
+  pg_copyString(info->path, sizeof(info->path), path);
+  FILE *fp = fopen(path, "rb");
+  if (fp == NULL)
+    return 0;
+  char line[1024];
+  int valid = 0;
+  while (fgets(line, sizeof(line), fp)) {
+    line[strcspn(line, "\r\n")] = '\0';
+    if (!valid) {
+      valid = strcmp(line, EPISODE_HEADER) == 0;
+      if (!valid)
+        break;
+    } else if (startsWith("name ", line)) {
+      pg_copyString(info->name, sizeof(info->name), line + 5);
+      pg_unescape(info->name);
+    } else if (startsWith("time ", line)) {
+      info->time = atoll(line + 5);
+    } else if (startsWith("scene ", line)) {
+      pg_copyString(info->scene, sizeof(info->scene), line + 6);
+      break;
+    }
+  }
+  fclose(fp);
+  return valid && strlen(info->scene) > 0;
+}
+
+static void pg_addVirtualChoice(const char *text, long position, int index)
+{
+  choice *tmp = realloc(pg_game_status.choices, sizeof(choice) * (pg_game_status.choicesCount + 1));
+  if (tmp == NULL)
+    return;
+  pg_game_status.choices = tmp;
+  choice *c = &pg_game_status.choices[pg_game_status.choicesCount++];
+  memset(c, 0, sizeof(choice));
+  snprintf(c->id, sizeof(c->id), "restore_game_%i", index);
+  c->text = pg_strndup(text, strlen(text));
+  c->position = position;
+  c->reusable = 1;
+  c->selectable = 1;
+}
+
+long pg_manageRestoreGameCommand(const char *text, int indentation)
+{
+  restore_menu *menu = &pg_restoreMenu;
+  memset(menu, 0, sizeof(restore_menu));
+
+  // cancel=label
+  char args[512];
+  pg_getCommandArgs(text, args, sizeof(args));
+  if (startsWith("cancel=", args))
+    pg_copyString(menu->cancelLabel, sizeof(menu->cancelLabel), args + strlen("cancel="));
+  else if (strlen(args))
+    logWarning("Invalid restore_game line: %s", text);
+
+  // Unrestorable scenes: indented block "scene message"
+  char line[4096];
+  long lineStart;
+  while (pg_readLine(line, sizeof(line), &lineStart)) {
+    if (pg_isBlank(line) || isComment(line))
+      continue;
+    if (getIndentation(line) <= indentation)
+      break;
+    trim(line);
+    int nameEnd = 0;
+    while (line[nameEnd] && !isspace((unsigned char)line[nameEnd]))
+      nameEnd++;
+    if (menu->unrestorableCount < 16) {
+      snprintf(menu->unrestorableScenes[menu->unrestorableCount], sizeof(menu->unrestorableScenes[0]), "%.*s", nameEnd, line);
+      const char *message = line + nameEnd;
+      while (isspace((unsigned char)*message))
+        message++;
+      pg_copyString(menu->unrestorableMessages[menu->unrestorableCount], sizeof(menu->unrestorableMessages[0]), message);
+      menu->unrestorableCount++;
+    }
+  }
+  fseek(pg_game_status.fp, lineStart, SEEK_SET);
+  menu->resumePosition = lineStart;
+
+  // The saves, most recent first
+  episode_info *episodes = calloc(RESTORE_MAX_SAVES * 4, sizeof(episode_info));
+  int episodesCount = 0;
+  DIR *dir = opendir("./saves/episodes");
+  if (dir != NULL && episodes != NULL) {
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL && episodesCount < RESTORE_MAX_SAVES * 4) {
+      if (!endsWith(".sav", entry->d_name))
+        continue;
+      char path[600];
+      snprintf(path, sizeof(path), "./saves/episodes/%.*s", (int)(sizeof(path) - 20), entry->d_name);
+      if (pg_readEpisodeInfo(path, &episodes[episodesCount]))
+        episodesCount++;
+    }
+  }
+  if (dir != NULL)
+    closedir(dir);
+  if (episodes != NULL)
+    qsort(episodes, episodesCount, sizeof(episode_info), pg_compareEpisodes);
+
+  pg_clearChoices();
+  for (int i = 0; i < episodesCount && i < RESTORE_MAX_SAVES; i++) {
+    pg_copyString(menu->savePaths[i], sizeof(menu->savePaths[0]), episodes[i].path);
+    pg_addVirtualChoice(episodes[i].name, RESTORE_SAVE_POSITION(i), i);
+    menu->savesCount++;
+  }
+  free(episodes);
+  if (menu->savesCount == 0)
+    pg_appendBlockLine("No saved games from a previous episode.");
+  pg_addVirtualChoice("Cancel.", RESTORE_CANCEL_POSITION, RESTORE_MAX_SAVES);
+
+  menu->active = 1;
+  pg_game_status.choiceEndPosition = menu->resumePosition;
+  return menu->resumePosition;
+}
+
+/// @brief Continue after *restore_game (or at the cancel label)
+static void pg_restoreGameCancel(int useCancelLabel)
+{
+  long position = pg_restoreMenu.resumePosition;
+  if (useCancelLabel && strlen(pg_restoreMenu.cancelLabel)) {
+    label *lbl = pg_get_label(pg_restoreMenu.cancelLabel);
+    if (lbl != NULL)
+      position = lbl->position;
+    else
+      logWarning("*restore_game: label %s not found", pg_restoreMenu.cancelLabel);
+  }
+  fseek(pg_game_status.fp, position, SEEK_SET);
+  pg_game_status.fpPosition = position;
+}
+
+/// @brief Restore a save of ./saves/episodes: its variables, then its destination scene
+static int pg_restoreEpisode(const char *path)
+{
+  episode_info info;
+  if (!pg_readEpisodeInfo(path, &info)) {
+    logError("Invalid save: %s", path);
+    return 0;
+  }
+
+  // Scenes where the save cannot be restored
+  for (int i = 0; i < pg_restoreMenu.unrestorableCount; i++) {
+    if (stricmp(pg_restoreMenu.unrestorableScenes[i], info.scene) == 0) {
+      free(pg_pendingNotice);
+      pg_pendingNotice = pg_strndup(pg_restoreMenu.unrestorableMessages[i], strlen(pg_restoreMenu.unrestorableMessages[i]));
+      return 0;
+    }
+  }
+  if (!pg_sceneExists(info.scene)) {
+    char message[600];
+    pg_copyString(message, sizeof(message), "This saved game cannot be restored: the scene ");
+    pg_appendString(message, sizeof(message), info.scene);
+    pg_appendString(message, sizeof(message), " does not exist.");
+    free(pg_pendingNotice);
+    pg_pendingNotice = pg_strndup(message, strlen(message));
+    return 0;
+  }
+
+  FILE *fp = fopen(path, "rb");
+  if (fp == NULL)
+    return 0;
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  char *content = malloc(size + 1);
+  if (content == NULL || fread(content, 1, size, fp) != (size_t)size) {
+    fclose(fp);
+    free(content);
+    return 0;
+  }
+  fclose(fp);
+  content[size] = '\0';
+
+  // Variables of the save: the variables of this game with the same name are replaced
+  char **lines;
+  int linesCount = pg_splitLines(content, &lines);
+  int count = 0;
+  for (int i = 0; i < linesCount; i++) {
+    if (!startsWith("var ", lines[i]))
+      continue;
+    int type;
+    char *name, *value;
+    if (!pg_parseSavedVariable(lines[i] + 4, &type, &name, &value))
+      continue;
+    variable *var = getGameVarPrimitive(name, runningGame);
+    if (var == NULL) {
+      addGameVar(runningGame, (enum var_types)type, name, value);
+    } else {
+      free(var->value);
+      var->value = pg_strndup(value, strlen(value));
+      var->type = (enum var_types)type;
+    }
+    count++;
+  }
+  free(lines);
+  free(content);
+
+  // Start the destination scene
+  pg_clearGosubStack();
+  pg_clearParams();
+  pg_clearChoiceContexts(0);
+  pg_clearTempVars();
+  pg_openScene(info.scene, 1);
+  pg_setTempVar("choice_user_restored", "true");
+  pg_setTempVar("choice_restore_name", info.name);
+  logInfo("Restored %s (%i variables), scene %s", path, count, info.scene);
+  return 1;
+}
+
+/// @brief Manage the selection of an option of the restore menu
+/// @return 1 if the option belongs to the restore menu
+static int pg_selectRestoreOption(choice *c)
+{
+  if (!pg_restoreMenu.active || c->position >= 0)
+    return 0;
+
+  pg_restoreMenu.active = 0;
+  if (c->position == RESTORE_CANCEL_POSITION) {
+    pg_restoreGameCancel(1);
+    return 1;
+  }
+
+  int index = RESTORE_SAVE_POSITION(0) - c->position;
+  if (index < 0 || index >= pg_restoreMenu.savesCount || !pg_restoreEpisode(pg_restoreMenu.savePaths[index]))
+    pg_restoreGameCancel(0);
+  return 1;
+}
+
 int pg_saveGame(int slot)
 {
   if (runningGame == NULL || pg_pageSnapshot == NULL || slot < 0 || slot >= SAVE_SLOTS) {
@@ -4426,7 +4808,7 @@ int pg_saveGame(int slot)
 
 static int pg_sceneExists(const char *sceneName)
 {
-  char path[512];
+  char path[600];
   snprintf(path, sizeof(path), "%s/scenes/%s.txt", runningGame->path, sceneName);
   return fileExists(path);
 }
@@ -4514,6 +4896,7 @@ static long pg_applyState(char **lines, int start, int end)
   pg_clearTempVars();
   pg_clearChoices();
   pg_game_status.choiceContextsCount = 0;
+  pg_game_status.choiceEndsCount = 0;
   pg_game_status.used_choices_count = 0;
   pg_game_status.labelVisitsCount = 0;
   pg_game_status.gameEnded = 0;
@@ -4592,6 +4975,11 @@ static long pg_applyState(char **lines, int start, int end)
       for (int j = 0; j < runningGame->achievementsCount; j++) {
         if (stricmp(runningGame->achievements[j].name, data) == 0)
           runningGame->achievements[j].achieved = 1;
+      }
+    } else if (strcmp(line, "choiceend") == 0) {
+      if (pg_game_status.choiceEndsCount < (int)(sizeof(pg_game_status.choiceEnds) / sizeof(choice_end))) {
+        choice_end *ce = &pg_game_status.choiceEnds[pg_game_status.choiceEndsCount++];
+        sscanf(data, "%u %li %li", &ce->sceneHash, &ce->position, &ce->endPosition);
       }
     } else if (strcmp(line, "context") == 0) {
       if (pg_game_status.choiceContextsCount < (int)(sizeof(pg_game_status.choiceContexts) / sizeof(choice_context))) {

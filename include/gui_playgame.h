@@ -21,6 +21,15 @@ struct label_visit
   int count;
 } typedef label_visit;
 
+/// @brief A line of a choice at the level of the options (#option, *if...): reaching it
+/// at the end of an option body means jumping to the end of the choice (as ChoiceScript does)
+struct choice_end
+{
+  unsigned int sceneHash;
+  long position;
+  long endPosition;
+} typedef choice_end;
+
 struct gosub_info
 {
   /// @brief FILE to return (NULL for a *gosub in the same scene)
@@ -111,6 +120,10 @@ struct game_status
     /// @brief The options being executed (an option body ends continuing after its choice block)
     choice_context choiceContexts[32];
     int choiceContextsCount;
+
+    /// @brief The option lines of the choices met in the game (see choice_end)
+    choice_end choiceEnds[512];
+    int choiceEndsCount;
 
     char used_choices[1024][64];
     int used_choices_count;
