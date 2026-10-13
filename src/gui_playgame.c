@@ -22,6 +22,15 @@ long pg_manageGotoSceneCommand(const char *text);
 void pg_manageParamsCommand(const char *text);
 /// @brief Manage the achieve command: mark the achievement as earned and show it
 void pg_manageAchieveCommand(const char *text);
+/// @brief Manage the rand command: *rand variable min max
+void pg_manageRandCommand(const char *text);
+/// @brief Random number in [0, 1)
+static double pg_random();
+/// @brief Initialize the random number generator (if needed)
+static void pg_randomSeed();
+static void pg_formatNumber(double number, char *value);
+static void pg_assignVar(variable *var, const char *value);
+static void pg_copyString(char *dst, size_t size, const char *src);
 /// @brief Count a jump to a label (*looplimit)
 /// @return 0 if the label was visited too many times in this page
 static int pg_checkLoopLimit(long position);
@@ -1011,6 +1020,13 @@ int pg_exec_primitive()
           pg_game_status.loopLimit = limit;
         else
           logWarning("Invalid looplimit: %s", args);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "rand") == 0) {
+        // rand variable min max
+        pg_manageRandCommand(line);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
@@ -2666,6 +2682,94 @@ void pg_manageAchieveCommand(const char *text)
   pg_appendText(message, 0);
 }
 
+/// @brief State of the random number generator (xorshift64*), saved with the game
+static uint64_t pg_randomState = 0;
+
+static void pg_randomSeed()
+{
+  if (pg_randomState == 0) {
+    pg_randomState = ((uint64_t)time(NULL) << 32) ^ (uint64_t)clock() ^ 0x9E3779B97F4A7C15ULL;
+    if (pg_randomState == 0)
+      pg_randomState = 1;
+  }
+}
+
+static double pg_random()
+{
+  pg_randomSeed();
+  pg_randomState ^= pg_randomState >> 12;
+  pg_randomState ^= pg_randomState << 25;
+  pg_randomState ^= pg_randomState >> 27;
+  uint64_t value = pg_randomState * 0x2545F4914F6CDD1DULL;
+  // 53 random bits -> [0, 1)
+  return (value >> 11) * (1.0 / 9007199254740992.0);
+}
+
+void pg_manageRandCommand(const char *text)
+{
+  char args[4096];
+  char *tokens[8];
+  pg_getCommandArgs(text, args, sizeof(args));
+  int count = pg_tokenizeArgs(args, tokens, 8);
+  if (count != 3) {
+    logWarning("Invalid rand statement, expected three args: varname min max (%s)", text);
+    pg_freeTokens(tokens, count);
+    return;
+  }
+
+  // The variable can be a reference: *rand {name} 1 6
+  char name[1024];
+  int nameLen = strlen(tokens[0]);
+  if (nameLen > 1 && tokens[0][0] == '{' && tokens[0][nameLen - 1] == '}') {
+    char *content = pg_strndup(tokens[0] + 1, nameLen - 2);
+    pg_evaluateReferenceName(content, name, sizeof(name));
+    free(content);
+  } else {
+    pg_copyString(name, sizeof(name), tokens[0]);
+  }
+  variable *var = pg_getVar(name);
+
+  char minValue[1024];
+  char maxValue[1024];
+  pg_evaluateExpression(tokens[1], minValue);
+  pg_evaluateExpression(tokens[2], maxValue);
+  trim(minValue);
+  trim(maxValue);
+  pg_freeTokens(tokens, count);
+  if (var == NULL) {
+    logWarning("*rand: non-existent variable %s", name);
+    return;
+  }
+
+  char *end1, *end2;
+  double minimum = strtod(minValue, &end1);
+  double maximum = strtod(maxValue, &end2);
+  if (end1 == minValue || end2 == maxValue || *end1 || *end2) {
+    logWarning("*rand: min and max must be numbers (%s, %s)", minValue, maxValue);
+    return;
+  }
+  if (maximum < minimum) {
+    logWarning("*rand: min must be less than max: %s > %s", minValue, maxValue);
+    return;
+  }
+
+  // Same as ChoiceScript: an integer between min and max (included) if both are integers
+  double result;
+  int intValue;
+  if (maximum == minimum)
+    result = minimum;
+  else if (is_number(minValue, &intValue) && is_number(maxValue, &intValue) && !strchr(minValue, '.') && !strchr(maxValue, '.'))
+    result = minimum + floor(pg_random() * (maximum - minimum + 1));
+  else
+    result = minimum + pg_random() * (maximum - minimum);
+
+  char value[64];
+  pg_formatNumber(result, value);
+  pg_assignVar(var, value);
+  var->type = number;
+  logDebug("*rand %s %s %s -> %s", name, minValue, maxValue, value);
+}
+
 void pg_manageParamsCommand(const char *text)
 {
   // *params name1 name2...: name the arguments of gosub, they are also available as param_1, param_2...
@@ -3583,6 +3687,9 @@ static void pg_takeSnapshot()
   pg_sbPrintf(&sb, "reuse %i\n", (int)pg_game_status.choiceReuse);
   pg_sbPrintf(&sb, "looplimit %i\n", pg_game_status.loopLimit);
   pg_sbPrintf(&sb, "ended %i\n", pg_game_status.gameEnded);
+  // The random generator is saved too: loading shows the same results of *rand
+  pg_randomSeed();
+  pg_sbPrintf(&sb, "random %llu\n", (unsigned long long)pg_randomState);
 
   for (int i = 0; i < runningGame->variablesCount; i++)
     pg_sbVariable(&sb, "var", &runningGame->variables[i]);
@@ -3964,6 +4071,8 @@ int pg_loadGame(int slot)
       pg_game_status.loopLimit = atoi(data);
     } else if (strcmp(line, "ended") == 0) {
       pg_game_status.gameEnded = atoi(data);
+    } else if (strcmp(line, "random") == 0) {
+      pg_randomState = (uint64_t)strtoull(data, NULL, 10);
     } else if (strcmp(line, "var") == 0) {
       if (pg_parseSavedVariable(data, &type, &name, &value)) {
         variable *var = NULL;
