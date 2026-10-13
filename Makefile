@@ -1,14 +1,27 @@
 TARGET=CoGSDL
 VERSION=1.0
 
-CC=gcc
-SDL2FLAGS=$(shell pkg-config --cflags --libs sdl2 SDL2_image SDL2_ttf SDL2_mixer)
-ifeq ($(OS), Windows_NT)
-	CFLAGS+=-I$(INC_DIR) -Wall -g
-	LDFLAGS=-lm
+# Build per Miyoo Mini (Onion): make PLATFORM=miyoo
+# Da eseguire nel container union-miyoomini-toolchain.
+PLATFORM?=
+
+ifeq ($(PLATFORM), miyoo)
+	CROSS_COMPILE?=arm-linux-gnueabihf-
+	CC=$(CROSS_COMPILE)gcc
+	SYSROOT?=$(shell $(CC) -print-sysroot)
+	SDL2FLAGS=-L$(SYSROOT)/usr/lib -Wl,-rpath-link,$(SYSROOT)/usr/lib -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer
+	CFLAGS+=-I$(INC_DIR) -I$(SYSROOT)/usr/include -D_REENTRANT -DMIYOO -Wall -O2 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard
+	LDFLAGS=-lm -lpthread
 else
-	CFLAGS+=-I$(INC_DIR) -Wall -g -fsanitize=address
-	LDFLAGS=-lm -fsanitize=address
+	CC=gcc
+	SDL2FLAGS=$(shell pkg-config --cflags --libs sdl2 SDL2_image SDL2_ttf SDL2_mixer)
+	ifeq ($(OS), Windows_NT)
+		CFLAGS+=-I$(INC_DIR) -Wall -g
+		LDFLAGS=-lm
+	else
+		CFLAGS+=-I$(INC_DIR) -Wall -g -fsanitize=address
+		LDFLAGS=-lm -fsanitize=address
+	endif
 endif
 
 RM=rm

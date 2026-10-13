@@ -25,6 +25,26 @@ CoGSDL _Globals = {
   NULL
 };
 
+#ifdef MIYOO
+/* Miyoo Mini (Onion): i tasti arrivano come i keycode di KeyMap.h */
+Keys _Keys = {
+  SDL_SCANCODE_UP,        /* Up */
+  SDL_SCANCODE_DOWN,      /* Down */
+
+  SDL_SCANCODE_SPACE,     /* A */
+  SDL_SCANCODE_LCTRL,     /* B */
+  SDL_SCANCODE_LSHIFT,    /* X */
+  SDL_SCANCODE_LALT,      /* Y */
+
+  SDL_SCANCODE_RETURN,    /* Start */
+  SDL_SCANCODE_RCTRL,     /* Select */
+
+  SDL_SCANCODE_E,         /* L1 */
+  SDL_SCANCODE_TAB,       /* L2 */
+  SDL_SCANCODE_T,         /* R1 */
+  SDL_SCANCODE_BACKSPACE, /* R2 */
+};
+#else
 Keys _Keys = {
   SDL_SCANCODE_UP,
   SDL_SCANCODE_DOWN,
@@ -42,6 +62,7 @@ Keys _Keys = {
   SDL_SCANCODE_R,
   SDL_SCANCODE_E,
 };
+#endif
 
 const theme darkTheme = {
   {30, 30, 30},
