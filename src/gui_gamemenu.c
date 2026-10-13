@@ -175,8 +175,13 @@ void drawGameMenu()
         return;
       }
 
-      for (int i = 0; i < mainItemsCount; i++)
-        sdlWriteText(_Globals.defaultFont, i == mainIdx ? _theme->selectedTextColor : _theme->textColor, (char *)mainItems[i], 30, HEADER_HEIGHT + 20 + i * 30, 0, 0);
+      for (int i = 0; i < mainItemsCount; i++) {
+        int y = HEADER_HEIGHT + 20 + i * 30;
+        if (i == mainItemsCount - 1) {
+          y += 10;
+        }
+        sdlWriteText(_Globals.defaultFont, i == mainIdx ? _theme->selectedTextColor : _theme->textColor, (char *)mainItems[i], 30, y, 0, 0);
+      }
       gm_drawFooter(1, 1);
       break;
 
