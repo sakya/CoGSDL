@@ -958,6 +958,12 @@ int pg_exec_primitive()
       }
 
       if (stricmp(command, "page_break") == 0) {
+        // Same as ChoiceScript: a page break on an empty screen is ignored
+        if (pg_isBlank(pg_game_status.text ? pg_game_status.text : "")) {
+          logDebug("page_break ignored: empty screen");
+          pg_game_status.fpPosition = ftell(pg_game_status.fp);
+          continue;
+        }
         // page_break [button text]
         char message[sizeof(pg_game_status.pageBreakMessage)];
         pg_getCommandArgs(line, message, sizeof(message));
