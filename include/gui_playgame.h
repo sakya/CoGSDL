@@ -129,4 +129,14 @@ struct parentheses
   int close;
 } typedef parentheses;
 
+/// @brief Open the stats screen: execute scenes/choicescript_stats.txt with its own state
+/// @return 0 if the game has no stats scene
+int pg_statsOpen();
+/// @brief Close the stats screen and restore the game state
+void pg_statsClose();
+/// @brief Check if the stats screen is open
+int pg_isStatsActive();
+/// @brief Manage the input and draw the current page (text, page break, choice button)
+void pg_drawPage();
+
 #endif

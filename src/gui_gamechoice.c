@@ -63,13 +63,13 @@ void drawGameChoice()
         pg_game_status.used_choices_count++;
       }
 
-      _Globals.status = Game;
+      _Globals.status = pg_isStatsActive() ? GameStats : Game;
       gc_dispose();
       return;
     }
   } else if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
-    _Globals.status = Game;
+    _Globals.status = pg_isStatsActive() ? GameStats : Game;
     gc_dispose();
     return;
   }

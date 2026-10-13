@@ -23,6 +23,15 @@ void pg_manageAchieveCommand(const char *text);
 /// @return 0 if the label was visited too many times in this page
 static int pg_checkLoopLimit(long position);
 void pg_appendText(const char *text, int newLine);
+/// @brief Append a line that must be rendered on its own line (images, stat bars)
+void pg_appendBlockLine(const char *line);
+/// @brief Manage the stat_chart command (text, percent, opposed_pair rows)
+void pg_manageStatChartCommand(int indentation);
+/// @brief Draw a stat bar (*stat_bar value|label[|opposed label])
+/// @return The height of the bar
+static int pg_drawStatBar(SDL_Surface *surface, const char *line, int y);
+static int pg_openScene(const char *sceneName, int closeCurrent);
+static int pg_readLine(char *line, int size, long *lineStart);
 int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
 /// @brief Get a variable (temp or global)
@@ -115,7 +124,6 @@ static int scroll_height;
 
 void drawGame()
 {
-  int scrollY = pg_game_status.scrollY;
   if (_Globals.input[_Keys.KeyL1] == 1) {
     _Globals.input[_Keys.KeyL1] = 0;
     _Globals.status = GameMenu;
@@ -128,6 +136,26 @@ void drawGame()
     return;
   }
 
+  if (_Globals.input[_Keys.KeyStart] == 1) {
+    _Globals.input[_Keys.KeyStart] = 0;
+    pg_dispose();
+
+    _Globals.status = GameSelect;
+    return;
+  }
+
+  // Initialize
+  if (pg_game_status.fp == NULL) {
+    pg_init();
+    pg_exec();
+  }
+
+  pg_drawPage();
+}
+
+void pg_drawPage()
+{
+  int scrollY = pg_game_status.scrollY;
   if (pg_game_status.canScrollDown) {
     if (_Globals.input[_Keys.KeyDown] == 1) {
       _Globals.input[_Keys.KeyDown]= 0;
@@ -156,23 +184,9 @@ void drawGame()
     }
   }
 
-  if (_Globals.input[_Keys.KeyStart] == 1) {
-    _Globals.input[_Keys.KeyStart] = 0;
-    pg_dispose();
-
-    _Globals.status = GameSelect;
-    return;
-  }
-
   if (scrollY != pg_game_status.scrollY) {
     SDL_FreeSurface(text_surface);
     text_surface = NULL;
-  }
-
-  // Initialize
-  if (pg_game_status.fp == NULL) {
-    pg_init();
-    pg_exec();
   }
 
   // A choice was selected
@@ -223,6 +237,79 @@ void pg_selectChoice(int index)
 
   fseek(pg_game_status.fp, c->position, SEEK_SET);
   pg_game_status.fpPosition = c->position;
+}
+
+/// @brief The game state saved while the stats screen is open
+static game_status pg_savedGameStatus;
+static int pg_statsActive = 0;
+
+int pg_isStatsActive()
+{
+  return pg_statsActive;
+}
+
+int pg_statsOpen()
+{
+  if (pg_statsActive)
+    return 1;
+  if (runningGame == NULL || pg_game_status.fp == NULL)
+    return 0;
+
+  char filePath[512];
+  snprintf(filePath, sizeof(filePath), "%s/scenes/choicescript_stats.txt", runningGame->path);
+  if (!fileExists(filePath)) {
+    logInfo("No stats scene: %s", filePath);
+    return 0;
+  }
+
+  // Save the game state: the stats scene has its own file, text, choices and temporary variables
+  pg_savedGameStatus = pg_game_status;
+  memset(&pg_game_status, 0, sizeof(pg_game_status));
+  pg_game_status.labelsCount = -1;
+  pg_game_status.selectedChoiceIndex = -1;
+  pg_game_status.sceneIndex = pg_savedGameStatus.sceneIndex;
+  if (text_surface) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
+  }
+  pg_statsActive = 1;
+
+  if (!pg_openScene("choicescript_stats", 0)) {
+    pg_game_status = pg_savedGameStatus;
+    pg_statsActive = 0;
+    return 0;
+  }
+  logInfo("Stats screen opened");
+  pg_exec();
+  return 1;
+}
+
+void pg_statsClose()
+{
+  if (!pg_statsActive)
+    return;
+
+  // Free the stats state
+  pg_clearGosubStack();
+  pg_clearParams();
+  pg_clearTempVars();
+  pg_clearChoices();
+  pg_clear_labels();
+  free(pg_game_status.text);
+  pg_game_status.text = NULL;
+  if (pg_game_status.fp)
+    fclose(pg_game_status.fp);
+  if (text_surface) {
+    SDL_FreeSurface(text_surface);
+    text_surface = NULL;
+  }
+  // The images of the game page are loaded again when needed
+  pg_clear_image_cache();
+
+  pg_game_status = pg_savedGameStatus;
+  memset(&pg_savedGameStatus, 0, sizeof(pg_savedGameStatus));
+  pg_statsActive = 0;
+  logInfo("Stats screen closed");
 }
 
 void pg_init()
@@ -342,6 +429,19 @@ void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY)
   int wrap = 0;
   int last_x = 0;
   while ((line = pg_getNextLine(text, &linePos, text_width, &wrap, &last_x)) != NULL) {
+    if (startsWithWord("*stat_bar", line)) {
+      int barHeight = 2 * line_height;
+      if (y + barHeight > height) {
+        pg_game_status.textFullyRendered = 0;
+        free(line);
+        break;
+      }
+      y += pg_drawStatBar(surface, line, y);
+      x = TEXT_MARGIN;
+      free(line);
+      continue;
+    }
+
     if (startsWithWord("*text_image", line) || startsWithWord("*image", line)) {
       // Draw image
       // text_image filename.png alignment optional text
@@ -818,7 +918,7 @@ int pg_exec_primitive()
     // Nothing more to execute: keep showing the last page
     pg_game_status.showPageBreak = 0;
     pg_clearChoices();
-    if (pg_game_status.text == NULL)
+    if (pg_game_status.text == NULL && !pg_statsActive)
       pg_appendText("The End", 0);
     return 1;
   }
@@ -973,6 +1073,13 @@ int pg_exec_primitive()
         break;
       }
 
+      if (stricmp(command, "stat_chart") == 0) {
+        pg_manageStatChartCommand(lineIndentation);
+        textStarted = 1;
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
       if (stricmp(command, "line_break") == 0) {
         pg_appendText("\n", 0);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
@@ -980,10 +1087,17 @@ int pg_exec_primitive()
       }
 
       if (stricmp(command, "text_image") == 0 || stricmp(command, "image") == 0) {
-        // Add the command to the text as it should be rendered with it
-        pg_appendText(line, 1);
+        // Add the command to the text as it should be rendered with it (on its own line)
+        pg_appendBlockLine(line);
+        textStarted = 1;
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
+      }
+
+      if (stricmp(command, "finish") == 0 && pg_statsActive) {
+        // End of the stats scene
+        pg_game_status.gameEnded = 1;
+        break;
       }
 
       if (stricmp(command, "finish") == 0) {
@@ -1178,6 +1292,203 @@ void pg_appendText(const char *text, int newLine)
   if (newLine) {
     strcat(pg_game_status.text, "\n");
   }
+}
+
+void pg_appendBlockLine(const char *line)
+{
+  if (pg_game_status.text != NULL && strlen(pg_game_status.text) > 0 && !endsWith("\n", pg_game_status.text))
+    pg_appendText("\n", 0);
+  pg_appendText(line, 1);
+}
+
+/// @brief Mix two colors
+static SDL_Color pg_mixColor(SDL_Color c1, SDL_Color c2, int percent2)
+{
+  SDL_Color res = {
+    (c1.r * (100 - percent2) + c2.r * percent2) / 100,
+    (c1.g * (100 - percent2) + c2.g * percent2) / 100,
+    (c1.b * (100 - percent2) + c2.b * percent2) / 100,
+    255
+  };
+  return res;
+}
+
+static void pg_drawStatText(SDL_Surface *surface, const char *text, int x, int y)
+{
+  if (!text || !strlen(text))
+    return;
+  SDL_Surface *textSurface = TTF_RenderUTF8_Blended(_Globals.textFont, text, _theme->textColor);
+  if (textSurface == NULL)
+    return;
+  SDL_Rect dest = { x, y, textSurface->w, textSurface->h };
+  SDL_BlitSurface(textSurface, NULL, surface, &dest);
+  SDL_FreeSurface(textSurface);
+}
+
+static int pg_drawStatBar(SDL_Surface *surface, const char *line, int y)
+{
+  // *stat_bar value|label[|opposed label]
+  char data[1024];
+  snprintf(data, sizeof(data), "%s", line + strlen("*stat_bar "));
+  char *label = strchr(data, '|');
+  char *opposedLabel = NULL;
+  if (label != NULL) {
+    *label++ = '\0';
+    opposedLabel = strchr(label, '|');
+    if (opposedLabel != NULL)
+      *opposedLabel++ = '\0';
+  }
+  double value = atof(data);
+  if (value < 0)
+    value = 0;
+  if (value > 100)
+    value = 100;
+
+  int barX = TEXT_MARGIN;
+  int barWidth = surface->w - 2 * TEXT_MARGIN;
+
+  // Labels on the first line, the opposed label is right aligned
+  pg_drawStatText(surface, label, barX, y);
+  if (opposedLabel != NULL && strlen(opposedLabel)) {
+    int width = 0;
+    TTF_MeasureUTF8(_Globals.textFont, opposedLabel, surface->w, &width, NULL);
+    pg_drawStatText(surface, opposedLabel, barX + barWidth - width, y);
+  }
+
+  // Bar on the second line
+  int barHeight = line_height / 2;
+  SDL_Rect bar = { barX, y + line_height + (line_height - barHeight) / 2, barWidth, barHeight };
+  SDL_Color emptyColor = pg_mixColor(_theme->backgroundColor, _theme->textColor, 20);
+  SDL_FillRect(surface, &bar, SDL_MapRGBA(surface->format, emptyColor.r, emptyColor.g, emptyColor.b, 255));
+  bar.w = (int)(barWidth * value / 100);
+  if (bar.w > 0)
+    SDL_FillRect(surface, &bar, SDL_MapRGBA(surface->format, _theme->selectedTextColor.r, _theme->selectedTextColor.g, _theme->selectedTextColor.b, 255));
+
+  return 2 * line_height;
+}
+
+/// @brief Evaluate a stat value for *stat_chart (number formatted without decimals)
+static void pg_statValue(const char *variable, char *value)
+{
+  pg_evaluateExpression(variable, value);
+  trim(value);
+}
+
+void pg_manageStatChartCommand(int indentation)
+{
+  char line[4096];
+  char type[32];
+  long lineStart;
+  int rowIndentation = -1;
+
+  // Same as ChoiceScript: the chart starts a new paragraph
+  if (pg_game_status.text != NULL && strlen(pg_game_status.text) > 0 && !endsWith("\n\n", pg_game_status.text))
+    pg_appendText(endsWith("\n", pg_game_status.text) ? "\n" : "\n\n", 0);
+
+  while (pg_readLine(line, sizeof(line), &lineStart)) {
+    if (pg_isBlank(line) || isComment(line))
+      continue;
+
+    int lineIndentation = getIndentation(line);
+    if (lineIndentation <= indentation)
+      break;
+    if (rowIndentation < 0)
+      rowIndentation = lineIndentation;
+    if (lineIndentation > rowIndentation)
+      continue; // Definition of the previous row
+
+    trim(line);
+    int typeLen = 0;
+    while (line[typeLen] && !isspace((unsigned char)line[typeLen]) && typeLen < (int)sizeof(type) - 1) {
+      type[typeLen] = line[typeLen];
+      typeLen++;
+    }
+    type[typeLen] = '\0';
+    char *data = line + typeLen;
+    while (isspace((unsigned char)*data))
+      data++;
+
+    char variable[1024];
+    char label[1024];
+    char value[1024];
+    char row[4096];
+    if (stricmp(type, "opposed_pair") == 0) {
+      snprintf(variable, sizeof(variable), "%s", data);
+      // Labels: indented lines, their definitions are indented more
+      char labels[2][1024];
+      int labelsCount = 0;
+      int labelIndentation = -1;
+      char subLine[4096];
+      long subStart;
+      while (pg_readLine(subLine, sizeof(subLine), &subStart)) {
+        if (pg_isBlank(subLine) || isComment(subLine))
+          continue;
+        int subIndentation = getIndentation(subLine);
+        if (subIndentation <= rowIndentation) {
+          fseek(pg_game_status.fp, subStart, SEEK_SET);
+          break;
+        }
+        if (labelIndentation < 0)
+          labelIndentation = subIndentation;
+        if (subIndentation > labelIndentation)
+          continue; // Definition
+        trim(subLine);
+        if (labelsCount < 2) {
+          // Labels longer than the buffer are truncated
+          subLine[sizeof(labels[0]) - 1] = '\0';
+          strcpy(labels[labelsCount++], subLine);
+        }
+      }
+
+      const char *left = labelsCount == 2 ? labels[0] : variable;
+      const char *right = labelsCount == 2 ? labels[1] : labelsCount == 1 ? labels[0] : "";
+      char *leftExpanded = pg_expandVariables(left);
+      char *rightExpanded = pg_expandVariables(right);
+      pg_statValue(variable, value);
+      double number = atof(value);
+      snprintf(row, sizeof(row), "*stat_bar %s|%s: %s%%|%s: %g%%", value, leftExpanded, value, rightExpanded, 100 - number);
+      free(leftExpanded);
+      free(rightExpanded);
+      pg_appendBlockLine(row);
+      continue;
+    }
+
+    if (stricmp(type, "text") != 0 && stricmp(type, "percent") != 0) {
+      logWarning("*stat_chart: invalid row %s", line);
+      continue;
+    }
+
+    // variable [label], the variable can be an expression in parentheses
+    int variableEnd;
+    if (data[0] == '(') {
+      variableEnd = pg_findClosing(data, 0);
+      variableEnd = variableEnd < 0 ? (int)strlen(data) : variableEnd + 1;
+    } else {
+      variableEnd = 0;
+      while (data[variableEnd] && !isspace((unsigned char)data[variableEnd]))
+        variableEnd++;
+    }
+    snprintf(variable, sizeof(variable), "%.*s", variableEnd, data);
+    const char *labelStart = data + variableEnd;
+    while (isspace((unsigned char)*labelStart))
+      labelStart++;
+    snprintf(label, sizeof(label), "%s", strlen(labelStart) ? labelStart : variable);
+    char *labelExpanded = pg_expandVariables(label);
+    pg_statValue(variable, value);
+
+    if (stricmp(type, "text") == 0) {
+      snprintf(row, sizeof(row), "%s: %s", labelExpanded, value);
+      pg_appendBlockLine(row);
+    } else {
+      snprintf(row, sizeof(row), "*stat_bar %s|%s: %s%%", value, labelExpanded, value);
+      pg_appendBlockLine(row);
+    }
+    free(labelExpanded);
+  }
+  if (feof(pg_game_status.fp))
+    clearerr(pg_game_status.fp);
+  else
+    fseek(pg_game_status.fp, lineStart, SEEK_SET);
 }
 
 int pg_indexOfWordEnd(const char *string, const int startFrom)
@@ -1935,6 +2246,12 @@ static int pg_openScene(const char *sceneName, int closeCurrent)
 
 int pg_goToNextScene()
 {
+  if (pg_statsActive) {
+    // End of the stats scene
+    pg_game_status.gameEnded = 1;
+    return 0;
+  }
+
   if (pg_game_status.sceneIndex + 1 >= runningGame->scenesCount) {
     logInfo("No next scene: game ended");
     pg_game_status.gameEnded = 1;
