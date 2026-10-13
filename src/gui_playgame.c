@@ -41,6 +41,8 @@ static int pg_saveAchievements();
 void pg_manageRandCommand(const char *text);
 /// @brief Manage the config command: *config variable value
 void pg_manageConfigCommand(const char *text);
+/// @brief Manage the save_game command: save the variables for the next episode (./saves/episodes)
+void pg_manageSaveGameCommand(const char *text);
 static void pg_setTempVar(const char *name, const char *value);
 /// @brief Random number in [0, 1)
 static double pg_random();
@@ -1047,6 +1049,14 @@ int pg_exec_primitive()
       if (stricmp(command, "config") == 0) {
         // config variable value
         pg_manageConfigCommand(line);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "save_game") == 0) {
+        // save_game destination_scene: save the game for the next episode
+        pg_manageSaveGameCommand(line);
+        textStarted = 1;
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
@@ -4264,6 +4274,89 @@ int pg_restoreCheckpoint(const char *text)
   pg_game_status.fpPosition = position;
   logInfo("Checkpoint %s restored", name);
   return 1;
+}
+
+/* ---------------------------------------------------------------------------
+ * *save_game destination_scene
+ *
+ * Saves the variables for the next episode of the game, which can import them
+ * with *restore_game. The saves of all the games are in ./saves/episodes
+ * (the next episode is another game, with another folder).
+ * ------------------------------------------------------------------------- */
+
+#define EPISODE_HEADER "CoGSDL episode 1"
+
+void pg_manageSaveGameCommand(const char *text)
+{
+  char destination[256];
+  pg_getCommandArgs(text, destination, sizeof(destination));
+  if (strlen(destination) == 0) {
+    logWarning("*save_game requires a destination file name, e.g. *save_game Episode2");
+    return;
+  }
+
+  // Same as ChoiceScript: a game restored from a previous episode is not saved again
+  for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
+    if (stricmp(pg_game_status.tempVariables[i].name, "choice_user_restored") == 0) {
+      if (stricmp(pg_game_status.tempVariables[i].value, "true") == 0)
+        return;
+      break;
+    }
+  }
+
+  if (!pg_makeFolder("./saves") || !pg_makeFolder("./saves/episodes")) {
+    logError("Cannot create the folder ./saves/episodes");
+    return;
+  }
+
+  char gameFolder[512];
+  pg_getSaveFolder(gameFolder, sizeof(gameFolder));
+  const char *gameName = gameFolder + strlen("./saves/");
+
+  time_t now = time(NULL);
+  char date[64];
+  strftime(date, sizeof(date), "%Y-%m-%d %H:%M", localtime(&now));
+  char name[512];
+  pg_copyString(name, sizeof(name), runningGame->title ? runningGame->title : gameName);
+  pg_appendString(name, sizeof(name), " - ");
+  pg_appendString(name, sizeof(name), date);
+
+  char path[700];
+  char tmpPath[710];
+  snprintf(path, sizeof(path), "./saves/episodes/%s - %lld.sav", gameName, (long long)now);
+  snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", path);
+
+  pg_strbuf sb = { NULL, 0, 0 };
+  pg_sbPrintf(&sb, "%s\n", EPISODE_HEADER);
+  pg_sbPrintf(&sb, "game %s\n", gameName);
+  pg_sb_append(&sb, "title ", strlen("title "));
+  pg_sbEscaped(&sb, runningGame->title ? runningGame->title : gameName);
+  pg_sb_append(&sb, "\nname ", strlen("\nname "));
+  pg_sbEscaped(&sb, name);
+  pg_sbPrintf(&sb, "\ntime %lld\n", (long long)now);
+  pg_sbPrintf(&sb, "scene %s\n", destination);
+  // Same as ChoiceScript: all the variables (stats), not the temporary ones
+  for (int i = 0; i < runningGame->variablesCount; i++)
+    pg_sbVariable(&sb, "var", &runningGame->variables[i]);
+  pg_sbPrintf(&sb, "end\n");
+
+  FILE *fp = fopen(tmpPath, "wb");
+  int ok = fp != NULL && fwrite(sb.buf, 1, sb.len, fp) == sb.len;
+  if (fp != NULL)
+    ok = (fclose(fp) == 0) && ok;
+  free(sb.buf);
+  if (!ok || rename(tmpPath, path) != 0) {
+    logError("Cannot write %s", path);
+    remove(tmpPath);
+    pg_appendBlockLine("[b]The game could not be saved for the next episode.[/b]");
+    return;
+  }
+
+  logInfo("Game saved for the next episode: %s (%s)", path, destination);
+  char message[600];
+  snprintf(message, sizeof(message), "[b]Game saved for the next episode:[/b] %s", name);
+  pg_appendBlockLine(message);
+  pg_appendParagraphBreak();
 }
 
 int pg_saveGame(int slot)
