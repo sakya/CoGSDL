@@ -25,6 +25,10 @@ static int pg_checkLoopLimit(long position);
 void pg_appendText(const char *text, int newLine);
 /// @brief Append a line that must be rendered on its own line (images, stat bars)
 void pg_appendBlockLine(const char *line);
+/// @brief Append the separator between two lines of the same paragraph (a space)
+void pg_appendLineSeparator();
+/// @brief Start a new paragraph (a single empty line)
+void pg_appendParagraphBreak();
 /// @brief Manage the stat_chart command (text, percent, opposed_pair rows)
 void pg_manageStatChartCommand(int indentation);
 /// @brief Draw a stat bar (*stat_bar value|label[|opposed label])
@@ -1038,9 +1042,6 @@ int pg_exec_primitive()
         if (!pg_checkLoopLimit(newPosition))
           break;
 
-        if (textStarted)
-          pg_appendText("\n", 0);
-        textStarted = 0;
         continue;
       }
 
@@ -1117,9 +1118,6 @@ int pg_exec_primitive()
         if (!pg_checkLoopLimit(newPosition))
           break;
 
-        if (textStarted)
-          pg_appendText("\n", 0);
-        textStarted = 0;
         continue;
       }
 
@@ -1131,9 +1129,6 @@ int pg_exec_primitive()
         if (!pg_checkLoopLimit(newPosition))
           break;
 
-        if (textStarted)
-          pg_appendText("\n", 0);
-        textStarted = 0;
         continue;
       }
 
@@ -1145,9 +1140,6 @@ int pg_exec_primitive()
         if (!pg_checkLoopLimit(newPosition))
           break;
 
-        if (textStarted)
-          pg_appendText("\n", 0);
-        textStarted = 0;
         continue;
       }
 
@@ -1217,14 +1209,18 @@ int pg_exec_primitive()
         // Expand variables now: following *set commands could change their values
         char *expanded = pg_expandVariables(line);
         const char *textLine = expanded ? expanded : line;
-        if (pg_needsNewLine(textLine) && !endsWith("\n", pg_game_status.text))
-          pg_appendText("\n", 0);
-        pg_appendText(textLine, 0);
+        if (strlen(textLine) > 0) {
+          if (pg_needsNewLine(textLine) && !endsWith("\n", pg_game_status.text))
+            pg_appendText("\n", 0);
+          else
+            pg_appendLineSeparator();
+          pg_appendText(textLine, 0);
+          textStarted = 1;
+        }
         free(expanded);
-        textStarted = 1;
       } else if(textStarted) {
         // New paragraph
-        pg_appendText("\n\n", 0);
+        pg_appendParagraphBreak();
       }
       pg_game_status.fpPosition = ftell(pg_game_status.fp);
     }
@@ -1292,6 +1288,38 @@ void pg_appendText(const char *text, int newLine)
   if (newLine) {
     strcat(pg_game_status.text, "\n");
   }
+}
+
+void pg_appendLineSeparator()
+{
+  // Same as ChoiceScript: the lines of a paragraph are joined with a space,
+  // unless the previous line ends with a hyphen or a dash
+  const char *text = pg_game_status.text;
+  if (text == NULL)
+    return;
+  int len = strlen(text);
+  if (len == 0 || text[len - 1] == '\n' || text[len - 1] == ' ' || text[len - 1] == '-')
+    return;
+  // U+2011 - U+2014 (non-breaking hyphen, figure dash, en dash, em dash)
+  if (len >= 3 && (unsigned char)text[len - 3] == 0xE2 && (unsigned char)text[len - 2] == 0x80 &&
+      (unsigned char)text[len - 1] >= 0x91 && (unsigned char)text[len - 1] <= 0x94)
+    return;
+  pg_appendText(" ", 0);
+}
+
+void pg_appendParagraphBreak()
+{
+  // A paragraph break is a single empty line, even after several empty lines
+  const char *text = pg_game_status.text;
+  if (text == NULL)
+    return;
+  int len = strlen(text);
+  int newLines = 0;
+  while (newLines < len && newLines < 2 && text[len - 1 - newLines] == '\n')
+    newLines++;
+  if (len == 0 || newLines >= 2)
+    return;
+  pg_appendText(newLines == 1 ? "\n" : "\n\n", 0);
 }
 
 void pg_appendBlockLine(const char *line)
