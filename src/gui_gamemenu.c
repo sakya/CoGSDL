@@ -104,7 +104,7 @@ static void gm_drawSlots(const char *title)
     int selectable = page != gm_load || slots[i].used;
     SDL_Color color = i == slotIdx ? _theme->selectedTextColor : _theme->textColor;
     if (!selectable)
-      color = _theme->headerBackgroundColor;
+      color = _theme->disabledTextColor;
 
     char line[320];
     if (slots[i].used)

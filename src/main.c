@@ -48,7 +48,8 @@ const theme darkTheme = {
   {60, 60, 60},
   {255, 255, 255},
   {95, 195, 248},
-  {242, 238, 143}
+  {242, 238, 143},
+  {109, 109, 109}
 };
 
 const theme sepiaTheme = {
@@ -57,6 +58,7 @@ const theme sepiaTheme = {
   {44, 44, 44},
   {107, 66, 38},
   {225, 228, 196},
+  {161, 163, 142}
 };
 
 const theme *_theme = &sepiaTheme;

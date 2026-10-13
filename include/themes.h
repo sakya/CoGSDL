@@ -10,6 +10,7 @@ struct theme
     SDL_Color textColor;
     SDL_Color selectedTextColor;
     SDL_Color titleTextColor;
+    SDL_Color disabledTextColor;
 } typedef theme;
 
 extern const theme defaultTheme;
