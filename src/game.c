@@ -192,6 +192,7 @@ int loadGame(const char* path, game* game, int forListing)
 
       game->achievements[game->achievementsCount].preEarnedDescription = NULL;
       game->achievements[game->achievementsCount].postEarnedDescription = NULL;
+      game->achievements[game->achievementsCount].achieved = 0;
       ach = &game->achievements[game->achievementsCount];
       logDebug("\tACH name=%s, title=%s, points=%i, visible=%i", game->achievements[game->achievementsCount].name, game->achievements[game->achievementsCount].title, game->achievements[game->achievementsCount].points, game->achievements[game->achievementsCount].visible);
       game->achievementsCount++;
@@ -204,10 +205,10 @@ int loadGame(const char* path, game* game, int forListing)
         trim(line);
         if (ach->preEarnedDescription == NULL) {
           ach->preEarnedDescription = malloc(strlen(line) + 1);
-          strncpy(ach->preEarnedDescription, line, strlen(line));
+          strcpy(ach->preEarnedDescription, line);
         } else if (ach->postEarnedDescription == NULL) {
           ach->postEarnedDescription = malloc(strlen(line) + 1);
-          strncpy(ach->postEarnedDescription, line, strlen(line));
+          strcpy(ach->postEarnedDescription, line);
           ach = NULL;
         } else {
           ach = NULL;

@@ -17,6 +17,11 @@ static void pg_popGosub();
 static void pg_getCommandArgs(const char *line, char *args, int size);
 long pg_manageGotoSceneCommand(const char *text);
 void pg_manageParamsCommand(const char *text);
+/// @brief Manage the achieve command: mark the achievement as earned and show it
+void pg_manageAchieveCommand(const char *text);
+/// @brief Count a jump to a label (*looplimit)
+/// @return 0 if the label was visited too many times in this page
+static int pg_checkLoopLimit(long position);
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
@@ -252,6 +257,10 @@ void pg_init()
   snprintf(pg_game_status.sceneName, sizeof(pg_game_status.sceneName), "startup");
   pg_game_status.paramsCount = 0;
   pg_game_status.gameEnded = 0;
+  // *hide_reuse in the startup header is read when the game is loaded
+  pg_game_status.choiceReuse = runningGame->hide_reuse ? reuse_hide : reuse_allow;
+  pg_game_status.loopLimit = 1000;
+  pg_game_status.labelVisitsCount = 0;
   pg_game_status.fpPosition = runningGame->startPosition;
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
@@ -826,6 +835,8 @@ int pg_exec_primitive()
   pg_game_status.showPageBreak = 0;
   pg_game_status.scrollY = 0;
   pg_clearChoices();
+  // Same as ChoiceScript: *looplimit counts the visits to a label in a page
+  pg_game_status.labelVisitsCount = 0;
 
   if (pg_game_status.fpPosition == pg_game_status.fpSize) {
     logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
@@ -873,6 +884,44 @@ int pg_exec_primitive()
         continue;
       }
 
+      if (stricmp(command, "hide_reuse") == 0 || stricmp(command, "disable_reuse") == 0 || stricmp(command, "allow_reuse") == 0) {
+        // Default reuse of the options of the choices in this scene
+        pg_game_status.choiceReuse = stricmp(command, "hide_reuse") == 0 ? reuse_hide :
+                                     stricmp(command, "disable_reuse") == 0 ? reuse_disable : reuse_allow;
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "looplimit") == 0) {
+        // looplimit N: maximum number of visits to a label in a page
+        char args[256];
+        char value[1024];
+        pg_getCommandArgs(line, args, sizeof(args));
+        pg_evaluateExpression(args, value);
+        int limit;
+        if (strlen(value) > 0 && is_number(value, &limit) && limit >= 0)
+          pg_game_status.loopLimit = limit;
+        else
+          logWarning("Invalid looplimit: %s", args);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "achieve") == 0) {
+        // achieve name
+        pg_manageAchieveCommand(line);
+        textStarted = 1;
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "feedback") == 0 || stricmp(command, "subscribe") == 0) {
+        // Online features (rating request, newsletter subscription): nothing to do
+        logDebug("*%s ignored", command);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
       if (stricmp(command, "ending") == 0) {
         // End of the game
         pg_clearChoiceContexts(0);
@@ -886,6 +935,8 @@ int pg_exec_primitive()
         long newPosition = pg_manageGotoSceneCommand(line);
         logDebug("%s -> %li", line, newPosition);
         pg_game_status.fpPosition = newPosition;
+        if (!pg_checkLoopLimit(newPosition))
+          break;
 
         if (textStarted)
           pg_appendText("\n", 0);
@@ -943,6 +994,8 @@ int pg_exec_primitive()
         long newPosition = pg_manageGotoCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
+        if (!pg_checkLoopLimit(newPosition))
+          break;
 
         if (textStarted)
           pg_appendText("\n", 0);
@@ -955,6 +1008,8 @@ int pg_exec_primitive()
         long newPosition = pg_manageGosubCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
+        if (!pg_checkLoopLimit(newPosition))
+          break;
 
         if (textStarted)
           pg_appendText("\n", 0);
@@ -967,6 +1022,8 @@ int pg_exec_primitive()
         long newPosition = pg_manageGosubSceneCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
+        if (!pg_checkLoopLimit(newPosition))
+          break;
 
         if (textStarted)
           pg_appendText("\n", 0);
@@ -1068,7 +1125,10 @@ int pg_exec_primitive()
     }
   }
 
-  if (pg_game_status.text == NULL && pg_game_status.fpPosition == pg_game_status.fpSize) {
+  // Nothing to show at the end of the file: go to the next scene
+  // (a choice or a page break at the end of the file must be shown)
+  if (pg_game_status.text == NULL && pg_game_status.choicesCount == 0 && !pg_game_status.showPageBreak &&
+      !pg_game_status.gameEnded && pg_game_status.fpPosition == pg_game_status.fpSize) {
     logDebug("Reached EOF (file size=%i), going to the next scene", pg_game_status.fpSize);
     pg_goToNextScene();
 
@@ -1854,6 +1914,9 @@ static int pg_openScene(const char *sceneName, int closeCurrent)
   pg_game_status.fpPosition = ftell(pg_game_status.fp);
 
   snprintf(pg_game_status.sceneName, sizeof(pg_game_status.sceneName), "%s", sceneName);
+  // Same as ChoiceScript: these settings are temporary values of the scene
+  pg_game_status.choiceReuse = reuse_allow;
+  pg_game_status.loopLimit = 1000;
   // Scenes not in the scene list (e.g. used with *gosub_scene) keep the current index
   for (int i = 0; i < runningGame->scenesCount; i++) {
     if (stricmp(runningGame->scenes[i], sceneName) == 0) {
@@ -2015,6 +2078,8 @@ static gosub_info *pg_pushGosub(int isScene)
     frame->tempVariablesCount = pg_game_status.tempVariablesCount;
     pg_game_status.tempVariables = NULL;
     pg_game_status.tempVariablesCount = 0;
+    frame->choiceReuse = pg_game_status.choiceReuse;
+    frame->loopLimit = pg_game_status.loopLimit;
   }
   return frame;
 }
@@ -2035,6 +2100,8 @@ static void pg_popGosub()
     pg_clearTempVars();
     pg_game_status.tempVariables = frame->tempVariables;
     pg_game_status.tempVariablesCount = frame->tempVariablesCount;
+    pg_game_status.choiceReuse = frame->choiceReuse;
+    pg_game_status.loopLimit = frame->loopLimit;
   }
   fseek(pg_game_status.fp, frame->position, SEEK_SET);
   memset(frame, 0, sizeof(gosub_info));
@@ -2167,6 +2234,76 @@ long pg_manageGotoSceneCommand(const char *text)
 
   fseek(pg_game_status.fp, position, SEEK_SET);
   return position;
+}
+
+static int pg_checkLoopLimit(long position)
+{
+  unsigned int hash = 5381;
+  for (const char *c = pg_game_status.sceneName; *c; c++)
+    hash = hash * 33 + (unsigned char)tolower((unsigned char)*c);
+
+  label_visit *visit = NULL;
+  for (int i = 0; i < pg_game_status.labelVisitsCount; i++) {
+    if (pg_game_status.labelVisits[i].position == position && pg_game_status.labelVisits[i].sceneHash == hash) {
+      visit = &pg_game_status.labelVisits[i];
+      break;
+    }
+  }
+  if (visit == NULL) {
+    if (pg_game_status.labelVisitsCount >= (int)(sizeof(pg_game_status.labelVisits) / sizeof(label_visit)))
+      return 1; // Table full: stop tracking new labels
+    visit = &pg_game_status.labelVisits[pg_game_status.labelVisitsCount++];
+    visit->sceneHash = hash;
+    visit->position = position;
+    visit->count = 0;
+  }
+
+  visit->count++;
+  // Same as ChoiceScript: 0 means no limit
+  if (pg_game_status.loopLimit > 0 && visit->count > pg_game_status.loopLimit) {
+    logError("Infinite loop: position %li of scene %s visited too many times (%i)", position, pg_game_status.sceneName, pg_game_status.loopLimit);
+    char message[512];
+    snprintf(message, sizeof(message), "\n\n[b]Error:[/b] infinite loop in scene %s (a label was visited more than %i times). The game cannot continue.",
+             pg_game_status.sceneName, pg_game_status.loopLimit);
+    pg_appendText(message, 0);
+    pg_game_status.gameEnded = 1;
+    pg_game_status.showPageBreak = 0;
+    return 0;
+  }
+  return 1;
+}
+
+void pg_manageAchieveCommand(const char *text)
+{
+  char name[256];
+  pg_getCommandArgs(text, name, sizeof(name));
+
+  achievement *ach = NULL;
+  for (int i = 0; i < runningGame->achievementsCount; i++) {
+    if (stricmp(runningGame->achievements[i].name, name) == 0) {
+      ach = &runningGame->achievements[i];
+      break;
+    }
+  }
+  if (ach == NULL) {
+    logWarning("Achievement %s not declared in startup", name);
+    return;
+  }
+  if (ach->achieved)
+    return;
+
+  ach->achieved = 1;
+  const char *description = ach->postEarnedDescription ? ach->postEarnedDescription : ach->preEarnedDescription;
+  logInfo("Achievement earned: %s (%s)", ach->name, ach->title);
+
+  // Show the achievement in the text of the page
+  char message[1024];
+  snprintf(message, sizeof(message), "%s[b]Achievement: %s[/b]%s%s\n\n",
+           pg_game_status.text && !endsWith("\n", pg_game_status.text) ? "\n\n" : "",
+           ach->title ? ach->title : ach->name,
+           description ? " - " : "",
+           description ? description : "");
+  pg_appendText(message, 0);
 }
 
 void pg_manageParamsCommand(const char *text)
@@ -2346,8 +2483,9 @@ static void pg_parseChoiceBlock(int blockIndentation)
 
     // Option modifiers: *hide_reuse, *disable_reuse, *allow_reuse, *selectable_if (cond), *if (cond)
     int start = 0;
-    int reusable = runningGame->hide_reuse ? 0 : 1;
-    int disableReuse = 0;
+    // Default of the scene, an option modifier overrides it
+    int reusable = pg_game_status.choiceReuse == reuse_hide ? 0 : 1;
+    int disableReuse = pg_game_status.choiceReuse == reuse_disable ? 1 : 0;
     int selectable = 1;
     int visible = 1;
     int isBlockIf = 0;
@@ -2681,15 +2819,17 @@ int pg_setVarValue(const char *varName, const char *value)
     return 1;
   }
 
-  // Absolute value
-  if (var->type == boolean && stricmp(expression, "true") != 0 && stricmp(expression, "false") != 0) {
-    variable *other = pg_getVar(expression);
-    if (other != NULL && other->value != NULL) {
-      pg_assignVar(var, other->value);
-    } else {
-      // Boolean expression: *set var (a > b), *set var not(a)
-      pg_assignVar(var, pg_evaluateBoolean(expression) ? "true" : "false");
-    }
+  // Absolute value. Variables are dynamically typed (as in ChoiceScript): the type follows the value
+  char opr[3];
+  int isBooleanExpression = expression[0] != '"' &&
+                            (pg_get_operator(expression, opr) >= 0 ||
+                             pg_strnicmp(expression, "not", 3) == 0 ||
+                             strstr(expression, " and ") != NULL || strstr(expression, " or ") != NULL ||
+                             strstr(expression, ")and") != NULL || strstr(expression, ")or") != NULL);
+  if (isBooleanExpression) {
+    // Boolean expression: *set var (a > b), *set var not(a), *set var a and b
+    pg_assignVar(var, pg_evaluateBoolean(expression) ? "true" : "false");
+    var->type = boolean;
     return 1;
   }
 
@@ -2698,6 +2838,16 @@ int pg_setVarValue(const char *varName, const char *value)
     return 0;
   }
   pg_assignVar(var, evaluated);
+
+  int intValue;
+  if (expression[0] == '"')
+    var->type = string;
+  else if (stricmp(evaluated, "true") == 0 || stricmp(evaluated, "false") == 0)
+    var->type = boolean;
+  else if (strlen(evaluated) > 0 && is_number(evaluated, &intValue))
+    var->type = number;
+  else
+    var->type = string;
   return 1;
 }
 

@@ -29,6 +29,8 @@ struct achievement
   char* title;
   char* preEarnedDescription;
   char* postEarnedDescription;
+  /// @brief Set to 1 when the achievement has been earned (*achieve)
+  int achieved;
 } typedef achievement;
 
 struct choice

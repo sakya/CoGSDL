@@ -4,6 +4,22 @@
 #include <SDL2/SDL_image.h>
 #include "game.h"
 
+/// @brief Default reuse of the choice options in the current scene (*allow_reuse, *hide_reuse, *disable_reuse)
+enum choice_reuse
+{
+  reuse_allow = 0,
+  reuse_hide = 1,
+  reuse_disable = 2
+};
+
+/// @brief Number of visits to a label in the current page (*looplimit)
+struct label_visit
+{
+  unsigned int sceneHash;
+  long position;
+  int count;
+} typedef label_visit;
+
 struct gosub_info
 {
   /// @brief FILE to return (NULL for a *gosub in the same scene)
@@ -19,6 +35,10 @@ struct gosub_info
   /// @brief Saved for *gosub_scene: temporary variables of the calling scene
   variable *tempVariables;
   int tempVariablesCount;
+  /// @brief Saved for *gosub_scene: default reuse of the calling scene
+  enum choice_reuse choiceReuse;
+  /// @brief Saved for *gosub_scene: loop limit of the calling scene
+  int loopLimit;
 } typedef gosub_info;
 
 /// @brief The option of a choice being executed
@@ -51,6 +71,12 @@ struct game_status
     int paramsCount;
     /// @brief Set to 1 when the game is ended (*ending or end of the last scene)
     int gameEnded;
+    /// @brief Default reuse of the choice options in the current scene
+    enum choice_reuse choiceReuse;
+    /// @brief Maximum number of visits to a label in a page (*looplimit)
+    int loopLimit;
+    label_visit labelVisits[256];
+    int labelVisitsCount;
     /// @brief The text to display
     char *text;
     /// @brief The text scroll y value
