@@ -8,9 +8,11 @@ PLATFORM?=
 ifeq ($(PLATFORM), miyoo)
 	CROSS_COMPILE?=arm-linux-gnueabihf-
 	CC=$(CROSS_COMPILE)gcc
-	SYSROOT?=$(shell $(CC) -print-sysroot)
-	SDL2FLAGS=-L$(SYSROOT)/usr/lib -Wl,-rpath-link,$(SYSROOT)/usr/lib -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer
-	CFLAGS+=-I$(INC_DIR) -I$(SYSROOT)/usr/include -D_REENTRANT -DMIYOO -Wall -O2 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard
+	# Header e librerie SDL2 per Miyoo: miyoo/include e miyoo/lib
+	MIYOO_DIR?=miyoo
+	SDL2FLAGS=-L$(MIYOO_DIR)/lib -Wl,-rpath-link,$(MIYOO_DIR)/lib -Wl,--allow-shlib-undefined \
+		-l:libSDL2-2.0.so.0 -l:libSDL2_image-2.0.so.0 -l:libSDL2_ttf-2.0.so.0 -l:libSDL2_mixer-2.0.so.0
+	CFLAGS+=-I$(INC_DIR) -I$(MIYOO_DIR)/include -I$(MIYOO_DIR)/include/SDL2 -D_REENTRANT -DMIYOO -Wall -O2 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard
 	LDFLAGS=-lm -lpthread
 else
 	CC=gcc
