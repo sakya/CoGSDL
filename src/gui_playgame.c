@@ -3,12 +3,20 @@
 
 void pg_init();
 void pg_dispose();
+static void pg_clearParams();
 void pg_exec();
 void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY);
 int pg_renderPageBreak();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
-void pg_goToNextScene();
+/// @brief Go to the next scene of the scene list
+/// @return 0 if there is no next scene (the game is ended)
+int pg_goToNextScene();
+void pg_clearGosubStack();
+static void pg_popGosub();
+static void pg_getCommandArgs(const char *line, char *args, int size);
+long pg_manageGotoSceneCommand(const char *text);
+void pg_manageParamsCommand(const char *text);
 void pg_appendText(const char *text, int newLine);
 int pg_needsNewLine(const char* text);
 label* pg_get_label(const char *labelName);
@@ -25,6 +33,12 @@ variable* pg_add_temp_var();
 int pg_delete_temp_var(int index);
 void pg_clearTempVars();
 void pg_clearChoices();
+/// @brief Continue the execution with the body of a choice option
+/// @param index The option index
+void pg_selectChoice(int index);
+static int pg_isBlank(const char *line);
+/// @brief Remove the choice contexts of the current gosub level (or deeper)
+static void pg_clearChoiceContexts(int gosubCount);
 /// @brief Get the next line from text
 /// @param text The string
 /// @param position The starting position. Updated to the starting position of the next line.
@@ -158,9 +172,9 @@ void drawGame()
 
   // A choice was selected
   if (pg_game_status.selectedChoiceIndex >= 0) {
-    choice *c = &pg_game_status.choices[pg_game_status.selectedChoiceIndex];
+    int index = pg_game_status.selectedChoiceIndex;
     pg_game_status.selectedChoiceIndex = -1;
-    fseek(pg_game_status.fp, c->position, SEEK_SET);
+    pg_selectChoice(index);
     pg_exec();
   }
 
@@ -185,6 +199,25 @@ void drawGame()
     pg_renderPageBreak();
   }
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
+}
+
+void pg_selectChoice(int index)
+{
+  choice *c = &pg_game_status.choices[index];
+
+  // When the option body ends, continue after the choice block
+  if (pg_game_status.choiceContextsCount == sizeof(pg_game_status.choiceContexts) / sizeof(choice_context)) {
+    logWarning("Too many nested choices");
+    memmove(&pg_game_status.choiceContexts[0], &pg_game_status.choiceContexts[1], sizeof(choice_context) * (pg_game_status.choiceContextsCount - 1));
+    pg_game_status.choiceContextsCount--;
+  }
+  choice_context *ctx = &pg_game_status.choiceContexts[pg_game_status.choiceContextsCount++];
+  ctx->endPosition = pg_game_status.choiceEndPosition;
+  ctx->indentation = c->indentation;
+  ctx->gosubCount = pg_game_status.gosubCount;
+
+  fseek(pg_game_status.fp, c->position, SEEK_SET);
+  pg_game_status.fpPosition = c->position;
 }
 
 void pg_init()
@@ -216,6 +249,9 @@ void pg_init()
   pg_game_status.tempVariables = NULL;
   pg_game_status.text = NULL;
   pg_game_status.sceneIndex = 0;
+  snprintf(pg_game_status.sceneName, sizeof(pg_game_status.sceneName), "startup");
+  pg_game_status.paramsCount = 0;
+  pg_game_status.gameEnded = 0;
   pg_game_status.fpPosition = runningGame->startPosition;
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
@@ -223,6 +259,7 @@ void pg_init()
   pg_game_status.selectedChoiceIndex = -1;
   pg_game_status.gosubCount = 0;
   pg_game_status.used_choices_count = 0;
+  pg_game_status.choiceContextsCount = 0;
 
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
@@ -241,6 +278,9 @@ void pg_init()
 
 void pg_dispose()
 {
+  pg_clearGosubStack();
+  pg_clearParams();
+  pg_game_status.gameEnded = 0;
   pg_clear_image_cache();
   pg_clearTempVars();
   pg_clearChoices();
@@ -255,6 +295,7 @@ void pg_dispose()
   pg_game_status.lastRenderedY = 0;
   pg_game_status.gosubCount = 0;
   pg_game_status.used_choices_count = 0;
+  pg_game_status.choiceContextsCount = 0;
 
   free(pg_game_status.text);
   pg_game_status.text = NULL;
@@ -541,9 +582,12 @@ int pg_evaluateBoolean(const char *condition)
       continue;
     if (cond[i] == '(') {
       depth++;
-    } else if (cond[i] == ')') {
+      continue;
+    }
+    if (cond[i] == ')')
       depth--;
-    } else if (depth == 0 && (isspace((unsigned char)cond[i]) || cond[i] == ')')) {
+    // "and"/"or" after a space or a closing parenthesis: (a = 1)or b
+    if (depth == 0 && (isspace((unsigned char)cond[i]) || cond[i] == ')')) {
       int opLen = 0;
       int isAnd = 0;
       if (pg_strnicmp(&cond[i + 1], "and", 3) == 0 && (isspace((unsigned char)cond[i + 4]) || cond[i + 4] == '(')) {
@@ -554,7 +598,8 @@ int pg_evaluateBoolean(const char *condition)
       }
 
       if (opLen) {
-        char *left = pg_strndup(cond, i);
+        // Keep the closing parenthesis in the left condition
+        char *left = pg_strndup(cond, cond[i] == ')' ? i + 1 : i);
         char *right = pg_strndup(&cond[i + 1 + opLen], len - i - 1 - opLen);
         int l = pg_evaluateBoolean(left);
         int r = pg_evaluateBoolean(right);
@@ -760,6 +805,15 @@ int pg_exec_primitive()
 {
   char line[4096];
 
+  if (pg_game_status.gameEnded) {
+    // Nothing more to execute: keep showing the last page
+    pg_game_status.showPageBreak = 0;
+    pg_clearChoices();
+    if (pg_game_status.text == NULL)
+      pg_appendText("The End", 0);
+    return 1;
+  }
+
   if(pg_game_status.text != NULL) {
     free(pg_game_status.text);
     pg_game_status.text = NULL;
@@ -785,6 +839,18 @@ int pg_exec_primitive()
     logDebug("line=%s", line);
     int lineIndentation = getIndentation(line);
 
+    // End of the body of the selected option: continue after the choice block
+    if (pg_game_status.choiceContextsCount > 0 && !pg_isBlank(line) && !isComment(line)) {
+      choice_context *ctx = &pg_game_status.choiceContexts[pg_game_status.choiceContextsCount - 1];
+      if (ctx->gosubCount == pg_game_status.gosubCount && lineIndentation <= ctx->indentation) {
+        logDebug("End of option body -> %li", ctx->endPosition);
+        pg_game_status.choiceContextsCount--;
+        fseek(pg_game_status.fp, ctx->endPosition, SEEK_SET);
+        pg_game_status.fpPosition = ctx->endPosition;
+        continue;
+      }
+    }
+
     if (isComment(line))
       continue;
 
@@ -801,9 +867,29 @@ int pg_exec_primitive()
         continue;
       }
       if (stricmp(command, "params") == 0) {
-        // We can skip params because we create the temporary variable
-        // when executing the gosub command
+        // params name1 name2...
+        pg_manageParamsCommand(line);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "ending") == 0) {
+        // End of the game
+        pg_clearChoiceContexts(0);
+        pg_game_status.gameEnded = 1;
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        break;
+      }
+
+      if (stricmp(command, "goto_scene") == 0) {
+        // goto_scene scene [label]
+        long newPosition = pg_manageGotoSceneCommand(line);
+        logDebug("%s -> %li", line, newPosition);
+        pg_game_status.fpPosition = newPosition;
+
+        if (textStarted)
+          pg_appendText("\n", 0);
+        textStarted = 0;
         continue;
       }
 
@@ -821,8 +907,11 @@ int pg_exec_primitive()
       }
 
       if (stricmp(command, "page_break") == 0) {
+        // page_break [button text]
+        char message[sizeof(pg_game_status.pageBreakMessage)];
+        pg_getCommandArgs(line, message, sizeof(message));
         pg_game_status.showPageBreak = 1;
-        strcpy(pg_game_status.pageBreakMessage, "Next");
+        snprintf(pg_game_status.pageBreakMessage, sizeof(pg_game_status.pageBreakMessage), "%s", strlen(message) ? message : "Next");
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         break;
       }
@@ -841,6 +930,7 @@ int pg_exec_primitive()
       }
 
       if (stricmp(command, "finish") == 0) {
+        pg_clearChoiceContexts(0);
         pg_manageFinishCommand(line);
         pg_game_status.showPageBreak = 1;
         pg_game_status.fpPosition = pg_game_status.fpSize;
@@ -848,7 +938,8 @@ int pg_exec_primitive()
       }
 
       if (stricmp(command, "goto") == 0) {
-        // goto
+        // goto: we leave the option body (if any)
+        pg_clearChoiceContexts(pg_game_status.gosubCount);
         long newPosition = pg_manageGotoCommand(line);
         logDebug("%s -> %i", line, newPosition);
         pg_game_status.fpPosition = newPosition;
@@ -885,33 +976,13 @@ int pg_exec_primitive()
 
       if (stricmp(command, "return") == 0) {
         if (pg_game_status.gosubCount == 0) {
-          logWarning("No previous position found");
+          logWarning("*return without *gosub");
+          pg_game_status.fpPosition = ftell(pg_game_status.fp);
           continue;
         }
-
-        gosub_info *info = &pg_game_status.gosub[pg_game_status.gosubCount];
-        long newPosition = info->position;
-        pg_game_status.fpPosition = newPosition;
-        if (info->fp != NULL) {
-          fclose(pg_game_status.fp);
-          pg_game_status.fp = info->fp;
-          pg_clear_labels();
-        }
-        fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
-        pg_game_status.gosubCount--;
-        logDebug("%s -> %i", line, newPosition);
-
-        info->position = 0;
-        info->fp = NULL;
-
-        // Clear params temp variables
-        for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
-          if (startsWith("param_", pg_game_status.tempVariables[i].name)) {
-            if (pg_delete_temp_var(i)) {
-              i--;
-            }
-          }
-        }
+        pg_popGosub();
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        logDebug("%s -> %li", line, pg_game_status.fpPosition);
         continue;
       }
 
@@ -924,7 +995,7 @@ int pg_exec_primitive()
           continue;
         }
         char varName[256];
-        char value[512];
+        char value[4096];
         subString(line, varName, idx, wordEnd - idx);
         idx += strlen(varName);
         subString(line, value, idx + 1, lineLen - idx);
@@ -1085,43 +1156,6 @@ int pg_needsNewLine(const char *text)
   if (strlen(text) > 2 && text[0] == -30 && text[1] == -128 && text[2] == -94)
     return 1;
   return 0;
-}
-
-void pg_goToNextScene()
-{
-  if (pg_game_status.sceneIndex + 1 >= runningGame->scenesCount) {
-    logWarning("No next scene");
-    return;
-  }
-
-  pg_game_status.sceneIndex++;
-  pg_game_status.fpPosition = 0;
-  pg_clear_labels();
-  pg_clearTempVars();
-
-  char filePath[256];
-  strcpy(filePath, runningGame->path);
-  strcat(filePath, "/scenes/");
-  strcat(filePath, runningGame->scenes[pg_game_status.sceneIndex]);
-  strcat(filePath, ".txt");
-
-  if (pg_game_status.fp) {
-    fclose(pg_game_status.fp);
-    pg_game_status.fp = NULL;
-  }
-  pg_clear_image_cache();
-  pg_game_status.fp = fopen(filePath, "rb");
-  if (!pg_game_status.fp) {
-    logError("Failed to open file %s", filePath);
-    return;
-  }
-  logInfo("Opened file %s", filePath);
-  pg_clear_labels();
-
-  fseek(pg_game_status.fp, 0L, SEEK_END);
-  pg_game_status.fpSize = ftell(pg_game_status.fp);
-  fseek(pg_game_status.fp, 0L, SEEK_SET);
-  pg_game_status.fpPosition = 0;
 }
 
 int pg_manageImageCommand(SDL_Surface *surface, const char *text, int y)
@@ -1381,12 +1415,11 @@ int pg_evaluateSimpleCondition(const char *condition)
 
   int opIdx = pg_get_operator(condition, operator);
   if (opIdx < 0) {
-    // just a variable name (boolean condition)
-    variable *var = pg_getVar(condition);
-    if (var == NULL) {
-      return 0;
-    }
-    res = var->value != NULL && stricmp(var->value, "true") == 0;
+    // just a variable name or a reference (boolean condition)
+    char value[1024];
+    pg_evaluateExpression(condition, value);
+    trim(value);
+    res = stricmp(value, "true") == 0;
     logDebug("\tCondition (%s) -> %s", condition, res ? "true" : "false");
     return res;
   }
@@ -1485,6 +1518,18 @@ static int pg_arithFactor(const char **p, double *out)
     }
     name[len] = '\0';
 
+    // Functions: round(expr)
+    const char *afterName = *p;
+    pg_arithSkipSpaces(p);
+    if (**p == '(' && stricmp(name, "round") == 0) {
+      double arg;
+      if (!pg_arithFactor(p, &arg))
+        return 0;
+      *out = floor(arg + 0.5); // Same as JavaScript Math.round
+      return 1;
+    }
+    *p = afterName;
+
     variable *var = pg_getVar(name);
     if (var == NULL || var->value == NULL)
       return 0;
@@ -1565,6 +1610,90 @@ int pg_evaluateArithmetic(const char *expression, double *result)
   return *p == '\0';
 }
 
+/// @brief Find a top level '&' (string concatenation) outside quotes and parentheses
+static int pg_findConcatenation(const char *expression)
+{
+  int depth = 0;
+  int inQuote = 0;
+  for (int i = 0; expression[i]; i++) {
+    if (expression[i] == '"' && (i == 0 || expression[i - 1] != '\\'))
+      inQuote = !inQuote;
+    if (inQuote)
+      continue;
+    if (expression[i] == '(')
+      depth++;
+    else if (expression[i] == ')')
+      depth--;
+    else if (expression[i] == '&' && depth == 0)
+      return i;
+  }
+  return -1;
+}
+
+/// @brief Resolve the name of a reference {expr}: the value of expr is the name of the variable
+/// @param content The text between the braces
+/// @param name Buffer for the variable name (or the value if it is a number or a boolean)
+static void pg_evaluateReferenceName(const char *content, char *name, int size)
+{
+  char *inner = pg_strndup(content, strlen(content));
+  trim(inner);
+  char value[1024];
+  pg_evaluateExpression(inner, value);
+  free(inner);
+  trim(value);
+  snprintf(name, size, "%s", value);
+}
+
+/// @brief Replace the references {expr} with the value of the referenced variable
+/// @return The new expression (must be freed) or NULL on error
+static char *pg_resolveReferences(const char *expression)
+{
+  pg_strbuf sb = { NULL, 0, 0 };
+  int inQuote = 0;
+  int len = strlen(expression);
+  for (int i = 0; i < len; i++) {
+    if (expression[i] == '"' && (i == 0 || expression[i - 1] != '\\'))
+      inQuote = !inQuote;
+
+    if (!inQuote && expression[i] == '{') {
+      int close = pg_findClosing(expression, i);
+      if (close < 0) {
+        logWarning("Missing '}' in %s", expression);
+        free(sb.buf);
+        return NULL;
+      }
+      char *content = pg_strndup(expression + i + 1, close - i - 1);
+      char name[1024];
+      pg_evaluateReferenceName(content, name, sizeof(name));
+      free(content);
+
+      int intValue;
+      if ((strlen(name) > 0 && is_number(name, &intValue)) || stricmp(name, "true") == 0 || stricmp(name, "false") == 0) {
+        // Same as ChoiceScript: numbers and booleans are their own value
+        pg_sb_append(&sb, name, strlen(name));
+      } else {
+        variable *var = pg_getVar(name);
+        if (var == NULL || var->value == NULL) {
+          logWarning("Reference {%s}: variable not found", name);
+          free(sb.buf);
+          return NULL;
+        }
+        if (var->type == string)
+          pg_sb_append(&sb, "\"", 1);
+        pg_sb_append(&sb, var->value, strlen(var->value));
+        if (var->type == string)
+          pg_sb_append(&sb, "\"", 1);
+      }
+      i = close;
+      continue;
+    }
+    pg_sb_append(&sb, &expression[i], 1);
+  }
+  if (sb.buf == NULL)
+    return pg_strndup("", 0);
+  return sb.buf;
+}
+
 int pg_evaluateExpression(const char *expression, char *value)
 {
   value[0] = '\0';
@@ -1572,6 +1701,39 @@ int pg_evaluateExpression(const char *expression, char *value)
     return 0;
 
   int expLen = strlen(expression);
+
+  // References: {var_name_expression}
+  if (strchr(expression, '{') != NULL && !(expLen > 1 && expression[0] == '"' && expression[expLen - 1] == '"')) {
+    char *resolved = pg_resolveReferences(expression);
+    if (resolved == NULL)
+      return 0;
+    int res = 0;
+    if (strchr(resolved, '{') == NULL || strcmp(resolved, expression) != 0)
+      res = pg_evaluateExpression(resolved, value);
+    free(resolved);
+    return res;
+  }
+
+  // String concatenation: "text" & var
+  int concat = pg_findConcatenation(expression);
+  if (concat > 0) {
+    char *left = pg_strndup(expression, concat);
+    char *right = pg_strndup(expression + concat + 1, expLen - concat - 1);
+    trim(left);
+    trim(right);
+    char leftValue[1024];
+    char rightValue[1024];
+    int res = pg_evaluateExpression(left, leftValue) & pg_evaluateExpression(right, rightValue);
+    // value is at least 1024 bytes
+    size_t leftLen = strlen(leftValue);
+    memcpy(value, leftValue, leftLen + 1);
+    for (size_t i = 0; rightValue[i] && leftLen < 1023; i++)
+      value[leftLen++] = rightValue[i];
+    value[leftLen] = '\0';
+    free(left);
+    free(right);
+    return res;
+  }
   if (expLen > 1 && expression[0] == '"' && expression[expLen - 1] == '"') {
     // String constant (can contain ${} substitutions)
     subString(expression, value, 1, expLen - 2);
@@ -1660,161 +1822,417 @@ long pg_manageGotoCommand(const char *text)
   return lbl->position;
 }
 
-long pg_manageGosubCommand(const char *text)
+/// @brief Open a scene file and make it the current one
+/// @param sceneName The scene name (file name without extension)
+/// @param closeCurrent Set to 1 to close the current file
+/// @return 1 on success
+static int pg_openScene(const char *sceneName, int closeCurrent)
 {
-  int start = indexOfWordBreak(text, 0);
-  if (start < 0) {
-    logWarning("gosub without label name");
-    return pg_game_status.fpPosition;
+  char filePath[512];
+  snprintf(filePath, sizeof(filePath), "%s/scenes/%s.txt", runningGame->path, sceneName);
+  FILE *fp = fopen(filePath, "rb");
+  if (!fp) {
+    logError("Failed to open file %s", filePath);
+    return 0;
+  }
+  logInfo("Opened file %s", filePath);
+
+  if (closeCurrent && pg_game_status.fp)
+    fclose(pg_game_status.fp);
+  pg_game_status.fp = fp;
+  pg_clear_labels();
+  pg_clear_image_cache();
+
+  fseek(pg_game_status.fp, 0L, SEEK_END);
+  pg_game_status.fpSize = ftell(pg_game_status.fp);
+  fseek(pg_game_status.fp, 0L, SEEK_SET);
+
+  // Skip the UTF8 BOM
+  unsigned char bom[3];
+  if (fread(bom, 1, 3, pg_game_status.fp) != 3 || bom[0] != 0xEF || bom[1] != 0xBB || bom[2] != 0xBF)
+    fseek(pg_game_status.fp, 0L, SEEK_SET);
+  pg_game_status.fpPosition = ftell(pg_game_status.fp);
+
+  snprintf(pg_game_status.sceneName, sizeof(pg_game_status.sceneName), "%s", sceneName);
+  // Scenes not in the scene list (e.g. used with *gosub_scene) keep the current index
+  for (int i = 0; i < runningGame->scenesCount; i++) {
+    if (stricmp(runningGame->scenes[i], sceneName) == 0) {
+      pg_game_status.sceneIndex = i;
+      break;
+    }
+  }
+  return 1;
+}
+
+int pg_goToNextScene()
+{
+  if (pg_game_status.sceneIndex + 1 >= runningGame->scenesCount) {
+    logInfo("No next scene: game ended");
+    pg_game_status.gameEnded = 1;
+    return 0;
   }
 
-  label *lbl = NULL;
-  int end;
-  int word_count = 0;
-  while ((end = indexOfWordBreak(text, start + 1)) >= 0) {
-    char *par_value = malloc(end - start + 1);
-    subString(text, par_value, start + 1, end - start - 1);
-    start = end;
+  pg_clearTempVars();
+  pg_clearChoiceContexts(0);
+  pg_clearGosubStack();
+  if (!pg_openScene(runningGame->scenes[pg_game_status.sceneIndex + 1], 1)) {
+    pg_game_status.gameEnded = 1;
+    return 0;
+  }
+  return 1;
+}
 
-    if (word_count == 0) {
-      // label name
-      lbl = pg_get_label(par_value);
-      if (lbl == NULL) {
-        logWarning("Label %s not found", par_value);
-        return pg_game_status.fpPosition;
-      }
+/// @brief Split command arguments in tokens: words, "strings", (expressions), {references}
+/// @param text The arguments
+/// @param tokens The tokens (must be freed)
+/// @param maxTokens The maximum number of tokens
+/// @return The number of tokens
+static int pg_tokenizeArgs(const char *text, char **tokens, int maxTokens)
+{
+  int count = 0;
+  int len = strlen(text);
+  int i = 0;
+  while (i < len) {
+    while (i < len && isspace((unsigned char)text[i]))
+      i++;
+    if (i >= len)
+      break;
+
+    int start = i;
+    if (text[i] == '"') {
+      i++;
+      while (i < len && !(text[i] == '"' && text[i - 1] != '\\'))
+        i++;
+      if (i < len)
+        i++;
+    } else if (text[i] == '(' || text[i] == '{') {
+      int close = pg_findClosing(text, i);
+      i = close < 0 ? len : close + 1;
     } else {
-      // parameter
-      variable *var = pg_add_temp_var();
-      var->name = malloc(32);
-      sprintf(var->name, "param_%i", word_count);
-      var->type = get_var_type(par_value);
-      setVarValue(var, par_value);
+      while (i < len && !isspace((unsigned char)text[i]))
+        i++;
     }
 
-    free(par_value);
-    word_count++;
+    if (count < maxTokens) {
+      tokens[count++] = pg_strndup(text + start, i - start);
+    } else {
+      logWarning("Too many arguments: %s", text);
+      break;
+    }
+  }
+  return count;
+}
+
+static void pg_freeTokens(char **tokens, int count)
+{
+  for (int i = 0; i < count; i++)
+    free(tokens[i]);
+}
+
+static void pg_clearParams()
+{
+  for (int i = 0; i < pg_game_status.paramsCount; i++) {
+    free(pg_game_status.params[i]);
+    pg_game_status.params[i] = NULL;
+  }
+  pg_game_status.paramsCount = 0;
+}
+
+/// @brief Evaluate the arguments of *gosub, *gosub_scene, *goto_scene (used by *params)
+static void pg_setParams(char **tokens, int count)
+{
+  pg_clearParams();
+  for (int i = 0; i < count && i < (int)(sizeof(pg_game_status.params) / sizeof(char*)); i++) {
+    char value[4096];
+    pg_evaluateExpression(tokens[i], value);
+    pg_game_status.params[pg_game_status.paramsCount++] = pg_strndup(value, strlen(value));
+    logDebug("\tparam_%i=%s", i + 1, value);
+  }
+}
+
+static void pg_freeVariables(variable *vars, int count)
+{
+  if (vars == NULL)
+    return;
+  for (int i = 0; i < count; i++) {
+    free(vars[i].name);
+    free(vars[i].value);
+  }
+  free(vars);
+}
+
+/// @brief Create or set a temporary variable (the type is detected from the value)
+static void pg_setTempVar(const char *name, const char *value)
+{
+  variable *var = NULL;
+  for (int i = 0; i < pg_game_status.tempVariablesCount; i++) {
+    if (stricmp(pg_game_status.tempVariables[i].name, name) == 0) {
+      var = &pg_game_status.tempVariables[i];
+      break;
+    }
+  }
+  if (var == NULL) {
+    var = pg_add_temp_var();
+    if (var == NULL)
+      return;
+    var->name = pg_strndup(name, strlen(name));
   }
 
-  if (word_count - 1 >= 0) {
-    variable *var = pg_add_temp_var();
-    var->name = malloc(32);
-    strcpy(var->name, "param_count");
+  int intValue;
+  if (stricmp(value, "true") == 0 || stricmp(value, "false") == 0)
+    var->type = boolean;
+  else if (strlen(value) > 0 && is_number(value, &intValue))
     var->type = number;
-    char count[11];
-    sprintf(count, "%i", word_count - 1);
-    setVarValue(var, count);
+  else
+    var->type = string;
+
+  free(var->value);
+  var->value = pg_strndup(value, strlen(value));
+  logDebug("\tTEMPVAR %s=%s", var->name, var->value);
+}
+
+/// @brief Push a gosub frame
+/// @param isScene Set to 1 for *gosub_scene: the current file and temporary variables are saved
+/// @return The frame or NULL
+static gosub_info *pg_pushGosub(int isScene)
+{
+  if (pg_game_status.gosubCount + 1 >= (int)(sizeof(pg_game_status.gosub) / sizeof(gosub_info))) {
+    logWarning("Too many nested gosub");
+    return NULL;
   }
 
   pg_game_status.gosubCount++;
-  gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
-  gosub->fp = NULL;
-  gosub->position = ftell(pg_game_status.fp);
-  fseek(pg_game_status.fp, lbl->position, SEEK_SET);
+  gosub_info *frame = &pg_game_status.gosub[pg_game_status.gosubCount];
+  memset(frame, 0, sizeof(gosub_info));
+  frame->position = ftell(pg_game_status.fp);
+  if (isScene) {
+    frame->fp = pg_game_status.fp;
+    frame->fpSize = pg_game_status.fpSize;
+    frame->sceneIndex = pg_game_status.sceneIndex;
+    snprintf(frame->sceneName, sizeof(frame->sceneName), "%s", pg_game_status.sceneName);
+    // The scene called with gosub_scene has its own temporary variables
+    frame->tempVariables = pg_game_status.tempVariables;
+    frame->tempVariablesCount = pg_game_status.tempVariablesCount;
+    pg_game_status.tempVariables = NULL;
+    pg_game_status.tempVariablesCount = 0;
+  }
+  return frame;
+}
 
-  return lbl->position;
+/// @brief Pop the last gosub frame, restoring the file and the temporary variables of a *gosub_scene
+static void pg_popGosub()
+{
+  gosub_info *frame = &pg_game_status.gosub[pg_game_status.gosubCount];
+  if (frame->fp != NULL) {
+    if (pg_game_status.fp)
+      fclose(pg_game_status.fp);
+    pg_game_status.fp = frame->fp;
+    pg_game_status.fpSize = frame->fpSize;
+    pg_game_status.sceneIndex = frame->sceneIndex;
+    snprintf(pg_game_status.sceneName, sizeof(pg_game_status.sceneName), "%s", frame->sceneName);
+    pg_clear_labels();
+
+    pg_clearTempVars();
+    pg_game_status.tempVariables = frame->tempVariables;
+    pg_game_status.tempVariablesCount = frame->tempVariablesCount;
+  }
+  fseek(pg_game_status.fp, frame->position, SEEK_SET);
+  memset(frame, 0, sizeof(gosub_info));
+  pg_game_status.gosubCount--;
+  // Remove the choice contexts of the subroutine
+  pg_clearChoiceContexts(pg_game_status.gosubCount + 1);
+}
+
+void pg_clearGosubStack()
+{
+  for (int i = 1; i <= pg_game_status.gosubCount; i++) {
+    gosub_info *frame = &pg_game_status.gosub[i];
+    if (frame->fp != NULL)
+      fclose(frame->fp);
+    pg_freeVariables(frame->tempVariables, frame->tempVariablesCount);
+    memset(frame, 0, sizeof(gosub_info));
+  }
+  pg_game_status.gosubCount = 0;
+}
+
+long pg_manageGosubCommand(const char *text)
+{
+  // *gosub label arg1 arg2...
+  char args[4096];
+  char *tokens[34];
+  pg_getCommandArgs(text, args, sizeof(args));
+  int count = pg_tokenizeArgs(args, tokens, 34);
+  if (count == 0) {
+    logWarning("gosub without label name");
+    return ftell(pg_game_status.fp);
+  }
+
+  label *lbl = pg_get_label(tokens[0]);
+  if (lbl == NULL) {
+    logWarning("Label %s not found", tokens[0]);
+    pg_freeTokens(tokens, count);
+    return ftell(pg_game_status.fp);
+  }
+  long position = lbl->position;
+
+  pg_setParams(tokens + 1, count - 1);
+  pg_freeTokens(tokens, count);
+  if (pg_pushGosub(0) == NULL)
+    return ftell(pg_game_status.fp);
+
+  fseek(pg_game_status.fp, position, SEEK_SET);
+  return position;
 }
 
 long pg_manageGosubSceneCommand(const char *text)
 {
-  int start = indexOfWordBreak(text, 0);
-  if (start < 0) {
+  // *gosub_scene scene [label] [arg1 arg2...]
+  char args[4096];
+  char *tokens[34];
+  pg_getCommandArgs(text, args, sizeof(args));
+  int count = pg_tokenizeArgs(args, tokens, 34);
+  if (count == 0) {
     logWarning("gosub_scene without scene name");
-    return pg_game_status.fpPosition;
+    return ftell(pg_game_status.fp);
   }
 
-  char label_name[256];
-  FILE *fp = NULL;
-  int end;
-  int word_count = 0;
-  while ((end = indexOfWordBreak(text, start + 1)) >= 0) {
-    char *par_value = malloc(end - start + 1);
-    subString(text, par_value, start + 1, end - start - 1);
-    start = end;
+  // Evaluate the arguments with the variables of the current scene
+  pg_setParams(tokens + 2, count > 2 ? count - 2 : 0);
 
-    logDebug("par_value=%s", par_value);
-    if (word_count == 0) {
-      // scene name
-      char filePath[256];
-      strcpy(filePath, runningGame->path);
-      strcat(filePath, "/scenes/");
-      strcat(filePath, par_value);
-      strcat(filePath, ".txt");
+  if (pg_pushGosub(1) == NULL) {
+    pg_freeTokens(tokens, count);
+    return ftell(pg_game_status.fp);
+  }
+  if (!pg_openScene(tokens[0], 0)) {
+    // Restore the caller (the current file was not replaced)
+    gosub_info *frame = &pg_game_status.gosub[pg_game_status.gosubCount];
+    frame->fp = NULL;
+    pg_game_status.tempVariables = frame->tempVariables;
+    pg_game_status.tempVariablesCount = frame->tempVariablesCount;
+    frame->tempVariables = NULL;
+    pg_game_status.gosubCount--;
+    pg_freeTokens(tokens, count);
+    return ftell(pg_game_status.fp);
+  }
 
-      fp = fopen(filePath, "rb");
-      if (fp == NULL) {
-        logError("Failed to open file %s", filePath);
-      }
-      logInfo("Opened file %s", filePath);
-    } else if (word_count == 1) {
-      // label name
-      strcpy(label_name, par_value);
-    } else {
-      // parameter
-      variable *var = pg_add_temp_var();
-      var->name = malloc(32);
-      sprintf(var->name, "param_%i", word_count);
-      var->type = get_var_type(par_value);
-      setVarValue(var, par_value);
+  long position = pg_game_status.fpPosition;
+  if (count > 1) {
+    label *lbl = pg_get_label(tokens[1]);
+    if (lbl == NULL)
+      logWarning("Label %s not found in scene %s", tokens[1], tokens[0]);
+    else
+      position = lbl->position;
+  }
+  pg_freeTokens(tokens, count);
+
+  fseek(pg_game_status.fp, position, SEEK_SET);
+  return position;
+}
+
+long pg_manageGotoSceneCommand(const char *text)
+{
+  // *goto_scene scene [label] [arg1 arg2...]
+  char args[4096];
+  char *tokens[34];
+  pg_getCommandArgs(text, args, sizeof(args));
+  int count = pg_tokenizeArgs(args, tokens, 34);
+  if (count == 0) {
+    logWarning("goto_scene without scene name");
+    return ftell(pg_game_status.fp);
+  }
+
+  pg_setParams(tokens + 2, count > 2 ? count - 2 : 0);
+
+  if (pg_game_status.gosubCount > 0) {
+    logWarning("*goto_scene after *gosub_scene without *return");
+    pg_clearGosubStack();
+  }
+  pg_clearChoiceContexts(0);
+
+  if (!pg_openScene(tokens[0], 1)) {
+    pg_freeTokens(tokens, count);
+    return ftell(pg_game_status.fp);
+  }
+  pg_clearTempVars();
+
+  long position = pg_game_status.fpPosition;
+  if (count > 1) {
+    label *lbl = pg_get_label(tokens[1]);
+    if (lbl == NULL)
+      logWarning("Label %s not found in scene %s", tokens[1], tokens[0]);
+    else
+      position = lbl->position;
+  }
+  pg_freeTokens(tokens, count);
+
+  fseek(pg_game_status.fp, position, SEEK_SET);
+  return position;
+}
+
+void pg_manageParamsCommand(const char *text)
+{
+  // *params name1 name2...: name the arguments of gosub, they are also available as param_1, param_2...
+  char args[4096];
+  char *tokens[34];
+  char name[32];
+  pg_getCommandArgs(text, args, sizeof(args));
+  int count = pg_tokenizeArgs(args, tokens, 34);
+
+  int i;
+  for (i = 0; i < count; i++) {
+    if (i >= pg_game_status.paramsCount) {
+      logWarning("No parameter passed for %s", tokens[i]);
+      break;
     }
-
-    free(par_value);
-    word_count++;
+    pg_setTempVar(tokens[i], pg_game_status.params[i]);
+    snprintf(name, sizeof(name), "param_%i", i + 1);
+    pg_setTempVar(name, pg_game_status.params[i]);
   }
-
-  if (word_count - 2 >= 0) {
-    variable *var = pg_add_temp_var();
-    var->name = malloc(32);
-    strcpy(var->name, "param_count");
-    var->type = number;
-    char count[11];
-    sprintf(count, "%i", word_count - 2);
-    setVarValue(var, count);
+  for (; i < pg_game_status.paramsCount; i++) {
+    snprintf(name, sizeof(name), "param_%i", i + 1);
+    pg_setTempVar(name, pg_game_status.params[i]);
   }
-
-  pg_game_status.gosubCount++;
-  gosub_info *gosub = &pg_game_status.gosub[pg_game_status.gosubCount];
-  gosub->fp = pg_game_status.fp;
-  gosub->position = ftell(pg_game_status.fp);
-
-  pg_game_status.fp = fp;
-  pg_clear_labels();
-
-  label *lbl = NULL;
-  if (strlen(label_name)) {
-    lbl = pg_get_label(label_name);
-    if (lbl == NULL) {
-      logWarning("Label %s not found", label_name);
-    }
-  }
-  fseek(pg_game_status.fp, lbl == NULL ? 0 : lbl->position, SEEK_SET);
-
-  return lbl == NULL ? 0 : lbl->position;
+  snprintf(name, sizeof(name), "%i", pg_game_status.paramsCount);
+  pg_setTempVar("param_count", name);
+  pg_freeTokens(tokens, count);
 }
 
 void pg_manageTempCommand(const char *text)
 {
-  int idx = indexOfWordBreak(text, 6);
+  // *temp name [value]
+  char args[4096];
+  pg_getCommandArgs(text, args, sizeof(args));
+  int nameEnd = 0;
+  while (args[nameEnd] && !isspace((unsigned char)args[nameEnd]))
+    nameEnd++;
+  if (nameEnd == 0) {
+    logWarning("*temp without variable name");
+    return;
+  }
 
-  variable *var = pg_add_temp_var();
-  var->name = malloc(idx - 6 + 1);
-  subString(text, var->name, 6, idx - 6);
-  var->value = NULL;
+  char *name = pg_strndup(args, nameEnd);
+  char *rawValue = args + nameEnd;
+  while (isspace((unsigned char)*rawValue))
+    rawValue++;
 
-  char *tempValue = malloc(strlen(text) - idx + 1);
-  subString(text, tempValue, idx + 1, strlen(text) - idx);
-  trim(tempValue);
-  var->type = get_var_type(tempValue);
-  setVarValue(var, tempValue);
-  free(tempValue);
+  char value[4096] = "";
+  if (*rawValue)
+    pg_evaluateExpression(rawValue, value);
+  pg_setTempVar(name, value);
 
-  logDebug("\tTEMPVAR %s=%s (type %s)", var->name, var->value, var->type == string ? "string" : var->type == boolean ? "boolean" : "number");
+  // A quoted value is always a string ("123")
+  if (rawValue[0] == '"') {
+    variable *var = pg_getVar(name);
+    if (var != NULL)
+      var->type = string;
+  }
+  free(name);
 }
 
 /// @brief Add an option to the current choice
 /// @param line The option line (trimmed)
 /// @param start The position of the '#'
-static void pg_addChoiceOption(const char *line, int start, int reusable, int disableReuse, int selectable)
+static void pg_addChoiceOption(const char *line, int start, int indentation, int reusable, int disableReuse, int selectable)
 {
   pg_game_status.choicesCount++;
   if (pg_game_status.choices == NULL) {
@@ -1837,9 +2255,10 @@ static void pg_addChoiceOption(const char *line, int start, int reusable, int di
   choice->reusable = reusable;
   choice->disable_reuse = disableReuse;
   choice->selectable = selectable;
+  choice->indentation = indentation;
   choice->text = malloc(strlen(line) - start + 1);
   choice->position = ftell(pg_game_status.fp);
-  sprintf(choice->id, "%i_%li", pg_game_status.sceneIndex, choice->position);
+  snprintf(choice->id, sizeof(choice->id), "%.40s_%li", pg_game_status.sceneName, choice->position);
   choice->used = 0;
   for (int i = 0; i < pg_game_status.used_choices_count; i++) {
     if (strcmp(choice->id, pg_game_status.used_choices[i]) == 0) {
@@ -2004,7 +2423,7 @@ static void pg_parseChoiceBlock(int blockIndentation)
         logDebug("\tChoice hidden: %s", line);
         continue;
       }
-      pg_addChoiceOption(line, start, reusable, disableReuse, selectable);
+      pg_addChoiceOption(line, start, blockIndentation, reusable, disableReuse, selectable);
     }
   }
 
@@ -2034,7 +2453,8 @@ long pg_manageChoiceCommand()
   if (pg_game_status.choicesCount == 0) {
     logWarning("Empty choice");
   }
-  return ftell(pg_game_status.fp);
+  pg_game_status.choiceEndPosition = ftell(pg_game_status.fp);
+  return pg_game_status.choiceEndPosition;
 }
 
 void pg_manageFinishCommand(const char *text)
@@ -2153,15 +2573,131 @@ variable* pg_getVar(const char *varName)
   return getGameVar(varName, runningGame);
 }
 
+/// @brief Format a number as ChoiceScript does (no decimals for integer values)
+static void pg_formatNumber(double number, char *value)
+{
+  if (fabs(number - round(number)) < 1e-9)
+    sprintf(value, "%li", (long)round(number));
+  else
+    sprintf(value, "%g", number);
+}
+
+/// @brief Assign an already evaluated value to a variable
+static void pg_assignVar(variable *var, const char *value)
+{
+  char *tmp = pg_strndup(value, strlen(value));
+  free(var->value);
+  var->value = tmp;
+  logDebug("Variable set %s=%s", var->name, var->value);
+}
+
 int pg_setVarValue(const char *varName, const char *value)
 {
+  char refName[1024];
+  int nameLen = strlen(varName);
+  if (nameLen > 1 && varName[0] == '{' && varName[nameLen - 1] == '}') {
+    // *set {expr} value: the variable name is the value of expr
+    char *content = pg_strndup(varName + 1, nameLen - 2);
+    pg_evaluateReferenceName(content, refName, sizeof(refName));
+    free(content);
+    varName = refName;
+  }
+
   variable *var = pg_getVar(varName);
   if (var == NULL)
     return 0;
 
-  char evaluated[1024];
-  pg_evaluateExpression(value, evaluated);
-  setVarValue(var, evaluated);
+  char expression[4096];
+  snprintf(expression, sizeof(expression), "%s", value);
+  trim(expression);
+  int len = strlen(expression);
+  char evaluated[4096];
+
+  // Fairmath: *set var %+10, *set var %-10
+  if (len > 2 && expression[0] == '%' && (expression[1] == '+' || expression[1] == '-')) {
+    char *rest = expression + 2;
+    double current = atof(var->value ? var->value : "0");
+    double percent;
+    char rightValue[1024];
+    pg_evaluateExpression(rest, rightValue);
+    percent = atof(rightValue);
+    // Same as ChoiceScript (fairAdd): increase rounded down (max 99), decrease rounded up (min 1)
+    double delta = expression[1] == '+' ? percent : -percent;
+    double result;
+    if (delta > 0) {
+      result = floor(current + delta * (100 - current) / 100);
+      if (result > 99)
+        result = 99;
+    } else {
+      result = ceil(current - (-delta) * current / 100);
+      if (result < 1)
+        result = 1;
+    }
+    pg_formatNumber(result, evaluated);
+    pg_assignVar(var, evaluated);
+    return 1;
+  }
+
+  // Relative change: *set var +1, *set var - 2, *set var *(a + b), *set var &"text"
+  if (len > 0 && strchr("+-*/&", expression[0]) != NULL) {
+    char op = expression[0];
+    char *rest = expression + 1;
+    while (isspace((unsigned char)*rest))
+      rest++;
+
+    if (op == '&') {
+      // String concatenation
+      char rightValue[4096];
+      pg_evaluateExpression(rest, rightValue);
+      snprintf(evaluated, sizeof(evaluated), "%s%s", var->value ? var->value : "", rightValue);
+      pg_assignVar(var, evaluated);
+      return 1;
+    }
+
+    char rightValue[1024];
+    pg_evaluateExpression(rest, rightValue);
+    char *end;
+    double right = strtod(rightValue, &end);
+    if (end == rightValue) {
+      logWarning("*set %s %s: invalid number %s", varName, value, rightValue);
+      return 0;
+    }
+    double current = atof(var->value ? var->value : "0");
+    double result;
+    switch (op) {
+      case '+': result = current + right; break;
+      case '-': result = current - right; break;
+      case '*': result = current * right; break;
+      default:
+        if (right == 0) {
+          logWarning("*set %s %s: division by zero", varName, value);
+          return 0;
+        }
+        result = current / right;
+        break;
+    }
+    pg_formatNumber(result, evaluated);
+    pg_assignVar(var, evaluated);
+    return 1;
+  }
+
+  // Absolute value
+  if (var->type == boolean && stricmp(expression, "true") != 0 && stricmp(expression, "false") != 0) {
+    variable *other = pg_getVar(expression);
+    if (other != NULL && other->value != NULL) {
+      pg_assignVar(var, other->value);
+    } else {
+      // Boolean expression: *set var (a > b), *set var not(a)
+      pg_assignVar(var, pg_evaluateBoolean(expression) ? "true" : "false");
+    }
+    return 1;
+  }
+
+  if (!pg_evaluateExpression(expression, evaluated)) {
+    logWarning("*set %s %s: value not evaluated", varName, value);
+    return 0;
+  }
+  pg_assignVar(var, evaluated);
   return 1;
 }
 
@@ -2235,6 +2771,14 @@ void pg_clearTempVars()
     pg_game_status.tempVariables = NULL;
   }
   pg_game_status.tempVariablesCount = 0;
+}
+
+static void pg_clearChoiceContexts(int gosubCount)
+{
+  while (pg_game_status.choiceContextsCount > 0 &&
+         pg_game_status.choiceContexts[pg_game_status.choiceContextsCount - 1].gosubCount >= gosubCount) {
+    pg_game_status.choiceContextsCount--;
+  }
 }
 
 void pg_clearChoices()

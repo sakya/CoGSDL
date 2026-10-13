@@ -51,8 +51,17 @@ void drawGameChoice()
       pg_game_status.selectedChoiceIndex = selectedIdx;
       logInfo("Selected choice: %s (%i)", c->text, c->position);
       c->used = 1;
-      strcpy(pg_game_status.used_choices[pg_game_status.used_choices_count], c->id);
-      pg_game_status.used_choices_count++;
+      int alreadyUsed = 0;
+      for (int i = 0; i < pg_game_status.used_choices_count; i++) {
+        if (strcmp(pg_game_status.used_choices[i], c->id) == 0) {
+          alreadyUsed = 1;
+          break;
+        }
+      }
+      if (!alreadyUsed && pg_game_status.used_choices_count < (int)(sizeof(pg_game_status.used_choices) / sizeof(pg_game_status.used_choices[0]))) {
+        strcpy(pg_game_status.used_choices[pg_game_status.used_choices_count], c->id);
+        pg_game_status.used_choices_count++;
+      }
 
       _Globals.status = Game;
       gc_dispose();

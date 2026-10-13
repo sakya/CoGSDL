@@ -34,7 +34,7 @@ struct achievement
 struct choice
 {
   /// @brief Choice id
-  char id[32];
+  char id[64];
   /// @brief The choice text
   char *text;
   /// @brief The file position to go if the choice is selected
@@ -47,6 +47,8 @@ struct choice
   int selectable;
   /// @brief Set to 1 if the choice is disabled after it has been used (*disable_reuse)
   int disable_reuse;
+  /// @brief The indentation of the option line (the option body ends at the first line with this indentation or less)
+  int indentation;
 } typedef choice;
 
 struct game

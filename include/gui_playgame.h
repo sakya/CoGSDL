@@ -6,11 +6,31 @@
 
 struct gosub_info
 {
-  /// @brief FILE to return
+  /// @brief FILE to return (NULL for a *gosub in the same scene)
   FILE *fp;
   /// @brief Position to return
   long position;
+  /// @brief Saved for *gosub_scene: size of the file to return
+  long fpSize;
+  /// @brief Saved for *gosub_scene: scene index to return
+  int sceneIndex;
+  /// @brief Saved for *gosub_scene: scene name to return
+  char sceneName[256];
+  /// @brief Saved for *gosub_scene: temporary variables of the calling scene
+  variable *tempVariables;
+  int tempVariablesCount;
 } typedef gosub_info;
+
+/// @brief The option of a choice being executed
+struct choice_context
+{
+  /// @brief The position of the first line after the choice block
+  long endPosition;
+  /// @brief The indentation of the option line
+  int indentation;
+  /// @brief The gosub depth when the option was selected
+  int gosubCount;
+} typedef choice_context;
 
 struct game_status
 {
@@ -24,6 +44,13 @@ struct game_status
     int gosubCount;
     /// @brief The scene index in game.scenes we are executing
     int sceneIndex;
+    /// @brief The name of the scene we are executing
+    char sceneName[256];
+    /// @brief Arguments of the last *gosub/*gosub_scene/*goto_scene (named with *params)
+    char *params[32];
+    int paramsCount;
+    /// @brief Set to 1 when the game is ended (*ending or end of the last scene)
+    int gameEnded;
     /// @brief The text to display
     char *text;
     /// @brief The text scroll y value
@@ -51,8 +78,14 @@ struct game_status
     choice *choices;
     int choicesCount;
     int selectedChoiceIndex;
+    /// @brief The position of the first line after the last choice block
+    long choiceEndPosition;
 
-    char used_choices[1024][32];
+    /// @brief The options being executed (an option body ends continuing after its choice block)
+    choice_context choiceContexts[32];
+    int choiceContextsCount;
+
+    char used_choices[1024][64];
     int used_choices_count;
 } typedef game_status;
 
