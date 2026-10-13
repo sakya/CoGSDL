@@ -39,6 +39,8 @@ static void pg_loadAchievements();
 static int pg_saveAchievements();
 /// @brief Manage the rand command: *rand variable min max
 void pg_manageRandCommand(const char *text);
+/// @brief Manage the config command: *config variable value
+void pg_manageConfigCommand(const char *text);
 static void pg_setTempVar(const char *name, const char *value);
 /// @brief Random number in [0, 1)
 static double pg_random();
@@ -1038,6 +1040,13 @@ int pg_exec_primitive()
           pg_game_status.loopLimit = limit;
         else
           logWarning("Invalid looplimit: %s", args);
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "config") == 0) {
+        // config variable value
+        pg_manageConfigCommand(line);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
@@ -2751,6 +2760,63 @@ static double pg_random()
   uint64_t value = pg_randomState * 0x2545F4914F6CDD1DULL;
   // 53 random bits -> [0, 1)
   return (value >> 11) * (1.0 / 9007199254740992.0);
+}
+
+/// @brief The values of *config: in the Choice of Games apps they come from a remote configuration
+static const char *pg_remoteConfig[][2] = {
+  // Skip the description of the game shown at startup
+  { "skip_description", "true" },
+};
+
+void pg_manageConfigCommand(const char *text)
+{
+  // Same as *set: *config variable value
+  char args[4096];
+  pg_getCommandArgs(text, args, sizeof(args));
+  int nameEnd = 0;
+  if (args[0] == '{') {
+    nameEnd = pg_findClosing(args, 0);
+    nameEnd = nameEnd < 0 ? (int)strlen(args) : nameEnd + 1;
+  } else {
+    while (args[nameEnd] && !isspace((unsigned char)args[nameEnd]))
+      nameEnd++;
+  }
+  char *name = pg_strndup(args, nameEnd);
+  const char *value = args + nameEnd;
+  while (isspace((unsigned char)*value))
+    value++;
+  if (strlen(name) == 0 || strlen(value) == 0) {
+    logWarning("Invalid config instruction: %s", text);
+    free(name);
+    return;
+  }
+
+  if (!pg_setVarValue(name, value)) {
+    logWarning("*config: non-existent variable %s", name);
+    free(name);
+    return;
+  }
+
+  // Then the remote configuration (if any) replaces the value
+  const char *varName = name;
+  char refName[1024];
+  if (name[0] == '{') {
+    char *content = pg_strndup(name + 1, strlen(name) - 2);
+    pg_evaluateReferenceName(content, refName, sizeof(refName));
+    free(content);
+    varName = refName;
+  }
+  for (size_t i = 0; i < sizeof(pg_remoteConfig) / sizeof(pg_remoteConfig[0]); i++) {
+    if (stricmp(pg_remoteConfig[i][0], varName) == 0) {
+      variable *var = pg_getVar(varName);
+      if (var != NULL) {
+        pg_assignVar(var, pg_remoteConfig[i][1]);
+        logDebug("*config %s: remote value %s", varName, pg_remoteConfig[i][1]);
+      }
+      break;
+    }
+  }
+  free(name);
 }
 
 void pg_manageRandCommand(const char *text)
