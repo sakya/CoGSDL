@@ -6,7 +6,7 @@ static int mm_index = 0;
 void drawMainMenu()
 {
   if (_Globals.input[_Keys.KeyDown] == 1) {
-    if (mm_index < 3) {
+    if (mm_index < 4) {
       mm_index++;
       Mix_PlayChannel(-1, sound_menu_change, 0);
     }
@@ -56,7 +56,7 @@ void drawMainMenu()
   sdlWriteText(_Globals.defaultFont, mm_index == 1 ? _theme->selectedTextColor : _theme->textColor, "Games", 30, 230, 0, 0);
   sdlWriteText(_Globals.defaultFont, mm_index == 2 ? _theme->selectedTextColor : _theme->textColor, "Settings", 30, 260, 0, 0);
   sdlWriteText(_Globals.defaultFont, mm_index == 3 ? _theme->selectedTextColor : _theme->textColor, "About", 30, 290, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mm_index == 4 ? _theme->selectedTextColor : _theme->textColor, "Quit", 30, 440, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mm_index == 4 ? _theme->selectedTextColor : _theme->textColor, "Quit", 30, 340, 0, 0);
 
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
