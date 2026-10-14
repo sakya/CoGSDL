@@ -296,6 +296,12 @@ void settingsSave();
 /// @param maxLength The maximum number of characters
 /// @param allowEmpty 0 if an empty text cannot be confirmed
 void osk_open(const char *title, const char *text, int maxLength, int allowEmpty);
+/// @brief Check the text before closing the keyboard
+/// @return NULL if the text is valid, otherwise the error message to show
+typedef const char *(*osk_validator)(const char *text);
+/// @brief Open the on screen keyboard to type a number (digits, minus and decimal point)
+/// @param validate The function that checks the number (can be NULL)
+void osk_openNumeric(const char *title, const char *text, int maxLength, osk_validator validate);
 /// @brief Get the text confirmed in the on screen keyboard
 /// @param text The buffer for the text
 /// @param size The buffer size

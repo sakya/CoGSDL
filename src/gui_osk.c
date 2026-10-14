@@ -6,14 +6,13 @@
 //   D-pad   move the selection
 //   A       press the selected key
 //   B       delete the last character
-//   X       space
-//   Y       shift (lower/upper case)
+//   X       space (text only)
+//   Y       shift (text only)
 //   Start   confirm
 //   Select  cancel
 
 #define OSK_COLS 10
 #define OSK_CHAR_ROWS 4
-#define OSK_ROWS (OSK_CHAR_ROWS + 1)
 #define OSK_BUFFER 1024
 
 #define OSK_MARGIN 20
@@ -26,9 +25,11 @@ enum osk_layout
   osk_lower = 0,
   osk_upper,
   osk_symbols,
+  osk_numbers,
   osk_layouts_count
 };
 
+// An empty string is a missing key (the keys of a row are left aligned)
 static const char *osk_keys[osk_layouts_count][OSK_CHAR_ROWS][OSK_COLS] = {
   {
     { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0" },
@@ -47,6 +48,12 @@ static const char *osk_keys[osk_layouts_count][OSK_CHAR_ROWS][OSK_COLS] = {
     { "+", "=", "/", "\\", "<", ">", "[", "]", "{", "}" },
     { "\xC3\xA0", "\xC3\xA8", "\xC3\xA9", "\xC3\xAC", "\xC3\xB2", "\xC3\xB9", "\xC3\xA7", "\xC3\xB1", "\xC3\xBC", "\xC3\x9F" },
     { "\xE2\x82\xAC", "\xC2\xA3", "~", "^", "`", "|", "\xC2\xBF", "\xC2\xA1", "\xC2\xAB", "\xC2\xBB" }
+  },
+  {
+    { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0" },
+    { "-", ".", "", "", "", "", "", "", "", "" },
+    { "", "", "", "", "", "", "", "", "", "" },
+    { "", "", "", "", "", "", "", "", "", "" }
   }
 };
 
@@ -57,16 +64,19 @@ enum osk_special_key
   osk_key_symbols,
   osk_key_space,
   osk_key_delete,
-  osk_key_ok,
-  osk_special_keys_count
+  osk_key_ok
 };
 
-static const char *osk_special_labels[osk_special_keys_count] = { "Shift", "?123", "Space", "Del", "OK" };
+static const char *osk_special_labels[] = { "Shift", "?123", "Space", "Del", "OK" };
+static const enum osk_special_key osk_text_special_keys[] = { osk_key_shift, osk_key_symbols, osk_key_space, osk_key_delete, osk_key_ok };
+static const enum osk_special_key osk_numeric_special_keys[] = { osk_key_delete, osk_key_ok };
 
 static char osk_title[256];
 static char osk_text[OSK_BUFFER];
 static int osk_maxLength = 0;
 static int osk_allowEmpty = 0;
+static int osk_numeric = 0;
+static osk_validator osk_validate = NULL;
 static enum status osk_returnStatus = MainMenu;
 static enum osk_layout osk_currentLayout = osk_lower;
 /// @brief Back to lower case after the next letter
@@ -75,6 +85,7 @@ static int osk_row = 0;
 static int osk_col = 0;
 /// @brief 1: confirmed text available, 0: none
 static int osk_resultReady = 0;
+static char osk_error[256];
 static Uint32 osk_errorTime = 0;
 
 /// @brief Number of UTF-8 characters
@@ -88,22 +99,68 @@ static int osk_utf8Length(const char *text)
   return count;
 }
 
-void osk_open(const char *title, const char *text, int maxLength, int allowEmpty)
+/// @brief Number of rows of character keys of the current layout
+static int osk_charRows()
+{
+  int rows = 0;
+  for (int r = 0; r < OSK_CHAR_ROWS; r++) {
+    if (strlen(osk_keys[osk_currentLayout][r][0]) > 0)
+      rows = r + 1;
+  }
+  return rows;
+}
+
+/// @brief Number of keys in a row (the last row has the special keys)
+static int osk_rowKeys(int row)
+{
+  if (row == osk_charRows())
+    return osk_numeric ? (int)(sizeof(osk_numeric_special_keys) / sizeof(osk_numeric_special_keys[0]))
+                       : (int)(sizeof(osk_text_special_keys) / sizeof(osk_text_special_keys[0]));
+  int count = 0;
+  while (count < OSK_COLS && strlen(osk_keys[osk_currentLayout][row][count]) > 0)
+    count++;
+  return count;
+}
+
+static enum osk_special_key osk_specialKey(int index)
+{
+  return osk_numeric ? osk_numeric_special_keys[index] : osk_text_special_keys[index];
+}
+
+static void osk_openKeyboard(const char *title, const char *text, int maxLength, int allowEmpty, int numeric, osk_validator validate)
 {
   snprintf(osk_title, sizeof(osk_title), "%s", title ? title : "");
   snprintf(osk_text, sizeof(osk_text), "%s", text ? text : "");
   osk_maxLength = maxLength > 0 && maxLength < OSK_BUFFER / 4 ? maxLength : OSK_BUFFER / 4 - 1;
   osk_allowEmpty = allowEmpty;
+  osk_numeric = numeric;
+  osk_validate = validate;
   osk_returnStatus = _Globals.status;
   osk_resultReady = 0;
   osk_errorTime = 0;
-  osk_row = 1;
+  if (numeric) {
+    osk_currentLayout = osk_numbers;
+    osk_shiftOnce = 0;
+    osk_row = 0;
+  } else {
+    // Start with a capital letter
+    osk_currentLayout = strlen(osk_text) == 0 ? osk_upper : osk_lower;
+    osk_shiftOnce = osk_currentLayout == osk_upper;
+    osk_row = 1;
+  }
   osk_col = 0;
-  // Start with a capital letter
-  osk_currentLayout = strlen(osk_text) == 0 ? osk_upper : osk_lower;
-  osk_shiftOnce = osk_currentLayout == osk_upper;
 
   _Globals.status = OnScreenKeyboard;
+}
+
+void osk_open(const char *title, const char *text, int maxLength, int allowEmpty)
+{
+  osk_openKeyboard(title, text, maxLength, allowEmpty, 0, NULL);
+}
+
+void osk_openNumeric(const char *title, const char *text, int maxLength, osk_validator validate)
+{
+  osk_openKeyboard(title, text, maxLength, 0, 1, validate);
 }
 
 int osk_getResult(char *text, size_t size)
@@ -119,6 +176,15 @@ static void osk_close(int confirmed)
 {
   osk_resultReady = confirmed;
   _Globals.status = osk_returnStatus;
+}
+
+static void osk_showError(const char *message)
+{
+  snprintf(osk_error, sizeof(osk_error), "%s", message);
+  osk_errorTime = SDL_GetTicks();
+  // 0 means "no error"
+  if (osk_errorTime == 0)
+    osk_errorTime = 1;
 }
 
 static void osk_type(const char *chars)
@@ -148,13 +214,28 @@ static void osk_delete()
   osk_text[len] = '\0';
 }
 
+/// @brief Change the layout keeping the selection on an existing key
+static void osk_setLayout(enum osk_layout layout)
+{
+  int wasSpecialRow = osk_row == osk_charRows();
+  osk_currentLayout = layout;
+  if (wasSpecialRow)
+    osk_row = osk_charRows();
+  else if (osk_row >= osk_charRows())
+    osk_row = osk_charRows() - 1;
+  if (osk_col >= osk_rowKeys(osk_row))
+    osk_col = osk_rowKeys(osk_row) - 1;
+}
+
 static void osk_toggleShift()
 {
+  if (osk_numeric)
+    return;
   if (osk_currentLayout == osk_upper) {
-    osk_currentLayout = osk_lower;
+    osk_setLayout(osk_lower);
     osk_shiftOnce = 0;
   } else {
-    osk_currentLayout = osk_upper;
+    osk_setLayout(osk_upper);
     osk_shiftOnce = 1;
   }
 }
@@ -164,26 +245,33 @@ static void osk_confirm()
   char trimmed[OSK_BUFFER];
   snprintf(trimmed, sizeof(trimmed), "%s", osk_text);
   trim(trimmed);
-  if (!osk_allowEmpty && strlen(trimmed) == 0) {
-    osk_errorTime = SDL_GetTicks();
+  if (!osk_allowEmpty && !osk_validate && strlen(trimmed) == 0) {
+    osk_showError("Don't just leave it blank! Type something!");
     return;
+  }
+  if (osk_validate) {
+    const char *error = osk_validate(trimmed);
+    if (error != NULL) {
+      osk_showError(error);
+      return;
+    }
   }
   osk_close(1);
 }
 
 static void osk_pressSelected()
 {
-  if (osk_row < OSK_CHAR_ROWS) {
+  if (osk_row < osk_charRows()) {
     osk_type(osk_keys[osk_currentLayout][osk_row][osk_col]);
     return;
   }
 
-  switch (osk_col) {
+  switch (osk_specialKey(osk_col)) {
     case osk_key_shift:
       osk_toggleShift();
       break;
     case osk_key_symbols:
-      osk_currentLayout = osk_currentLayout == osk_symbols ? osk_lower : osk_symbols;
+      osk_setLayout(osk_currentLayout == osk_symbols ? osk_lower : osk_symbols);
       osk_shiftOnce = 0;
       break;
     case osk_key_space:
@@ -198,19 +286,25 @@ static void osk_pressSelected()
   }
 }
 
-/// @brief Move the selection, the last row has 5 keys 2 columns wide
+/// @brief Move the selection, the keys of the last row are 2 columns wide
 static void osk_move(int dRow, int dCol)
 {
+  const int rows = osk_charRows() + 1;
+  const int specialRow = rows - 1;
   if (dRow != 0) {
-    int newRow = (osk_row + dRow + OSK_ROWS) % OSK_ROWS;
-    if (osk_row == OSK_CHAR_ROWS && newRow != OSK_CHAR_ROWS)
-      osk_col = osk_col * 2;
-    else if (osk_row != OSK_CHAR_ROWS && newRow == OSK_CHAR_ROWS)
-      osk_col = osk_col / 2;
+    int newRow = (osk_row + dRow + rows) % rows;
+    int col = osk_col;
+    if (osk_row == specialRow && newRow != specialRow)
+      col = col * 2;
+    else if (osk_row != specialRow && newRow == specialRow)
+      col = col / 2;
+    if (col >= osk_rowKeys(newRow))
+      col = osk_rowKeys(newRow) - 1;
     osk_row = newRow;
+    osk_col = col;
   }
   if (dCol != 0) {
-    int cols = osk_row == OSK_CHAR_ROWS ? osk_special_keys_count : OSK_COLS;
+    int cols = osk_rowKeys(osk_row);
     osk_col = (osk_col + dCol + cols) % cols;
   }
   Mix_PlayChannel(-1, sound_menu_change, 0);
@@ -287,7 +381,8 @@ void drawOsk()
     osk_delete();
   } else if (_Globals.input[_Keys.KeyX] == 1) {
     _Globals.input[_Keys.KeyX] = 0;
-    osk_type(" ");
+    if (!osk_numeric)
+      osk_type(" ");
   } else if (_Globals.input[_Keys.KeyY] == 1) {
     _Globals.input[_Keys.KeyY] = 0;
     osk_toggleShift();
@@ -324,34 +419,37 @@ void drawOsk()
   const int boxH = 40;
   osk_drawTextBox(OSK_MARGIN, boxY, _Globals.windowWidth - 2 * OSK_MARGIN, boxH);
 
-  if (osk_errorTime > 0 && SDL_GetTicks() - osk_errorTime < 2000)
-    sdlWriteText(_Globals.defaultSmallFont, _theme->selectedTextColor, "Don't just leave it blank! Type something!", OSK_MARGIN, boxY + boxH + 4, 0, 0);
+  if (osk_errorTime > 0 && SDL_GetTicks() - osk_errorTime < 2500)
+    sdlWriteText(_Globals.defaultSmallFont, _theme->selectedTextColor, osk_error, OSK_MARGIN, boxY + boxH + 4, 0, 0);
 
   // Keys
   const int keysY = HEADER_HEIGHT + 100;
   const int step = OSK_KEY_WIDTH + OSK_KEY_GAP;
-  for (int r = 0; r < OSK_CHAR_ROWS; r++) {
-    for (int c = 0; c < OSK_COLS; c++) {
+  const int charRows = osk_charRows();
+  for (int r = 0; r < charRows; r++) {
+    for (int c = 0; c < osk_rowKeys(r); c++) {
       osk_drawKey(osk_keys[osk_currentLayout][r][c],
                   OSK_MARGIN + c * step, keysY + r * (OSK_KEY_HEIGHT + OSK_KEY_GAP),
                   OSK_KEY_WIDTH, OSK_KEY_HEIGHT, r == osk_row && c == osk_col);
     }
   }
-  for (int k = 0; k < osk_special_keys_count; k++) {
-    const char *label = osk_special_labels[k];
-    if (k == osk_key_shift && osk_currentLayout == osk_upper)
+  for (int k = 0; k < osk_rowKeys(charRows); k++) {
+    enum osk_special_key key = osk_specialKey(k);
+    const char *label = osk_special_labels[key];
+    if (key == osk_key_shift && osk_currentLayout == osk_upper)
       label = "SHIFT";
-    else if (k == osk_key_symbols && osk_currentLayout == osk_symbols)
+    else if (key == osk_key_symbols && osk_currentLayout == osk_symbols)
       label = "abc";
     osk_drawKey(label,
-                OSK_MARGIN + k * 2 * step, keysY + OSK_CHAR_ROWS * (OSK_KEY_HEIGHT + OSK_KEY_GAP),
-                2 * OSK_KEY_WIDTH + OSK_KEY_GAP, OSK_KEY_HEIGHT, osk_row == OSK_CHAR_ROWS && k == osk_col);
+                OSK_MARGIN + k * 2 * step, keysY + charRows * (OSK_KEY_HEIGHT + OSK_KEY_GAP),
+                2 * OSK_KEY_WIDTH + OSK_KEY_GAP, OSK_KEY_HEIGHT, osk_row == charRows && k == osk_col);
   }
 
   // Footer
   sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);
   sdlWriteText(_Globals.defaultSmallFont, _theme->titleTextColor,
-               "B: Delete   X: Space   Y: Shift   Start: OK   Select: Cancel",
+               osk_numeric ? "B: Delete   Start: OK   Select: Cancel"
+                           : "B: Delete   X: Space   Y: Shift   Start: OK   Select: Cancel",
                45, _Globals.windowHeight - 26, 0, 0);
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
 }

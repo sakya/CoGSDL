@@ -64,6 +64,11 @@ static int pg_manageInputTextCommand(const char *line);
 static void pg_setInputText(const char *text);
 /// @brief Open the on screen keyboard for *input_text
 static void pg_openInputText();
+/// @brief Manage the input_number command
+/// @return 1 if the game must wait for the number
+static int pg_manageInputNumberCommand(const char *line);
+/// @brief Check the number typed for *input_number
+static const char *pg_validateInputNumber(const char *text);
 static void pg_copyString(char *dst, size_t size, const char *src);
 /// @brief Count a jump to a label (*looplimit)
 /// @return 0 if the label was visited too many times in this page
@@ -1254,6 +1259,14 @@ int pg_exec_primitive()
         // input_text variable [long] [allow_blank]: wait for the text typed by the player
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         if (pg_manageInputTextCommand(line))
+          break;
+        continue;
+      }
+
+      if (stricmp(command, "input_number") == 0) {
+        // input_number variable min max: wait for the number typed by the player
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        if (pg_manageInputNumberCommand(line))
           break;
         continue;
       }
@@ -3528,9 +3541,111 @@ static int pg_manageInputTextCommand(const char *line)
   pg_copyString(pg_game_status.inputTextVariable, sizeof(pg_game_status.inputTextVariable), name);
   pg_game_status.inputTextAllowBlank = allowBlank;
   pg_game_status.inputTextLong = isLong;
+  pg_game_status.inputNumber = 0;
   pg_game_status.inputTextActive = 1;
   pg_game_status.inputTextOpened = 0;
   return 1;
+}
+
+/// @brief Check if a string is an integer as ChoiceScript does (no leading zeros, no "-0")
+static int pg_isIntString(const char *text)
+{
+  const char *p = text;
+  if (*p == '-')
+    p++;
+  if (!isdigit((unsigned char)*p))
+    return 0;
+  if (*p == '0' && (p[1] != '\0' || p != text))
+    return 0;
+  for (; *p; p++) {
+    if (!isdigit((unsigned char)*p))
+      return 0;
+  }
+  return 1;
+}
+
+static int pg_manageInputNumberCommand(const char *line)
+{
+  char args[4096];
+  char *tokens[8];
+  pg_getCommandArgs(line, args, sizeof(args));
+  int count = pg_tokenizeArgs(args, tokens, 8);
+  if (count != 3) {
+    logWarning("Invalid input_number statement, expected three args: varname min max (%s)", line);
+    pg_freeTokens(tokens, count);
+    return 0;
+  }
+
+  // The variable can be a reference: *input_number {name} 1 10
+  char name[256];
+  int nameLen = strlen(tokens[0]);
+  if (nameLen > 1 && tokens[0][0] == '{' && tokens[0][nameLen - 1] == '}') {
+    char *content = pg_strndup(tokens[0] + 1, nameLen - 2);
+    pg_evaluateReferenceName(content, name, sizeof(name));
+    free(content);
+  } else {
+    pg_copyString(name, sizeof(name), tokens[0]);
+  }
+
+  char minValue[1024];
+  char maxValue[1024];
+  pg_evaluateExpression(tokens[1], minValue);
+  pg_evaluateExpression(tokens[2], maxValue);
+  trim(minValue);
+  trim(maxValue);
+  pg_freeTokens(tokens, count);
+
+  if (pg_getVar(name) == NULL) {
+    logWarning("*input_number: non-existent variable %s", name);
+    return 0;
+  }
+  char *end1, *end2;
+  double minimum = strtod(minValue, &end1);
+  double maximum = strtod(maxValue, &end2);
+  if (end1 == minValue || end2 == maxValue || *end1 || *end2) {
+    logWarning("*input_number: min and max must be numbers (%s, %s)", minValue, maxValue);
+    return 0;
+  }
+  if (minimum > maximum) {
+    logWarning("*input_number: minimum %s should not be greater than maximum %s", minValue, maxValue);
+    return 0;
+  }
+
+  pg_copyString(pg_game_status.inputTextVariable, sizeof(pg_game_status.inputTextVariable), name);
+  pg_game_status.inputTextAllowBlank = 0;
+  pg_game_status.inputTextLong = 0;
+  pg_game_status.inputNumber = 1;
+  pg_game_status.inputNumberMin = minimum;
+  pg_game_status.inputNumberMax = maximum;
+  // Same as ChoiceScript: integer limits require an integer number
+  pg_game_status.inputNumberIntRequired = pg_isIntString(minValue) && pg_isIntString(maxValue);
+  pg_game_status.inputTextActive = 1;
+  pg_game_status.inputTextOpened = 0;
+  return 1;
+}
+
+static const char *pg_validateInputNumber(const char *text)
+{
+  static char message[128];
+  char *end;
+  double value = strtod(text, &end);
+  if (*text == '\0' || end == text || *end != '\0')
+    return "Please type in a number.";
+  if (pg_game_status.inputNumberIntRequired && !pg_isIntString(text))
+    return "Please type in an integer number.";
+
+  char limit[64];
+  if (value < pg_game_status.inputNumberMin) {
+    pg_formatNumber(pg_game_status.inputNumberMin, limit);
+    snprintf(message, sizeof(message), "Please use a number greater than or equal to %s", limit);
+    return message;
+  }
+  if (value > pg_game_status.inputNumberMax) {
+    pg_formatNumber(pg_game_status.inputNumberMax, limit);
+    snprintf(message, sizeof(message), "Please use a number less than or equal to %s", limit);
+    return message;
+  }
+  return NULL;
 }
 
 static void pg_openInputText()
@@ -3560,7 +3675,10 @@ static void pg_openInputText()
       memmove(pos, pos + strlen(markup[i]), strlen(pos + strlen(markup[i])) + 1);
   }
 
-  osk_open(title, "", pg_game_status.inputTextLong ? 1000 : 100, pg_game_status.inputTextAllowBlank);
+  if (pg_game_status.inputNumber)
+    osk_openNumeric(title, "", 20, pg_validateInputNumber);
+  else
+    osk_open(title, "", pg_game_status.inputTextLong ? 1000 : 100, pg_game_status.inputTextAllowBlank);
 }
 
 static void pg_setInputText(const char *text)
@@ -3570,7 +3688,12 @@ static void pg_setInputText(const char *text)
   char *value = pg_strndup(text, strlen(text));
   trim(value);
   variable *var = pg_getVar(pg_game_status.inputTextVariable);
-  if (var != NULL) {
+  if (var != NULL && pg_game_status.inputNumber) {
+    char numberValue[64];
+    pg_formatNumber(strtod(value, NULL), numberValue);
+    pg_assignVar(var, numberValue);
+    var->type = number;
+  } else if (var != NULL) {
     pg_assignVar(var, value);
     var->type = string;
   } else {

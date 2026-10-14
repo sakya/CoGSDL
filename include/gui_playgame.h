@@ -110,6 +110,11 @@ struct game_status
     int inputTextLong;
     /// @brief Set to 1 when the keyboard was opened automatically
     int inputTextOpened;
+    /// @brief Set to 1 for *input_number (with the allowed range)
+    int inputNumber;
+    double inputNumberMin;
+    double inputNumberMax;
+    int inputNumberIntRequired;
 
     /// @brief The labels of the opened file
     label* labels;
