@@ -4264,11 +4264,11 @@ static void pg_freeSnapshot()
   pg_pageSnapshot = NULL;
 }
 
-/// @brief Get the folder of the saves of the running game (./saves/<game folder>)
-static void pg_getSaveFolder(char *folder, int size)
+/// @brief Get the folder of the saves of a game (./saves/<game folder>)
+static void pg_getGameSaveFolder(const char *gamePath, char *folder, int size)
 {
-  const char *name = runningGame->path;
-  for (const char *c = runningGame->path; *c; c++) {
+  const char *name = gamePath;
+  for (const char *c = gamePath; *c; c++) {
     if ((*c == '/' || *c == '\\') && c[1])
       name = c + 1;
   }
@@ -4277,6 +4277,12 @@ static void pg_getSaveFolder(char *folder, int size)
   int len = strlen(folder);
   if (len > 0 && (folder[len - 1] == '/' || folder[len - 1] == '\\'))
     folder[len - 1] = '\0';
+}
+
+/// @brief Get the folder of the saves of the running game (./saves/<game folder>)
+static void pg_getSaveFolder(char *folder, int size)
+{
+  pg_getGameSaveFolder(runningGame->path, folder, size);
 }
 
 static void pg_getSavePath(int slot, char *path, int size)
@@ -4451,6 +4457,9 @@ static void pg_buildSaveName(char *name, int size)
   }
 }
 
+/// @brief Read the information of a save file
+static int pg_readSaveInfo(const char *path, save_info *info);
+
 int pg_getSaveInfo(int slot, save_info *info)
 {
   memset(info, 0, sizeof(save_info));
@@ -4459,6 +4468,55 @@ int pg_getSaveInfo(int slot, save_info *info)
 
   char path[600];
   pg_getSavePath(slot, path, sizeof(path));
+  return pg_readSaveInfo(path, info);
+}
+
+int pg_findLastSave(int *gameIndex, int *slot)
+{
+  int found = 0;
+  time_t lastTime = 0;
+  for (int g = 0; g < _Globals.gamesCount; g++) {
+    char folder[512];
+    pg_getGameSaveFolder(_Globals.games[g].path, folder, sizeof(folder));
+    for (int s = 0; s < SAVE_SLOTS; s++) {
+      char path[600];
+      save_info info;
+      snprintf(path, sizeof(path), "%s/slot%i.sav", folder, s + 1);
+      if (pg_readSaveInfo(path, &info) && (!found || info.time > lastTime)) {
+        found = 1;
+        lastTime = info.time;
+        *gameIndex = g;
+        *slot = s;
+      }
+    }
+  }
+  return found;
+}
+
+int pg_continueLastSave()
+{
+  int gameIndex, slot;
+  if (!pg_findLastSave(&gameIndex, &slot))
+    return 0;
+
+  logInfo("Continue: %s, slot %i", _Globals.games[gameIndex].path, slot + 1);
+  runningGame = malloc(sizeof(game));
+  loadGame(_Globals.games[gameIndex].path, runningGame, 0);
+  if (strlen(runningGame->icon) > 0)
+    runningGameIcon = IMG_Load(runningGame->icon);
+
+  pg_init();
+  if (!pg_loadGame(slot)) {
+    logWarning("Continue: cannot load the save");
+    pg_dispose();
+    return 0;
+  }
+  return 1;
+}
+
+static int pg_readSaveInfo(const char *path, save_info *info)
+{
+  memset(info, 0, sizeof(save_info));
   FILE *fp = fopen(path, "rb");
   if (fp == NULL)
     return 0;

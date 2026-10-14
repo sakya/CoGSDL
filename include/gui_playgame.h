@@ -192,5 +192,13 @@ int pg_saveGame(int slot);
 /// @brief Load a saved game and execute the saved page
 /// @return 1 on success
 int pg_loadGame(int slot);
+/// @brief Find the most recent save of all the games
+/// @param gameIndex The index of the game in _Globals.games
+/// @param slot The save slot
+/// @return 1 if a save was found
+int pg_findLastSave(int *gameIndex, int *slot);
+/// @brief Start the game of the most recent save and load it
+/// @return 1 on success
+int pg_continueLastSave();
 
 #endif
