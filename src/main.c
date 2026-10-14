@@ -13,17 +13,10 @@ Mix_Chunk* sound_menu_change = NULL;
 game *runningGame = NULL;
 SDL_Surface *runningGameIcon = NULL;
 
-CoGSDL _Globals = {
-  0,
-  scroll_page,
-  1,
-  0,
-  0,
-  0,
-  0,
-  0,
-  NULL
-};
+// No initializer: the struct is large (games[255]) and an explicit
+// initializer would store it entirely inside the executable.
+// The fields are set in init().
+CoGSDL _Globals;
 
 #ifdef MIYOO
 /* Miyoo Mini (Onion): i tasti arrivano come i keycode di KeyMap.h */

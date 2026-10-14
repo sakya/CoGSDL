@@ -5,6 +5,11 @@ void load_sounds();
 
 int init()
 {
+  _Globals.logLevel = Debug;
+  _Globals.scroll = scroll_page;
+  _Globals.justify_text = 1;
+  _Globals.quit = 0;
+
   logInit("CoGSDL.log");
   logInfo("Initializing");
 
