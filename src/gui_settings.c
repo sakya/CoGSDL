@@ -14,7 +14,13 @@ static const theme_entry themes[] = {
 };
 static const int themesCount = sizeof(themes) / sizeof(themes[0]);
 
-static int themeIdx = -1;
+enum settings_row
+{
+  st_theme = 0,
+  st_rows_count
+};
+
+static int rowIdx = 0;
 
 static int st_currentTheme()
 {
@@ -59,45 +65,48 @@ void settingsSave()
   fclose(f);
 }
 
+static void st_changeTheme(int delta)
+{
+  int idx = (st_currentTheme() + delta + themesCount) % themesCount;
+  _theme = themes[idx].theme;
+  settingsSave();
+  Mix_PlayChannel(-1, sound_menu_change, 0);
+}
+
 void drawSettings()
 {
-  if (themeIdx < 0)
-    themeIdx = st_currentTheme();
-
   if (_Globals.input[_Keys.KeyDown] == 1) {
     _Globals.input[_Keys.KeyDown] = 0;
-    themeIdx = (themeIdx + 1) % themesCount;
-    Mix_PlayChannel(-1, sound_menu_change, 0);
+    if (rowIdx < st_rows_count - 1) {
+      rowIdx++;
+      Mix_PlayChannel(-1, sound_menu_change, 0);
+    }
   } else if (_Globals.input[_Keys.KeyUp] == 1) {
     _Globals.input[_Keys.KeyUp] = 0;
-    themeIdx = (themeIdx + themesCount - 1) % themesCount;
-    Mix_PlayChannel(-1, sound_menu_change, 0);
-  } else if (_Globals.input[_Keys.KeyA] == 1) {
-    _Globals.input[_Keys.KeyA] = 0;
-    if (themes[themeIdx].theme != _theme) {
-      _theme = themes[themeIdx].theme;
-      settingsSave();
+    if (rowIdx > 0) {
+      rowIdx--;
+      Mix_PlayChannel(-1, sound_menu_change, 0);
     }
+  } else if (_Globals.input[_Keys.KeyLeft] == 1 || _Globals.input[_Keys.KeyRight] == 1) {
+    int delta = _Globals.input[_Keys.KeyRight] == 1 ? 1 : -1;
+    _Globals.input[_Keys.KeyLeft] = 0;
+    _Globals.input[_Keys.KeyRight] = 0;
+    if (rowIdx == st_theme)
+      st_changeTheme(delta);
   } else if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
-    themeIdx = -1;
+    rowIdx = 0;
     _Globals.status = MainMenu;
     return;
   }
 
-  sdlWriteText(_Globals.defaultFont, _theme->textColor, "Theme", 30, HEADER_HEIGHT + 10, 0, 0);
+  int y = HEADER_HEIGHT + 20;
+  SDL_Color color = rowIdx == st_theme ? _theme->selectedTextColor : _theme->textColor;
+  char value[64];
+  snprintf(value, sizeof(value), "< %s >", themes[st_currentTheme()].name);
+  sdlWriteText(_Globals.defaultFont, color, "Theme", 30, y, 0, 0);
+  sdlWriteText(_Globals.defaultFont, color, value, 200, y, 0, 0);
 
-  for (int i = 0; i < themesCount; i++) {
-    char item[64];
-    if (themes[i].theme == _theme)
-      snprintf(item, sizeof(item), "%s (in use)", themes[i].name);
-    else
-      snprintf(item, sizeof(item), "%s", themes[i].name);
-    sdlWriteText(_Globals.defaultFont, i == themeIdx ? _theme->selectedTextColor : _theme->textColor,
-                 item, 50, HEADER_HEIGHT + 50 + i * 30, 0, 0);
-  }
-
-  sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(button_b, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);
 }

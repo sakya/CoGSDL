@@ -36,6 +36,9 @@ Keys _Keys = {
   SDL_SCANCODE_TAB,       /* L2 */
   SDL_SCANCODE_T,         /* R1 */
   SDL_SCANCODE_BACKSPACE, /* R2 */
+
+  SDL_SCANCODE_LEFT,      /* Left */
+  SDL_SCANCODE_RIGHT,     /* Right */
 };
 #else
 Keys _Keys = {
@@ -54,6 +57,9 @@ Keys _Keys = {
   SDL_SCANCODE_W,
   SDL_SCANCODE_R,
   SDL_SCANCODE_E,
+
+  SDL_SCANCODE_LEFT,
+  SDL_SCANCODE_RIGHT,
 };
 #endif
 

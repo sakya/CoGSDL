@@ -117,6 +117,9 @@ struct Keys
   int KeyL2;
   int KeyR1;
   int KeyR2;
+
+  int KeyLeft;
+  int KeyRight;
 } typedef Keys;
 
 extern Keys _Keys;
