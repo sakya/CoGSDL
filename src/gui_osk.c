@@ -302,8 +302,23 @@ void drawOsk()
     return;
 
   int y = HEADER_HEIGHT + 8;
-  if (strlen(osk_title) > 0)
-    sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, osk_title, OSK_MARGIN, y, 0, 0);
+  if (strlen(osk_title) > 0) {
+    // Show the end of the title if it is too long
+    const int maxWidth = _Globals.windowWidth - 2 * OSK_MARGIN;
+    const char *visible = osk_title;
+    char title[sizeof(osk_title) + 4];
+    int tw = 0;
+    TTF_SizeUTF8(_Globals.defaultSmallFont, visible, &tw, NULL);
+    snprintf(title, sizeof(title), "%s", visible);
+    while (*visible && tw > maxWidth) {
+      visible++;
+      while ((*visible & 0xC0) == 0x80)
+        visible++;
+      snprintf(title, sizeof(title), "...%s", visible);
+      TTF_SizeUTF8(_Globals.defaultSmallFont, title, &tw, NULL);
+    }
+    sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, title, OSK_MARGIN, y, 0, 0);
+  }
 
   const int boxY = HEADER_HEIGHT + 32;
   const int boxH = 40;

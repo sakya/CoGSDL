@@ -108,6 +108,8 @@ struct game_status
     /// @brief *input_text options
     int inputTextAllowBlank;
     int inputTextLong;
+    /// @brief Set to 1 when the keyboard was opened automatically
+    int inputTextOpened;
 
     /// @brief The labels of the opened file
     label* labels;

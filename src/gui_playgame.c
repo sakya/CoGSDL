@@ -62,6 +62,8 @@ static void pg_assignVar(variable *var, const char *value);
 static int pg_manageInputTextCommand(const char *line);
 /// @brief Store the text typed for *input_text
 static void pg_setInputText(const char *text);
+/// @brief Open the on screen keyboard for *input_text
+static void pg_openInputText();
 static void pg_copyString(char *dst, size_t size, const char *src);
 /// @brief Count a jump to a label (*looplimit)
 /// @return 0 if the label was visited too many times in this page
@@ -240,12 +242,19 @@ void pg_drawPage()
       pg_game_status.scrollY = 0;
   }
 
+  // *input_text: open the on screen keyboard as soon as the command is reached
+  // (if it is closed without confirming, A opens it again)
+  if (pg_game_status.inputTextActive && !pg_game_status.inputTextOpened) {
+    pg_game_status.inputTextOpened = 1;
+    _Globals.input[_Keys.KeyA] = 0;
+    pg_openInputText();
+    return;
+  }
+
   if (_Globals.input[_Keys.KeyA] == 1) {
     if (!pg_game_status.canScrollDown && pg_game_status.inputTextActive) {
-      // *input_text: type the text with the on screen keyboard
       _Globals.input[_Keys.KeyA] = 0;
-      osk_open("Type your answer and confirm with Start", "",
-               pg_game_status.inputTextLong ? 1000 : 100, pg_game_status.inputTextAllowBlank);
+      pg_openInputText();
       return;
     } else if (!pg_game_status.canScrollDown && pg_game_status.showPageBreak) {
       //Next
@@ -3520,7 +3529,38 @@ static int pg_manageInputTextCommand(const char *line)
   pg_game_status.inputTextAllowBlank = allowBlank;
   pg_game_status.inputTextLong = isLong;
   pg_game_status.inputTextActive = 1;
+  pg_game_status.inputTextOpened = 0;
   return 1;
+}
+
+static void pg_openInputText()
+{
+  // The keyboard covers the page: show the last paragraph of the text (usually the question)
+  char title[512] = "";
+  const char *text = pg_game_status.text ? pg_game_status.text : "";
+  int end = strlen(text);
+  while (end > 0 && isspace((unsigned char)text[end - 1]))
+    end--;
+  int start = end;
+  while (start > 0 && text[start - 1] != '\n')
+    start--;
+  if (end - start >= (int)sizeof(title)) {
+    start = end - (sizeof(title) - 1);
+    while (start < end && (text[start] & 0xC0) == 0x80)
+      start++;
+  }
+  memcpy(title, text + start, end - start);
+  title[end - start] = '\0';
+
+  // Remove the formatting markup
+  const char *markup[] = { "[b]", "[/b]", "[i]", "[/i]" };
+  for (int i = 0; i < 4; i++) {
+    char *pos;
+    while ((pos = strstr(title, markup[i])) != NULL)
+      memmove(pos, pos + strlen(markup[i]), strlen(pos + strlen(markup[i])) + 1);
+  }
+
+  osk_open(title, "", pg_game_status.inputTextLong ? 1000 : 100, pg_game_status.inputTextAllowBlank);
 }
 
 static void pg_setInputText(const char *text)
