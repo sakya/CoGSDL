@@ -1,6 +1,6 @@
 {
   "label": "CoGSDL",
-  "icon": "images/icon.png",
+  "icon": "miyoo/icon.png",
   "launch": "launch.sh",
   "description": "ChoiceScript interpreter"
 }

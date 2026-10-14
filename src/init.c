@@ -78,7 +78,13 @@ int init()
   SDL_GetWindowSize(_Globals.window, &w, &h);
   logInfo("\tWindow Resolution: %dx%d", w, h);
 
-  _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_SOFTWARE);
+  #ifdef MIYOO
+    // The Miyoo SDL2 port only has an accelerated renderer (MI_GFX)
+    _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  #else
+    _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_SOFTWARE);
+  #endif
+
   if (_Globals.renderer == NULL) {
     logError("\tSDL_CreateRenderer Fail: %s", SDL_GetError());
     return -1;
