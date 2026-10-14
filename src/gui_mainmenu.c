@@ -50,7 +50,7 @@ void drawMainMenu()
     about_angle = 0;
 
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL", 140, 75, 0, 0);
-  sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A Choice of Games interpreter", 140, 100, 0, 0);
+  sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A ChoiceScript interpreter", 140, 100, 0, 0);
 
   sdlWriteText(_Globals.defaultFont, mm_index == 0 ? _theme->selectedTextColor : _theme->textColor, "Continue", 30, 200, 0, 0);
   sdlWriteText(_Globals.defaultFont, mm_index == 1 ? _theme->selectedTextColor : _theme->textColor, "Games", 30, 230, 0, 0);

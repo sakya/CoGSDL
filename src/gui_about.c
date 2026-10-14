@@ -22,7 +22,7 @@ void drawAbout()
     about_angle = 0;
 
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL", 140, 75, 0, 0);
-  sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A Choice of Games interpreter", 140, 100, 0, 0);
+  sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A ChoiceScript interpreter", 140, 100, 0, 0);
 
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "© 2026 Paolo Iommarini - MIT License", 140, 140, 0, 0);
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "Unofficial ChoiceScript interpreter, built with SDL2.", 140, 175, 0, 0);

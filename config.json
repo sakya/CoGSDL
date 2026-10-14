@@ -2,5 +2,5 @@
   "label": "CoGSDL",
   "icon": "images/icon.png",
   "launch": "launch.sh",
-  "description": "Choice of Games interpreter"
+  "description": "ChoiceScript interpreter"
 }
