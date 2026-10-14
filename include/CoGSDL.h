@@ -1,6 +1,7 @@
 #ifndef COGSDL_H__
 #define COGSDL_H__
 
+#include <stdlib.h>
 #include <locale.h>
 #include <math.h>
 #include <ctype.h>
