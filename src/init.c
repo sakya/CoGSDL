@@ -50,8 +50,14 @@ int init()
 
   logInfo("\tDisplay Resolution: %dx%d", _Globals.displayWidth, _Globals.displayHeight);
 
-  _Globals.defaultFontSize = 21;
-  _Globals.textFontSize = 21;
+  #ifdef MIYOO
+    _Globals.defaultFontSize = 21;
+    _Globals.textFontSize = 24;
+  #else
+    _Globals.defaultFontSize = 21;
+    _Globals.textFontSize = 21;
+  #endif
+
   _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
 
   _Globals.textFont = TTF_OpenFont("./fonts/Cardo-Regular.ttf", _Globals.textFontSize);
