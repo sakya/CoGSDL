@@ -3,9 +3,9 @@
 ## Install on the Miyoo Mini
 To install CoGSDL on the Miyoo Mini:
 - Download the latest [release](https://github.com/sakya/CoGSDL/releases) ZIP file
-- Extract the contents of the ZIP file into the /App/CoGSDL directory on the SD card.
+- Extract the contents of the ZIP file into the `/App/CoGSDL` directory on the SD card.
 
-Make sure the files are extracted directly into /App/CoGSDL, rather than into an additional nested directory.
+Make sure the files are extracted directly into `/App/CoGSDL`, rather than into an additional nested directory.
 
 ## Installing games
 Game files must be placed in the `/App/CoGSDL/games` folder, with each game stored in its own directory.
@@ -16,7 +16,7 @@ To obtain the files required to play a game:
   https://apkpure.com/developer/Hosted%20Games
 - Open the APK file with 7-Zip.
 - Extract the `assets/mygame` folder.
-- Rename the extracted folder to match the game's title.
+- Rename the `mygame` folder to match the game's title.
 - Copy the renamed folder into the `/App/CoGSDL/games` folder
 
 ## Build for Miyoo Mini
