@@ -105,7 +105,10 @@ void drawSettings()
   char value[64];
   snprintf(value, sizeof(value), "< %s >", themes[st_currentTheme()].name);
   sdlWriteText(_Globals.defaultFont, color, "Theme", 30, y, 0, 0);
-  sdlWriteText(_Globals.defaultFont, color, value, 200, y, 0, 0);
+
+  int width;
+  TTF_MeasureUTF8(_Globals.defaultFont, value, _Globals.windowWidth, &width, NULL);
+  sdlWriteText(_Globals.defaultFont, color, value, _Globals.windowWidth - width - 30, y, 0, 0);
 
   sdlBlitImage(button_b, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);
