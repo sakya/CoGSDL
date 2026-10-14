@@ -59,4 +59,4 @@ $(OBJ_DIR):
 pack: CoGSDL-v$(VERSION).zip
 
 CoGSDL-v$(VERSION).zip: $(TARGET)
-	zip -r CoGSDL-miyoo-mini-v$(VERSION).zip fonts images games miyoo sounds CoGSDL icon config.json launch.sh
+	zip -r CoGSDL-miyoo-mini-v$(VERSION).zip LICENSE fonts images games miyoo sounds CoGSDL icon config.json launch.sh
