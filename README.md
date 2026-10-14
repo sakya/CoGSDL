@@ -27,7 +27,7 @@
   ```
 
 ## Installing games
-Game files must be placed in the games folder, with each game stored in its own directory.
+Game files must be placed in the `games` folder, with each game stored in its own directory.
 
 To obtain the files required to play a game:
 - Download the APK of a Choice of Games title from one of the following sources:
