@@ -14,6 +14,5 @@ struct theme
 } typedef theme;
 
 extern const theme sepiaTheme;
-extern const theme darkTheme;
 extern const theme lightTheme;
 #endif
