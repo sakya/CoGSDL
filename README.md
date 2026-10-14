@@ -1,14 +1,5 @@
 # CoGSDL
 
-https://www.choiceofgames.com/make-your-own-games/choicescript-intro/
-
-
-https://apkpure.com/developer/Choice%20of%20Games%20LLC
-https://apkpure.com/developer/Hosted%20Games
-
-##Toolchain
-https://onionui.github.io/docs/dev/setup
-
 ## Build for Miyoo Mini
 - Install the toolchain
   ```bash
@@ -30,3 +21,17 @@ https://onionui.github.io/docs/dev/setup
   ```bash
   make re PLATFORM=miyoo
   ```
+- Create the package
+  ```bash
+  make pack
+  ```
+
+## Installing games
+Games files must be put in the `games` folder.
+Each game should be in its directory.
+
+https://apkpure.com/developer/Choice%20of%20Games%20LLC
+https://apkpure.com/developer/Hosted%20Games
+
+## Choice script documentation
+The documentation of the script can be found [here](https://www.choiceofgames.com/make-your-own-games/choicescript-intro/)

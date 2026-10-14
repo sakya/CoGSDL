@@ -2,7 +2,6 @@
 .codelite/
 .cache/
 objs/
-games/
 Debug/
 Release/
 CoGSDL
