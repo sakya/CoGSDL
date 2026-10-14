@@ -24,9 +24,9 @@ void drawAbout()
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL", 140, 75, 0, 0);
   sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A ChoiceScript interpreter", 140, 100, 0, 0);
 
-  sdlWriteText(_Globals.defaultFont, _theme->textColor, "© 2026 Paolo Iommarini - MIT License", 140, 140, 0, 0);
-  sdlWriteText(_Globals.defaultFont, _theme->textColor, "Unofficial ChoiceScript interpreter, built with SDL2.", 140, 175, 0, 0);
-  sdlWriteText(_Globals.defaultFont, _theme->textColor, "Not affiliated with Choice of Games LLC.", 140, 205, 0, 0);
+  sdlWriteText(_Globals.defaultFont, _theme->textColor, "© 2026 Paolo Iommarini - MIT License", 30, 200, 0, 0);
+  sdlWriteText(_Globals.defaultFont, _theme->textColor, "Unofficial ChoiceScript interpreter, built with SDL2.", 30, 245, 0, 0);
+  sdlWriteText(_Globals.defaultFont, _theme->textColor, "Not affiliated with Choice of Games LLC.", 30, 270, 0, 0);
 
   sdlBlitImage(button_b, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
 }
