@@ -298,9 +298,11 @@ void pg_drawPage()
 
   if (pg_game_status.text != NULL) {
     pg_renderText(pg_game_status.text, TEXT_MARGIN, HEADER_HEIGHT + TEXT_MARGIN, _Globals.windowWidth, _Globals.windowHeight - 2 * HEADER_HEIGHT, pg_game_status.scrollY);
-    if (!pg_game_status.textFullyRendered) {
-      pg_game_status.canScrollDown = 1;
-    }
+    // Scroll down only while there is more text below (pages without a page break
+    // or choices, e.g. the stats screen or the last page, must stop at the end)
+    pg_game_status.canScrollDown = !pg_game_status.textFullyRendered;
+  } else {
+    pg_game_status.canScrollDown = 0;
   }
 
   if (pg_game_status.showPageBreak) {
