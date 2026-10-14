@@ -74,6 +74,8 @@ struct CoGSDL {
   enum logLevel logLevel;
   enum scroll_type scroll;
   int justify_text;
+  /// @brief Show the FPS in the header (settings.cfg: show_fps=true)
+  int show_fps;
   int quit;
   int32_t displayWidth;
   int32_t displayHeight;

@@ -97,7 +97,7 @@ void drawHeader()
 
   if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats || _Globals.status == GameChoice || _Globals.status == OnScreenKeyboard)) {
     if (runningGameIcon != NULL) {
-      sdlBlitImage(runningGameIcon, 0, 0, 30, 30);
+      sdlBlitImage(runningGameIcon, 0, 0, HEADER_HEIGHT, HEADER_HEIGHT);
     } else {
       drawAppIcon();
     }
@@ -107,7 +107,7 @@ void drawHeader()
     sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "CoGSDL v1.0.0", 35, 2, 0, 0);
   }
 
-  if (fps > 0) {
+  if (_Globals.show_fps && fps > 0) {
     char fpsStr[20];
     int width;
     snprintf(fpsStr, sizeof(fpsStr), "Fps: %i", fps);

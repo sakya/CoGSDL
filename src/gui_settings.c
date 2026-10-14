@@ -33,8 +33,12 @@ static int st_currentTheme()
 void settingsLoad()
 {
   FILE *f = fopen(SETTINGS_FILE, "r");
-  if (f == NULL)
+  if (f == NULL) {
+    // First run: create the file with the default values
+    logInfo("\tCreating %s with the default settings", SETTINGS_FILE);
+    settingsSave();
     return;
+  }
 
   char line[256];
   while (fgets(line, sizeof(line), f) != NULL) {
@@ -47,6 +51,9 @@ void settingsLoad()
           break;
         }
       }
+    } else if (startsWith("show_fps=", line)) {
+      const char *value = line + 9;
+      _Globals.show_fps = stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
     }
   }
   fclose(f);
@@ -61,6 +68,8 @@ void settingsSave()
     return;
   }
   fprintf(f, "theme=%s\n", themes[st_currentTheme()].name);
+  // Not shown in the settings screen: edit settings.cfg to change it
+  fprintf(f, "show_fps=%s\n", _Globals.show_fps ? "true" : "false");
   fclose(f);
 }
 
