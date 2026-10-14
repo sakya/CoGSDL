@@ -15,4 +15,5 @@ struct theme
 
 extern const theme sepiaTheme;
 extern const theme lightTheme;
+extern const theme forestTheme;
 #endif

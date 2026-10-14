@@ -9,7 +9,8 @@ typedef struct {
 
 static const theme_entry themes[] = {
   { "Sepia", &sepiaTheme },
-  { "Light", &lightTheme }
+  { "Light", &lightTheme },
+  { "Forest", &forestTheme }
 };
 static const int themesCount = sizeof(themes) / sizeof(themes[0]);
 
