@@ -104,7 +104,7 @@ void drawHeader()
     sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, runningGame->title, 35, 2, 0, 0);
   } else if (_Globals.status != MainMenu && _Globals.status != About) {
     drawAppIcon();
-    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "CoGSDL v1.1.0", 35, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "CoGSDL v1.2.0", 35, 2, 0, 0);
   }
 
   if (_Globals.show_fps && fps > 0) {
