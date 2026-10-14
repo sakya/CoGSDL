@@ -82,7 +82,7 @@ const theme sepiaTheme = {
 };
 
 const theme lightTheme = {
-  {250, 250, 250},
+  {210, 210, 210},
   {33, 97, 160},
   {33, 33, 33},
   {21, 101, 192},
