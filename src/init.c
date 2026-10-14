@@ -79,8 +79,22 @@ int init()
   logInfo("\tWindow Resolution: %dx%d", w, h);
 
   #ifdef MIYOO
-    // The Miyoo SDL2 port only has an accelerated renderer (MI_GFX)
-    _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // The renderer of the Miyoo SDL2 port (MI_GFX) can only copy textures to the screen:
+    // no clear, no rectangles, no blending, no rotation. Draw everything with the SDL
+    // software renderer on a surface and copy the whole frame to the screen (presentFrame)
+    _Globals.screenRenderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (_Globals.screenRenderer == NULL) {
+      logError("\tSDL_CreateRenderer Fail: %s", SDL_GetError());
+      return -1;
+    }
+    _Globals.screenSurface = SDL_CreateRGBSurfaceWithFormat(0, _Globals.windowWidth, _Globals.windowHeight, 32, SDL_PIXELFORMAT_ARGB8888);
+    _Globals.screenTexture = SDL_CreateTexture(_Globals.screenRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+                                               _Globals.windowWidth, _Globals.windowHeight);
+    if (_Globals.screenSurface == NULL || _Globals.screenTexture == NULL) {
+      logError("\tScreen buffer Fail: %s", SDL_GetError());
+      return -1;
+    }
+    _Globals.renderer = SDL_CreateSoftwareRenderer(_Globals.screenSurface);
   #else
     _Globals.renderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_SOFTWARE);
   #endif

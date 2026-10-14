@@ -53,7 +53,7 @@ int draw()
         break;
     }
     manageEvents();
-    SDL_RenderPresent(_Globals.renderer);
+    presentFrame();
 
     Uint64 end = SDL_GetPerformanceCounter();
     float elapsedMs = (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
@@ -75,6 +75,17 @@ int draw()
   }
 
   return 0;
+}
+
+void presentFrame()
+{
+  SDL_RenderPresent(_Globals.renderer);
+#ifdef MIYOO
+  // Copy the whole frame to the screen
+  SDL_UpdateTexture(_Globals.screenTexture, NULL, _Globals.screenSurface->pixels, _Globals.screenSurface->pitch);
+  SDL_RenderCopy(_Globals.screenRenderer, _Globals.screenTexture, NULL, NULL);
+  SDL_RenderPresent(_Globals.screenRenderer);
+#endif
 }
 
 void drawHeader()

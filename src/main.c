@@ -107,6 +107,11 @@ int main(int argc, char* argv[])
   IMG_Quit();
   TTF_Quit();
   SDL_DestroyRenderer(_Globals.renderer);
+#ifdef MIYOO
+  SDL_DestroyTexture(_Globals.screenTexture);
+  SDL_DestroyRenderer(_Globals.screenRenderer);
+  SDL_FreeSurface(_Globals.screenSurface);
+#endif
   SDL_DestroyWindow(_Globals.window);
   SDL_Quit();
   logDispose();

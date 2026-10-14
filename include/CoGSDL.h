@@ -81,6 +81,11 @@ struct CoGSDL {
   int32_t windowHeight;
   SDL_Window *window;
   SDL_Renderer *renderer;
+  /// @brief Miyoo: the frame is drawn by the software renderer on screenSurface
+  /// and copied to the screen with the MI_GFX renderer (see presentFrame)
+  SDL_Renderer *screenRenderer;
+  SDL_Surface *screenSurface;
+  SDL_Texture *screenTexture;
 
   int gamesCount;
   game games[255];
@@ -133,6 +138,8 @@ int init();
 
 /* draw.c */
 int draw();
+/// @brief Show the frame drawn with _Globals.renderer
+void presentFrame();
 void free_images();
 void free_sounds();
 void free_fonts();
