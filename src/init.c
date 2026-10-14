@@ -52,10 +52,10 @@ int init()
 
   #ifdef MIYOO
     _Globals.defaultFontSize = 23;
-    _Globals.textFontSize = 26;
+    _Globals.textFontSize = 32;
   #else
-    _Globals.defaultFontSize = 23;
-    _Globals.textFontSize = 26;
+    _Globals.defaultFontSize = 21;
+    _Globals.textFontSize = 21;
   #endif
 
   _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
