@@ -280,5 +280,6 @@ void drawGameStats();
 /* gui_gamechoice.c */
 void drawGameChoice();
 /* gui_settings.c */
-void drawSettings()
+void drawSettings();
+
 #endif
