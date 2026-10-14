@@ -48,6 +48,9 @@ int draw()
       case Settings:
         drawSettings();
         break;
+      case OnScreenKeyboard:
+        drawOsk();
+        break;
     }
     manageEvents();
     SDL_RenderPresent(_Globals.renderer);
@@ -81,7 +84,7 @@ void drawHeader()
   SDL_Rect rect = { 0, 0, _Globals.windowWidth, HEADER_HEIGHT };
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
-  if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats || _Globals.status == GameChoice)) {
+  if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats || _Globals.status == GameChoice || _Globals.status == OnScreenKeyboard)) {
     if (runningGameIcon != NULL) {
       sdlBlitImage(runningGameIcon, 0, 0, 30, 30);
     } else {

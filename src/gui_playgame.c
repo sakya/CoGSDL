@@ -57,6 +57,11 @@ static double pg_random();
 static void pg_randomSeed();
 static void pg_formatNumber(double number, char *value);
 static void pg_assignVar(variable *var, const char *value);
+/// @brief Manage the input_text command
+/// @return 1 if the game must wait for the text
+static int pg_manageInputTextCommand(const char *line);
+/// @brief Store the text typed for *input_text
+static void pg_setInputText(const char *text);
 static void pg_copyString(char *dst, size_t size, const char *src);
 /// @brief Count a jump to a label (*looplimit)
 /// @return 0 if the label was visited too many times in this page
@@ -236,7 +241,13 @@ void pg_drawPage()
   }
 
   if (_Globals.input[_Keys.KeyA] == 1) {
-    if (!pg_game_status.canScrollDown && pg_game_status.showPageBreak) {
+    if (!pg_game_status.canScrollDown && pg_game_status.inputTextActive) {
+      // *input_text: type the text with the on screen keyboard
+      _Globals.input[_Keys.KeyA] = 0;
+      osk_open("Type your answer and confirm with Start", "",
+               pg_game_status.inputTextLong ? 1000 : 100, pg_game_status.inputTextAllowBlank);
+      return;
+    } else if (!pg_game_status.canScrollDown && pg_game_status.showPageBreak) {
       //Next
       _Globals.input[_Keys.KeyA] = 0;
       pg_exec();
@@ -252,6 +263,15 @@ void pg_drawPage()
   if (scrollY != pg_game_status.scrollY) {
     SDL_FreeSurface(text_surface);
     text_surface = NULL;
+  }
+
+  // The text of *input_text was confirmed
+  if (pg_game_status.inputTextActive) {
+    char inputText[4096];
+    if (osk_getResult(inputText, sizeof(inputText))) {
+      pg_setInputText(inputText);
+      pg_exec();
+    }
   }
 
   // A choice was selected
@@ -270,6 +290,15 @@ void pg_drawPage()
   }
 
   if (pg_game_status.showPageBreak) {
+    if (pg_renderPageBreak()) {
+      pg_game_status.canScrollDown = 0;
+    } else {
+      pg_game_status.canScrollDown = 1;
+    }
+  }
+
+  if (pg_game_status.inputTextActive) {
+    strcpy(pg_game_status.pageBreakMessage, "Enter text");
     if (pg_renderPageBreak()) {
       pg_game_status.canScrollDown = 0;
     } else {
@@ -1007,6 +1036,7 @@ int pg_exec_primitive()
   }
 
   pg_game_status.showPageBreak = 0;
+  pg_game_status.inputTextActive = 0;
   pg_game_status.scrollY = 0;
   pg_clearChoices();
   pg_restoreMenu.active = 0;
@@ -1208,6 +1238,14 @@ int pg_exec_primitive()
         // check_purchase name1 name2
         pg_manageCheckPurchaseCommand(line);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
+      if (stricmp(command, "input_text") == 0) {
+        // input_text variable [long] [allow_blank]: wait for the text typed by the player
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        if (pg_manageInputTextCommand(line))
+          break;
         continue;
       }
 
@@ -3435,6 +3473,70 @@ static void pg_formatNumber(double number, char *value)
     sprintf(value, "%li", (long)round(number));
   else
     sprintf(value, "%g", number);
+}
+
+static int pg_manageInputTextCommand(const char *line)
+{
+  char args[1024];
+  pg_getCommandArgs(line, args, sizeof(args));
+
+  char name[256] = "";
+  int allowBlank = 0;
+  int isLong = 0;
+  int count = 0;
+  char *token = strtok(args, " \t");
+  while (token != NULL) {
+    if (count == 0) {
+      // The variable can be a reference: *input_text {name}
+      int len = strlen(token);
+      if (len > 1 && token[0] == '{' && token[len - 1] == '}') {
+        char *content = pg_strndup(token + 1, len - 2);
+        pg_evaluateReferenceName(content, name, sizeof(name));
+        free(content);
+      } else {
+        pg_copyString(name, sizeof(name), token);
+      }
+    } else if (stricmp(token, "allow_blank") == 0) {
+      allowBlank = 1;
+    } else if (stricmp(token, "long") == 0) {
+      isLong = 1;
+    } else {
+      logWarning("*input_text: unknown option %s", token);
+    }
+    count++;
+    token = strtok(NULL, " \t");
+  }
+
+  if (strlen(name) == 0) {
+    logWarning("*input_text: missing variable (%s)", line);
+    return 0;
+  }
+  if (pg_getVar(name) == NULL) {
+    logWarning("*input_text: non-existent variable %s", name);
+    return 0;
+  }
+
+  pg_copyString(pg_game_status.inputTextVariable, sizeof(pg_game_status.inputTextVariable), name);
+  pg_game_status.inputTextAllowBlank = allowBlank;
+  pg_game_status.inputTextLong = isLong;
+  pg_game_status.inputTextActive = 1;
+  return 1;
+}
+
+static void pg_setInputText(const char *text)
+{
+  pg_game_status.inputTextActive = 0;
+
+  char *value = pg_strndup(text, strlen(text));
+  trim(value);
+  variable *var = pg_getVar(pg_game_status.inputTextVariable);
+  if (var != NULL) {
+    pg_assignVar(var, value);
+    var->type = string;
+  } else {
+    logWarning("*input_text: non-existent variable %s", pg_game_status.inputTextVariable);
+  }
+  free(value);
 }
 
 /// @brief Assign an already evaluated value to a variable

@@ -101,6 +101,13 @@ struct game_status
     char pageBreakMessage[64];
     /// @brief Set to 1 if the text can be scrolled
     int canScrollDown;
+    /// @brief Set to 1 if *input_text is waiting for the text
+    int inputTextActive;
+    /// @brief The variable of *input_text
+    char inputTextVariable[256];
+    /// @brief *input_text options
+    int inputTextAllowBlank;
+    int inputTextLong;
 
     /// @brief The labels of the opened file
     label* labels;

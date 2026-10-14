@@ -58,7 +58,8 @@ enum status
   GameMenu = 4,
   GameStats = 5,
   GameChoice = 6,
-  Settings = 7
+  Settings = 7,
+  OnScreenKeyboard = 8
 };
 
 enum logLevel
@@ -288,5 +289,18 @@ void drawSettings();
 void settingsLoad();
 /// @brief Save the settings (theme) to settings.cfg
 void settingsSave();
+/* gui_osk.c */
+/// @brief Open the on screen keyboard (the current status is restored when it closes)
+/// @param title The text shown above the text box
+/// @param text The initial text
+/// @param maxLength The maximum number of characters
+/// @param allowEmpty 0 if an empty text cannot be confirmed
+void osk_open(const char *title, const char *text, int maxLength, int allowEmpty);
+/// @brief Get the text confirmed in the on screen keyboard
+/// @param text The buffer for the text
+/// @param size The buffer size
+/// @return 1 if a text was confirmed (only once for each confirmation)
+int osk_getResult(char *text, size_t size);
+void drawOsk();
 
 #endif
