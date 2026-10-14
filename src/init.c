@@ -52,7 +52,7 @@ int init()
   logInfo("\tDisplay Resolution: %dx%d", _Globals.displayWidth, _Globals.displayHeight);
 
   #ifdef MIYOO
-    _Globals.defaultFontSize = 23;
+    _Globals.defaultFontSize = 24;
     _Globals.textFontSize = 32;
   #else
     _Globals.defaultFontSize = 21;

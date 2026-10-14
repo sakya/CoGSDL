@@ -26,7 +26,12 @@
 
 #define TAB_SIZE 2
 #define TEXT_MARGIN 5
-#define HEADER_HEIGHT 30
+
+#ifdef MIYOO
+  #define HEADER_HEIGHT 34
+#else
+  #define HEADER_HEIGHT 30
+#endif
 
 extern const SDL_Color colorTitleText;
 
