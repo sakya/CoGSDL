@@ -1,5 +1,12 @@
 # CoGSDL
 
+## Install on the Miyoo Mini
+To install CoGSDL on the Miyoo Mini:
+- Download the latest [release](https://github.com/sakya/CoGSDL/releases) ZIP file
+- Extract the contents of the ZIP file into the /App/CoGSDL directory on the SD card.
+
+Make sure the files are extracted directly into /App/CoGSDL, rather than into an additional nested directory.
+
 ## Build for Miyoo Mini
 - Install the toolchain
   ```bash
