@@ -159,6 +159,18 @@ int fileExists (const char *filename) {
   return (stat(filename, &buffer) == 0) ? 1 : 0;
 }
 
+void sdlDrawSelection(int y, int height)
+{
+  SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
+  SDL_Rect rect = { 2, y, _Globals.windowWidth - 4, height };
+  SDL_RenderFillRect(_Globals.renderer, &rect);
+}
+
+int sdlSelectionHeight()
+{
+  return TTF_FontHeight(_Globals.defaultFont) + 4;
+}
+
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
 {
   if (!text || !font || !strlen(text))

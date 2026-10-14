@@ -5,6 +5,8 @@ extern game_status pg_game_status;
 static int scroll_y = 0;
 static int selectedIdx = 0;
 static SDL_Surface* choice_surface[16];
+/// @brief The text of the selected choice, in the color used on the selection background
+static SDL_Surface* choice_surface_selected[16];
 static int choice_surface_count = 0;
 static int line_height = 0;
 static int total_height = 0;
@@ -34,6 +36,32 @@ static int gc_is_visible(const choice *c)
 
 void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY);
 char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap, int *last_x);
+
+/// @brief Render the text of a choice on a transparent surface
+static SDL_Surface *gc_renderChoice(const choice *c, int height, SDL_Color color)
+{
+  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, _Globals.windowWidth - 2 * TEXT_MARGIN, height, 32, SDL_PIXELFORMAT_ARGB8888);
+  if (surface == NULL)
+    return NULL;
+  SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, color.r, color.g, color.b, 0));
+
+  // pg_renderTextToSurface uses the text color of the theme
+  theme textTheme = *_theme;
+  textTheme.textColor = color;
+  const theme *savedTheme = _theme;
+  _theme = &textTheme;
+  pg_renderTextToSurface(surface, c->text, 0);
+  _theme = savedTheme;
+  return surface;
+}
+
+/// @brief The surface of the selected choice (rendered when needed)
+static SDL_Surface *gc_selectedSurface(int index)
+{
+  if (choice_surface_selected[index] == NULL)
+    choice_surface_selected[index] = gc_renderChoice(&pg_game_status.choices[index], choice_surface[index]->h, _theme->titleTextColor);
+  return choice_surface_selected[index] ? choice_surface_selected[index] : choice_surface[index];
+}
 
 void drawGameChoice()
 {
@@ -104,13 +132,11 @@ void gc_init()
         lines++;
         free(line);
       }
-      SDL_Surface  *surface = SDL_CreateRGBSurface(0, text_width, lines * line_height + 2 * TEXT_MARGIN, 32, 0, 0, 0, 0);
+      SDL_Surface *surface = gc_renderChoice(c, lines * line_height + 2 * TEXT_MARGIN, _theme->textColor);
       if (surface == NULL) {
         logWarning("Failed to create surface");
         return;
       }
-      SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, _theme->backgroundColor.r, _theme->backgroundColor.g, _theme->backgroundColor.b, 0));
-      pg_renderTextToSurface(surface, c->text, 0);
 
       choice_surface[choice_surface_count] = surface;
       choice_surface_count++;
@@ -134,6 +160,8 @@ void gc_dispose()
 {
   for (int i = 0; i < choice_surface_count; i++) {
     SDL_FreeSurface(choice_surface[i]);
+    SDL_FreeSurface(choice_surface_selected[i]);
+    choice_surface_selected[i] = NULL;
   }
   choice_surface_count = 0;
   total_height = 0;
@@ -181,12 +209,12 @@ void gc_draw()
       }
 
       SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
-      SDL_Rect rect = { 0, y - scroll_y + delta_y, _Globals.windowWidth, height };
+      SDL_Rect rect = { 2, y - scroll_y + delta_y, _Globals.windowWidth - 4, height };
       SDL_RenderFillRect(_Globals.renderer, &rect);
     }
     y += 1;
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, choice_surface[i]);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, i == selectedIdx ? gc_selectedSurface(i) : choice_surface[i]);
     SDL_Rect crop = { 0, delta_y, choice_surface[i]->w, height - 2};
     SDL_Rect rect = { TEXT_MARGIN, y - scroll_y + delta_y, choice_surface[i]->w, height - 2 };
     SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, 0, NULL, SDL_FLIP_NONE);

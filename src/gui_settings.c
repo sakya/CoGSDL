@@ -109,7 +109,9 @@ void drawSettings()
   }
 
   int y = HEADER_HEIGHT + 20;
-  SDL_Color color = rowIdx == st_theme ? _theme->selectedTextColor : _theme->textColor;
+  SDL_Color color = rowIdx == st_theme ? _theme->titleTextColor : _theme->textColor;
+  if (rowIdx == st_theme)
+    sdlDrawSelection(y - 2, sdlSelectionHeight());
   char value[64];
   snprintf(value, sizeof(value), "< %s >", themes[st_currentTheme()].name);
   sdlWriteText(_Globals.defaultFont, color, "Theme", 30, y, 0, 0);

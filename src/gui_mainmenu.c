@@ -52,11 +52,13 @@ void drawMainMenu()
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL", 140, 75, 0, 0);
   sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A ChoiceScript interpreter", 140, 100, 0, 0);
 
-  sdlWriteText(_Globals.defaultFont, mm_index == 0 ? _theme->selectedTextColor : _theme->textColor, "Continue", 30, 200, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mm_index == 1 ? _theme->selectedTextColor : _theme->textColor, "Games", 30, 230, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mm_index == 2 ? _theme->selectedTextColor : _theme->textColor, "Settings", 30, 260, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mm_index == 3 ? _theme->selectedTextColor : _theme->textColor, "About", 30, 290, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mm_index == 4 ? _theme->selectedTextColor : _theme->textColor, "Quit", 30, 340, 0, 0);
+  const char *items[] = { "Continue", "Games", "Settings", "About", "Quit" };
+  const int itemsY[] = { 200, 230, 260, 290, 340 };
+  for (int i = 0; i < 5; i++) {
+    if (i == mm_index)
+      sdlDrawSelection(itemsY[i] - 2, sdlSelectionHeight());
+    sdlWriteText(_Globals.defaultFont, i == mm_index ? _theme->titleTextColor : _theme->textColor, (char *)items[i], 30, itemsY[i], 0, 0);
+  }
 
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);

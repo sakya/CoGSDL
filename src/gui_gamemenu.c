@@ -102,9 +102,11 @@ static void gm_drawSlots(const char *title)
   int y = HEADER_HEIGHT + 50;
   for (int i = 0; i < SAVE_SLOTS; i++) {
     int selectable = page != gm_load || slots[i].used;
-    SDL_Color color = i == slotIdx ? _theme->selectedTextColor : _theme->textColor;
+    SDL_Color color = i == slotIdx ? _theme->titleTextColor : _theme->textColor;
     if (!selectable)
       color = _theme->disabledTextColor;
+    if (i == slotIdx && selectable)
+      sdlDrawSelection(y - 2, 50);
 
     char line[320];
     if (slots[i].used)
@@ -180,7 +182,9 @@ void drawGameMenu()
         if (i == mainItemsCount - 1) {
           y += 10;
         }
-        sdlWriteText(_Globals.defaultFont, i == mainIdx ? _theme->selectedTextColor : _theme->textColor, (char *)mainItems[i], 30, y, 0, 0);
+        if (i == mainIdx)
+          sdlDrawSelection(y - 2, sdlSelectionHeight());
+        sdlWriteText(_Globals.defaultFont, i == mainIdx ? _theme->titleTextColor : _theme->textColor, (char *)mainItems[i], 30, y, 0, 0);
       }
       gm_drawFooter(1, 1);
       break;

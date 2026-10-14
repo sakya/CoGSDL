@@ -251,6 +251,12 @@ int stricmp(const char *s1, const char *s2);
 
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);
+/// @brief Draw the background of the selected item of a menu (almost as wide as the screen)
+/// @param y The top of the item
+/// @param height The height of the item
+void sdlDrawSelection(int y, int height);
+/// @brief The height of the selection of a menu item with a single line of text
+int sdlSelectionHeight();
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight);
 int get_line_height(TTF_Font *font);
 
