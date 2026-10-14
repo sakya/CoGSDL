@@ -1,14 +1,14 @@
 TARGET=CoGSDL
 VERSION=1.0
 
-# Build per Miyoo Mini (Onion): make PLATFORM=miyoo
-# Da eseguire nel container union-miyoomini-toolchain.
+# Miyoo Mini (Onion) build: make PLATFORM=miyoo
+# Run it inside the union-miyoomini-toolchain container.
 PLATFORM?=
 
 ifeq ($(PLATFORM), miyoo)
 	CROSS_COMPILE?=arm-linux-gnueabihf-
 	CC=$(CROSS_COMPILE)gcc
-	# Header e librerie SDL2 per Miyoo: miyoo/include e miyoo/lib
+	# SDL2 headers and libraries for Miyoo: miyoo/include and miyoo/lib
 	MIYOO_DIR?=miyoo
 	SDL2FLAGS=-L$(MIYOO_DIR)/lib -Wl,-rpath-link,$(MIYOO_DIR)/lib -Wl,--allow-shlib-undefined \
 		-l:libSDL2-2.0.so.0 -l:libSDL2_image-2.0.so.0 -l:libSDL2_ttf-2.0.so.0 -l:libSDL2_mixer-2.0.so.0

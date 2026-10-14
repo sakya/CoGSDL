@@ -20,8 +20,13 @@ https://onionui.github.io/docs/dev/setup
   ```bash
   git clone https://github.com/sakya/CoGSDL.git
   ```
-- Build CoGSDL
+- Build sdl2
   ```bash
   cd CoGSDL
+  apt-get update && apt-get install -y autoconf automake libtool pkg-config
+  sh miyoo/build-sdl2.sh
+  ```
+- Build CoGSDL
+  ```bash
   make re PLATFORM=miyoo
   ```
