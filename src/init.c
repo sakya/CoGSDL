@@ -54,9 +54,11 @@ int init()
   #ifdef MIYOO
     _Globals.defaultFontSize = 24;
     _Globals.textFontSize = 32;
+    _Globals.defaultSmallFontSize = 21;
   #else
     _Globals.defaultFontSize = 21;
     _Globals.textFontSize = 21;
+    _Globals.defaultSmallFontSize = 16;
   #endif
 
   _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
@@ -65,7 +67,6 @@ int init()
   _Globals.textItalicFont = TTF_OpenFont("./fonts/Cardo-Italic.ttf", _Globals.textFontSize);
   _Globals.textBoldFont = TTF_OpenFont("./fonts/Cardo-Bold.ttf", _Globals.textFontSize);
 
-  _Globals.defaultSmallFontSize = 16;
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
 
   load_images();
