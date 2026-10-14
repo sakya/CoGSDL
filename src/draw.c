@@ -45,6 +45,9 @@ int draw()
       case GameStats:
         drawGameStats();
         break;
+      case Settings:
+        drawSettings();
+        break;
     }
     manageEvents();
     SDL_RenderPresent(_Globals.renderer);

@@ -25,9 +25,12 @@ void drawMainMenu()
         _Globals.status = GameSelect;
         break;
       case 2:
-        _Globals.status = About;
+        _Globals.status = Settings;
         break;
       case 3:
+        _Globals.status = About;
+        break;
+      case 4:
         _Globals.quit = 1;
         break;
     }
@@ -51,8 +54,9 @@ void drawMainMenu()
 
   sdlWriteText(_Globals.defaultFont, mm_index == 0 ? _theme->selectedTextColor : _theme->textColor, "Continue", 30, 200, 0, 0);
   sdlWriteText(_Globals.defaultFont, mm_index == 1 ? _theme->selectedTextColor : _theme->textColor, "Games", 30, 230, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mm_index == 2 ? _theme->selectedTextColor : _theme->textColor, "About", 30, 260, 0, 0);
-  sdlWriteText(_Globals.defaultFont, mm_index == 3 ? _theme->selectedTextColor : _theme->textColor, "Quit", 30, 300, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mm_index == 2 ? _theme->selectedTextColor : _theme->textColor, "Settings", 30, 260, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mm_index == 3 ? _theme->selectedTextColor : _theme->textColor, "About", 30, 290, 0, 0);
+  sdlWriteText(_Globals.defaultFont, mm_index == 4 ? _theme->selectedTextColor : _theme->textColor, "Quit", 30, 440, 0, 0);
 
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
