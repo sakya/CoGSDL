@@ -35,8 +35,7 @@ int init()
   }
 
   if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-    logError("\tMix_OpenAudio Fail: %s", Mix_GetError());
-    return -1;
+    logWarning("\tMix_OpenAudio Fail: %s (audio disabled)", Mix_GetError());
   }
 
   SDL_DisplayMode mode;
