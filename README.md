@@ -45,5 +45,5 @@ To obtain the files required to play a game:
   make pack
   ```
 
-## Choice script documentation
+## ChoiceScript documentation
 The documentation of the script can be found [here](https://www.choiceofgames.com/make-your-own-games/choicescript-intro/)
