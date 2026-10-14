@@ -12,6 +12,8 @@ int init()
   locale = setlocale(LC_ALL, "");
   logInfo("\tLocale: %s", locale);
 
+  settingsLoad();
+
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
     logError("\tSDL_Init Fail: %s", SDL_GetError());
     return -1;

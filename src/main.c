@@ -82,6 +82,15 @@ const theme sepiaTheme = {
   {161, 163, 142}
 };
 
+const theme lightTheme = {
+  {250, 250, 250},
+  {33, 97, 160},
+  {33, 33, 33},
+  {21, 101, 192},
+  {255, 255, 255},
+  {170, 170, 170}
+};
+
 const theme *_theme = &sepiaTheme;
 
 int main(int argc, char* argv[])

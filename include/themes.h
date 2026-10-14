@@ -13,5 +13,7 @@ struct theme
     SDL_Color disabledTextColor;
 } typedef theme;
 
-extern const theme defaultTheme;
+extern const theme sepiaTheme;
+extern const theme darkTheme;
+extern const theme lightTheme;
 #endif

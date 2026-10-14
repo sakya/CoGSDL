@@ -281,5 +281,9 @@ void drawGameStats();
 void drawGameChoice();
 /* gui_settings.c */
 void drawSettings();
+/// @brief Load the settings (theme) from settings.cfg
+void settingsLoad();
+/// @brief Save the settings (theme) to settings.cfg
+void settingsSave();
 
 #endif

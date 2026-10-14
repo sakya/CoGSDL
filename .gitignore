@@ -11,3 +11,4 @@ CoGSDL
 *.out
 prof_output
 saves/
+settings.cfg
