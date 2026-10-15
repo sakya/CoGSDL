@@ -19,7 +19,7 @@ void drawAbout()
   if (about_angle >= 360)
     about_angle = 0;
 
-  sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL", 140, 75, 0, 0);
+  sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL v" VERSION, 140, 75, 0, 0);
   sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A ChoiceScript interpreter", 140, 100, 0, 0);
 
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "© 2026 Paolo Iommarini - MIT License", 30, 200, 0, 0);
