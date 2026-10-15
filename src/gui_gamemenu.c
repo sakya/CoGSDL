@@ -97,7 +97,7 @@ static void gm_drawFooter(int showA, int showB)
 
 static void gm_drawSlots(const char *title)
 {
-  sdlWriteText(_Globals.defaultFont, _theme->textColor, (char *)title, 30, HEADER_HEIGHT + 10, 0, 0);
+  sdlWriteText(_Globals.titleFont, _theme->textColor, (char *)title, 30, HEADER_HEIGHT + 10, 0, 0);
 
   int y = HEADER_HEIGHT + 50;
   for (int i = 0; i < SAVE_SLOTS; i++) {
