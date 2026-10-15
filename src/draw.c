@@ -4,6 +4,8 @@ void drawHeader();
 void drawFooter();
 void drawAppIcon();
 
+#define TARGET_FPS 60
+
 static int fps = 0;
 static Uint64 fpsStart = 0;
 static int fpsCount = 0;
@@ -11,11 +13,15 @@ static double header_angle = 0;
 
 int draw()
 {
+  const Uint64 freq = SDL_GetPerformanceFrequency();
+  const Uint64 frameTicks = freq / TARGET_FPS;
+  // Absolute time of the next frame: a frame that waits too long is
+  // compensated by the following one, so the average stays at TARGET_FPS
+  Uint64 nextFrame = SDL_GetPerformanceCounter();
+  fpsStart = nextFrame;
+  fpsCount = 0;
+
   while (_Globals.quit == 0) {
-    Uint64 start = SDL_GetPerformanceCounter();
-    if (fpsStart == 0) {
-      fpsStart = start;
-    }
 
     SDL_SetRenderDrawColor(_Globals.renderer, _theme->backgroundColor.r, _theme->backgroundColor.g, _theme->backgroundColor.b, 255);
     SDL_RenderClear(_Globals.renderer);
@@ -55,21 +61,24 @@ int draw()
     manageEvents();
     presentFrame();
 
-    Uint64 end = SDL_GetPerformanceCounter();
-    float elapsedMs = (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
-    // Cap to 60 FPS
-    int toWait = floor(16.666f - elapsedMs);
-    if (toWait > 0) {
-      SDL_Delay(toWait);
+    // Cap to TARGET_FPS
+    nextFrame += frameTicks;
+    Uint64 now = SDL_GetPerformanceCounter();
+    if (now < nextFrame) {
+      Uint32 toWait = (Uint32)((nextFrame - now) * 1000 / freq);
+      if (toWait > 0)
+        SDL_Delay(toWait);
+    } else if (now - nextFrame > frameTicks) {
+      // More than a frame late (e.g. loading a scene): don't try to catch up
+      nextFrame = now;
     }
 
-    // Fps
-    if (++fpsCount == 50) {
-      end = SDL_GetPerformanceCounter();
-      elapsedMs = (end - fpsStart) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
-      fps = floor(50000.0f / elapsedMs);
-
-      fpsStart = 0;
+    // Fps: frames counted over (at least) one second, rounded
+    fpsCount++;
+    now = SDL_GetPerformanceCounter();
+    if (now - fpsStart >= freq) {
+      fps = (int)((fpsCount * freq + (now - fpsStart) / 2) / (now - fpsStart));
+      fpsStart = now;
       fpsCount = 0;
     }
   }
