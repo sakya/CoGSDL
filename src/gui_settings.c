@@ -185,7 +185,7 @@ void drawSettings()
 
   // Preview of the game text font
   if (rowIdx == st_text_font_size && _Globals.textFont != NULL)
-    sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", 30, y + 3 * rowHeight + 20, 0, 0);
+    sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", 30, y + 3 * rowHeight + 10, 0, 0);
 
   sdlBlitImage(button_b, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);
