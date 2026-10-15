@@ -60,7 +60,7 @@ int init()
   #ifdef MIYOO
     _Globals.titleFontSize = 28;
     _Globals.defaultSmallFontSize = 21;
-    _Globals.defaultFontSize = 24;
+    _Globals.defaultFontSize = 26;
   #else
     _Globals.titleFontSize = 24;
     _Globals.defaultSmallFontSize = 16;
