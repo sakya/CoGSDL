@@ -58,7 +58,7 @@ void settingsLoad()
       const char *value = line + 9;
       _Globals.show_fps = stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
     } else if (startsWith("log_level=", line)) {
-      const char *value = line + 9;
+      const char *value = line + 10;
       int found = 0;
       for (int i = Debug; i <= Error; i++) {
         if (stricmp(value, logLevelNames[i]) == 0) {
