@@ -130,7 +130,7 @@ static void gm_drawConfirm(const char *question, const char *detail)
   sdlWriteText(_Globals.defaultFont, _theme->textColor, (char *)question, 30, HEADER_HEIGHT + 60, _Globals.windowWidth - 40, 0);
   if (detail != NULL)
     sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, (char *)detail, 30, HEADER_HEIGHT + 95, _Globals.windowWidth - 40, 0);
-  sdlWriteText(_Globals.defaultFont, _theme->selectedTextColor, "A: Yes    B: No", 30, HEADER_HEIGHT + 140, 0, 0);
+  sdlWriteText(_Globals.defaultFont, _theme->selectedTextColor, "B: No    A: Yes", 30, HEADER_HEIGHT + 140, 0, 0);
   gm_drawFooter(1, 1);
 }
 
