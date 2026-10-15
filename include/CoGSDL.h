@@ -109,6 +109,8 @@ struct CoGSDL {
 
   TTF_Font *textFont;
   int textFontSize;
+  /// @brief Index in textFontFamilies (settings.cfg: text_font_family)
+  int textFontFamily;
   TTF_Font *textItalicFont;
   TTF_Font *textBoldFont;
 
@@ -261,6 +263,14 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
 #define TEXT_FONT_SIZE_MIN 16
 #define TEXT_FONT_SIZE_MAX 36
 int loadTextFonts();
+
+// Game text font families (text_font_family in settings.cfg)
+typedef struct {
+  const char *name; // Name shown in the settings and saved in settings.cfg
+  const char *file; // Files in ./fonts: <file>-Regular.ttf, <file>-Italic.ttf, <file>-Bold.ttf
+} text_font_family;
+extern const text_font_family textFontFamilies[];
+extern const int textFontFamiliesCount;
 void sdlImageSize(SDL_Surface *surface, int maxWidth, int maxHeight, int *width, int *height);
 /// @brief Get the (cached) texture of a surface scaled to the given size
 /// The textures are kept between the frames: free the surfaces with sdlFreeSurface

@@ -3,6 +3,13 @@
 void load_images();
 void load_sounds();
 
+const text_font_family textFontFamilies[] = {
+  { "Cardo", "Cardo" },
+  { "Charis SIL", "CharisSIL" },
+  { "Literata", "Literata" }
+};
+const int textFontFamiliesCount = sizeof(textFontFamilies) / sizeof(textFontFamilies[0]);
+
 int init()
 {
   // Default, settings.cfg can change it (logLevel=Debug|Info|Warning|Error)
@@ -11,6 +18,7 @@ int init()
   _Globals.justify_text = 1;
   _Globals.show_fps = 0;
   _Globals.quit = 0;
+  _Globals.textFontFamily = 0; // Cardo
   #ifdef MIYOO
     _Globals.textFontSize = 32;
   #else
@@ -143,11 +151,19 @@ void load_images()
 /// @return 0 on success. On failure the current fonts are kept
 int loadTextFonts()
 {
-  TTF_Font *regular = TTF_OpenFont("./fonts/Cardo-Regular.ttf", _Globals.textFontSize);
-  TTF_Font *italic = TTF_OpenFont("./fonts/Cardo-Italic.ttf", _Globals.textFontSize);
-  TTF_Font *bold = TTF_OpenFont("./fonts/Cardo-Bold.ttf", _Globals.textFontSize);
+  if (_Globals.textFontFamily < 0 || _Globals.textFontFamily >= textFontFamiliesCount)
+    _Globals.textFontFamily = 0;
+  const char *file = textFontFamilies[_Globals.textFontFamily].file;
+  char path[256];
+
+  snprintf(path, sizeof(path), "./fonts/%s-Regular.ttf", file);
+  TTF_Font *regular = TTF_OpenFont(path, _Globals.textFontSize);
+  snprintf(path, sizeof(path), "./fonts/%s-Italic.ttf", file);
+  TTF_Font *italic = TTF_OpenFont(path, _Globals.textFontSize);
+  snprintf(path, sizeof(path), "./fonts/%s-Bold.ttf", file);
+  TTF_Font *bold = TTF_OpenFont(path, _Globals.textFontSize);
   if (regular == NULL || italic == NULL || bold == NULL) {
-    logError("\tCannot open the text fonts (size %d): %s", _Globals.textFontSize, TTF_GetError());
+    logError("\tCannot open the text fonts %s (size %d): %s", textFontFamilies[_Globals.textFontFamily].name, _Globals.textFontSize, TTF_GetError());
     if (regular)
       TTF_CloseFont(regular);
     if (italic)

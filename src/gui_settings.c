@@ -18,6 +18,7 @@ enum settings_row
 {
   st_theme = 0,
   st_show_fps,
+  st_text_font_family,
   st_text_font_size,
   st_rows_count
 };
@@ -59,6 +60,18 @@ void settingsLoad()
     } else if (startsWith("show_fps=", line)) {
       const char *value = line + 9;
       _Globals.show_fps = stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
+    } else if (startsWith("text_font_family=", line)) {
+      const char *value = line + 17;
+      int found = 0;
+      for (int i = 0; i < textFontFamiliesCount; i++) {
+        if (stricmp(value, textFontFamilies[i].name) == 0) {
+          _Globals.textFontFamily = i;
+          found = 1;
+          break;
+        }
+      }
+      if (!found)
+        logWarning("\tInvalid text_font_family in %s: %s", SETTINGS_FILE, value);
     } else if (startsWith("text_font_size=", line)) {
       int size = atoi(line + 15);
       if (size < TEXT_FONT_SIZE_MIN)
@@ -93,6 +106,7 @@ void settingsSave()
   }
   fprintf(f, "theme=%s\n", themes[st_currentTheme()].name);
   fprintf(f, "show_fps=%s\n", _Globals.show_fps ? "true" : "false");
+  fprintf(f, "text_font_family=%s\n", textFontFamilies[_Globals.textFontFamily >= 0 && _Globals.textFontFamily < textFontFamiliesCount ? _Globals.textFontFamily : 0].name);
   fprintf(f, "text_font_size=%d\n", _Globals.textFontSize);
   fprintf(f, "log_level=%s\n", logLevelNames[_Globals.logLevel >= Debug && _Globals.logLevel <= Error ? _Globals.logLevel : Info]);
   fclose(f);
@@ -109,6 +123,18 @@ static void st_changeTheme(int delta)
 static void st_toggleShowFps()
 {
   _Globals.show_fps = !_Globals.show_fps;
+  settingsSave();
+  Mix_PlayChannel(-1, sound_menu_change, 0);
+}
+
+static void st_changeTextFontFamily(int delta)
+{
+  int oldFamily = _Globals.textFontFamily;
+  _Globals.textFontFamily = (oldFamily + delta + textFontFamiliesCount) % textFontFamiliesCount;
+  if (loadTextFonts() != 0) {
+    _Globals.textFontFamily = oldFamily;
+    return;
+  }
   settingsSave();
   Mix_PlayChannel(-1, sound_menu_change, 0);
 }
@@ -166,6 +192,8 @@ void drawSettings()
       st_changeTheme(delta);
     else if (rowIdx == st_show_fps)
       st_toggleShowFps();
+    else if (rowIdx == st_text_font_family)
+      st_changeTextFontFamily(delta);
     else if (rowIdx == st_text_font_size)
       st_changeTextFontSize(delta);
   } else if (_Globals.input[_Keys.KeyB] == 1) {
@@ -181,11 +209,12 @@ void drawSettings()
   st_drawRow(st_show_fps, y + rowHeight, "Show FPS", _Globals.show_fps ? "true" : "false");
   char fontSize[16];
   snprintf(fontSize, sizeof(fontSize), "%d", _Globals.textFontSize);
-  st_drawRow(st_text_font_size, y + 2 * rowHeight, "Text size", fontSize);
+  st_drawRow(st_text_font_family, y + 2 * rowHeight, "Text font", textFontFamilies[_Globals.textFontFamily].name);
+  st_drawRow(st_text_font_size, y + 3 * rowHeight, "Text size", fontSize);
 
   // Preview of the game text font
-  if (rowIdx == st_text_font_size && _Globals.textFont != NULL)
-    sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", 30, y + 3 * rowHeight + 10, 0, 0);
+  if ((rowIdx == st_text_font_family || rowIdx == st_text_font_size) && _Globals.textFont != NULL)
+    sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", 30, y + 4 * rowHeight + 10, 0, 0);
 
   sdlBlitImage(button_b, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);
