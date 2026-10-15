@@ -162,7 +162,7 @@ int fileExists (const char *filename) {
 void sdlDrawSelection(int y, int height)
 {
   SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
-  SDL_Rect rect = { 2, y, _Globals.windowWidth - 4, height };
+  SDL_Rect rect = { 5, y, _Globals.windowWidth - 10, height };
   SDL_RenderFillRect(_Globals.renderer, &rect);
 }
 

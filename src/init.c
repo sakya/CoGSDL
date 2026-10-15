@@ -53,16 +53,19 @@ int init()
   logInfo("\tDisplay Resolution: %dx%d", _Globals.displayWidth, _Globals.displayHeight);
 
   #ifdef MIYOO
+    _Globals.titleFontSize = 28;
     _Globals.defaultSmallFontSize = 21;
     _Globals.defaultFontSize = 24;
     _Globals.textFontSize = 32;
   #else
+    _Globals.titleFontSize = 24;
     _Globals.defaultSmallFontSize = 16;
     _Globals.defaultFontSize = 21;
     _Globals.textFontSize = 21;
   #endif
 
   _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
+  _Globals.titleFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.titleFontSize);
 
   _Globals.textFont = TTF_OpenFont("./fonts/Cardo-Regular.ttf", _Globals.textFontSize);
   _Globals.textItalicFont = TTF_OpenFont("./fonts/Cardo-Italic.ttf", _Globals.textFontSize);
@@ -139,6 +142,9 @@ void free_fonts()
 {
   TTF_CloseFont(_Globals.defaultFont);
   _Globals.defaultFont = NULL;
+
+  TTF_CloseFont(_Globals.titleFont);
+  _Globals.titleFont = NULL;
 
   TTF_CloseFont(_Globals.textFont);
   _Globals.textFont = NULL;
