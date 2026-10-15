@@ -1511,28 +1511,22 @@ void pg_appendText(const char *text, int newLine)
   if (!text)
     return;
 
-  const int textLen = strlen(text);
-  const int delta = newLine ? 2 : 1;
-  if (pg_game_status.text == NULL) {
-    pg_game_status.text = malloc(textLen + delta);
-    memset(pg_game_status.text, 0, textLen + delta);
-  } else {
-    char *tmp = realloc(pg_game_status.text, strlen(pg_game_status.text) + textLen + delta);
-    if (tmp != NULL) {
-      memset(tmp + strlen(tmp), 0, textLen + delta);
-      pg_game_status.text = tmp;
-      tmp = NULL;
-    } else {
-      logWarning("Realloc failed");
-      pg_game_status.text = NULL;
-      return;
-    }
+  const size_t textLen = strlen(text);
+  const size_t oldLen = pg_game_status.text ? strlen(pg_game_status.text) : 0;
+  // realloc(NULL, size) works as malloc
+  char *tmp = realloc(pg_game_status.text, oldLen + textLen + (newLine ? 1 : 0) + 1);
+  if (tmp == NULL) {
+    // Keep the text already on the page
+    logWarning("Realloc failed");
+    return;
   }
 
-  strncat(pg_game_status.text, text, textLen);
-  if (newLine) {
-    strcat(pg_game_status.text, "\n");
-  }
+  memcpy(tmp + oldLen, text, textLen);
+  size_t len = oldLen + textLen;
+  if (newLine)
+    tmp[len++] = '\n';
+  tmp[len] = '\0';
+  pg_game_status.text = tmp;
 }
 
 void pg_appendLineSeparator()
