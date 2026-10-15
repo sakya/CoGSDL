@@ -1298,6 +1298,31 @@ int pg_exec_primitive()
         continue;
       }
 
+      if (stricmp(command, "link") == 0 || stricmp(command, "link_button") == 0) {
+        // link URL [text], link_button URL [text]: the link cannot be opened here,
+        // so the URL is shown (the text is ignored)
+        char args[4096];
+        pg_getCommandArgs(line, args, sizeof(args));
+        trim(args);
+        char *end = args;
+        while (*end && *end != ' ' && *end != '\t')
+          end++;
+        *end = '\0';
+        if (strlen(args) == 0) {
+          logWarning("*link without URL: %s", line);
+        } else {
+          char *expanded = pg_expandVariables(args);
+          const char *url = expanded ? expanded : args;
+          // Same as ChoiceScript: printed as a line of text of the current paragraph
+          pg_appendLineSeparator();
+          pg_appendText(url, 0);
+          textStarted = 1;
+          free(expanded);
+        }
+        pg_game_status.fpPosition = ftell(pg_game_status.fp);
+        continue;
+      }
+
       if (stricmp(command, "line_break") == 0) {
         pg_appendText("\n", 0);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
