@@ -45,7 +45,7 @@ static void gs_moveItem(int delta)
     idx = (idx + delta + SAVE_SLOTS + 1) % (SAVE_SLOTS + 1);
     if (gs_isItemEnabled(idx)) {
       slotsItemIdx = idx;
-      Mix_PlayChannel(-1, sound_menu_change, 0);
+      playMenuSound();
       return;
     }
   }
@@ -212,7 +212,7 @@ void drawGameSelectMenu()
   }
 
   if (old_selected_idx != selectedIdx) {
-    Mix_PlayChannel(-1, sound_menu_change, 0);
+    playMenuSound();
   }
 
   if (_Globals.gamesCount > 0) {

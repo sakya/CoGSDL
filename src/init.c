@@ -3,6 +3,21 @@
 void load_images();
 void load_sounds();
 
+#ifdef MIYOO
+  #define AUDIO_CHUNK_SIZE 1024
+#else
+  #define AUDIO_CHUNK_SIZE 512
+#endif
+#define MENU_SOUND_CHANNEL 0
+
+void playMenuSound()
+{
+  // Playing on a busy channel stops the previous sound: when moving quickly
+  // between the menu items the sound always starts immediately
+  if (sound_menu_change != NULL)
+    Mix_PlayChannel(MENU_SOUND_CHANNEL, sound_menu_change, 0);
+}
+
 const text_font_family textFontFamilies[] = {
   { "Cardo", "Cardo" },
   { "Charis SIL", "CharisSIL" },
@@ -49,8 +64,12 @@ int init()
     return -1;
   }
 
-  if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+  // Small buffer = low latency for the menu sounds
+  if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, AUDIO_CHUNK_SIZE) < 0) {
     logWarning("\tMix_OpenAudio Fail: %s (audio disabled)", Mix_GetError());
+  } else {
+    // Channel reserved to the menu sound
+    Mix_ReserveChannels(1);
   }
 
   SDL_DisplayMode mode;

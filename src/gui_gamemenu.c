@@ -53,7 +53,7 @@ static void gm_moveSlot(int delta)
     idx = (idx + delta + SAVE_SLOTS) % SAVE_SLOTS;
     if (page != gm_load || slots[idx].used) {
       slotIdx = idx;
-      Mix_PlayChannel(-1, sound_menu_change, 0);
+      playMenuSound();
       return;
     }
   }
@@ -157,11 +157,11 @@ void drawGameMenu()
       if (_Globals.input[_Keys.KeyDown] == 1) {
         _Globals.input[_Keys.KeyDown] = 0;
         mainIdx = (mainIdx + 1) % mainItemsCount;
-        Mix_PlayChannel(-1, sound_menu_change, 0);
+        playMenuSound();
       } else if (_Globals.input[_Keys.KeyUp] == 1) {
         _Globals.input[_Keys.KeyUp] = 0;
         mainIdx = (mainIdx + mainItemsCount - 1) % mainItemsCount;
-        Mix_PlayChannel(-1, sound_menu_change, 0);
+        playMenuSound();
       } else if (_Globals.input[_Keys.KeyA] == 1) {
         _Globals.input[_Keys.KeyA] = 0;
         if (mainIdx == 0)

@@ -307,7 +307,7 @@ static void osk_move(int dRow, int dCol)
     int cols = osk_rowKeys(osk_row);
     osk_col = (osk_col + dCol + cols) % cols;
   }
-  Mix_PlayChannel(-1, sound_menu_change, 0);
+  playMenuSound();
 }
 
 static void osk_drawKey(const char *label, int x, int y, int w, int h, int selected)

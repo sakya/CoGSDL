@@ -23,13 +23,13 @@ void drawMainMenu()
   if (_Globals.input[_Keys.KeyDown] == 1) {
     if (mm_index < 4) {
       mm_index++;
-      Mix_PlayChannel(-1, sound_menu_change, 0);
+      playMenuSound();
     }
     _Globals.input[_Keys.KeyDown] = 0;
   } else if (_Globals.input[_Keys.KeyUp] == 1) {
     if (mm_index > firstIndex) {
       mm_index--;
-      Mix_PlayChannel(-1, sound_menu_change, 0);
+      playMenuSound();
     }
     _Globals.input[_Keys.KeyUp] = 0;
   } else if (_Globals.input[_Keys.KeyA] == 1) {

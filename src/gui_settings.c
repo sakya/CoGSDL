@@ -117,14 +117,14 @@ static void st_changeTheme(int delta)
   int idx = (st_currentTheme() + delta + themesCount) % themesCount;
   _theme = themes[idx].theme;
   settingsSave();
-  Mix_PlayChannel(-1, sound_menu_change, 0);
+  playMenuSound();
 }
 
 static void st_toggleShowFps()
 {
   _Globals.show_fps = !_Globals.show_fps;
   settingsSave();
-  Mix_PlayChannel(-1, sound_menu_change, 0);
+  playMenuSound();
 }
 
 static void st_changeTextFontFamily(int delta)
@@ -136,7 +136,7 @@ static void st_changeTextFontFamily(int delta)
     return;
   }
   settingsSave();
-  Mix_PlayChannel(-1, sound_menu_change, 0);
+  playMenuSound();
 }
 
 static void st_changeTextFontSize(int delta)
@@ -152,7 +152,7 @@ static void st_changeTextFontSize(int delta)
     return;
   }
   settingsSave();
-  Mix_PlayChannel(-1, sound_menu_change, 0);
+  playMenuSound();
 }
 
 // Draws a settings row: label on the left, "< value >" on the right
@@ -176,13 +176,13 @@ void drawSettings()
     _Globals.input[_Keys.KeyDown] = 0;
     if (rowIdx < st_rows_count - 1) {
       rowIdx++;
-      Mix_PlayChannel(-1, sound_menu_change, 0);
+      playMenuSound();
     }
   } else if (_Globals.input[_Keys.KeyUp] == 1) {
     _Globals.input[_Keys.KeyUp] = 0;
     if (rowIdx > 0) {
       rowIdx--;
-      Mix_PlayChannel(-1, sound_menu_change, 0);
+      playMenuSound();
     }
   } else if (_Globals.input[_Keys.KeyLeft] == 1 || _Globals.input[_Keys.KeyRight] == 1) {
     int delta = _Globals.input[_Keys.KeyRight] == 1 ? 1 : -1;

@@ -44,6 +44,8 @@ extern SDL_Surface* dpad;
 extern SDL_Surface* dpad_up_down;
 
 extern Mix_Chunk* sound_menu_change;
+/// @brief Play the menu change sound (on its own channel, a new one stops the previous)
+void playMenuSound();
 
 extern game* runningGame;
 extern SDL_Surface *runningGameIcon;

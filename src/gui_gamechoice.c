@@ -103,7 +103,7 @@ void drawGameChoice()
   }
 
   if (old_selected_idx != selectedIdx) {
-    Mix_PlayChannel(-1, sound_menu_change, 0);
+    playMenuSound();
   }
 
   if (!choice_surface_count) {
