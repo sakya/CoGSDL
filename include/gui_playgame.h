@@ -168,6 +168,8 @@ int pg_isStatsActive();
 void pg_drawPage();
 
 /// @brief Close the running game and free its memory
+/// @brief Initialize the running game (runningGame) at the start of the first scene
+void pg_init();
 void pg_dispose();
 
 /// @brief Number of save slots for each game
