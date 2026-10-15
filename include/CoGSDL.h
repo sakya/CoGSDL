@@ -256,6 +256,7 @@ int stricmp(const char *s1, const char *s2);
 
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);
+void sdlImageSize(SDL_Surface *surface, int maxWidth, int maxHeight, int *width, int *height);
 /// @brief Get the (cached) texture of a surface scaled to the given size
 /// The textures are kept between the frames: free the surfaces with sdlFreeSurface
 SDL_Texture *sdlGetImageTexture(SDL_Surface *surface, int width, int height);

@@ -239,7 +239,10 @@ void drawGameSelectMenu()
       if (iconSurface == NULL) {
         iconSurface = IMG_Load(selGame->icon);
       }
-      sdlBlitImage(iconSurface, 440, 10 + HEADER_HEIGHT, 200, 300);
+      // Right aligned, 5 pixels from the right edge of the screen
+      int iconWidth;
+      sdlImageSize(iconSurface, 200, 300, &iconWidth, NULL);
+      sdlBlitImage(iconSurface, _Globals.windowWidth - iconWidth - 5, 10 + HEADER_HEIGHT, 200, 300);
     }
   }
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);

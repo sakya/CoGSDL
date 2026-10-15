@@ -391,21 +391,37 @@ void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight)
   SDL_FreeSurface(surface);
 }
 
+// Size of the image as drawn by sdlBlitImage (scaled down to fit
+// maxWidth x maxHeight, keeping the aspect ratio)
+void sdlImageSize(SDL_Surface *surface, int maxWidth, int maxHeight, int *width, int *height)
+{
+  int w = 0, h = 0;
+  if (surface != NULL && surface->h > 0) {
+    w = surface->w;
+    h = surface->h;
+    float ratio = (float)w / (float)h;
+    if (maxWidth > 0 && w > maxWidth) {
+      w = maxWidth;
+      h = w / ratio;
+    }
+    if (maxHeight > 0 && h > maxHeight) {
+      h = maxHeight;
+      w = h * ratio;
+    }
+  }
+  if (width)
+    *width = w;
+  if (height)
+    *height = h;
+}
+
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight)
 {
   if (surface == NULL)
     return;
 
-  SDL_Rect rect = { x, y, surface->w, surface->h };
-  float ratio = (float)rect.w / (float)rect.h;
-  if (maxWidth > 0 && rect.w > maxWidth) {
-    rect.w = maxWidth;
-    rect.h = rect.w / ratio;
-  }
-  if (maxHeight > 0 && rect.h > maxHeight) {
-    rect.h = maxHeight;
-    rect.w = rect.h * ratio;
-  }
+  SDL_Rect rect = { x, y, 0, 0 };
+  sdlImageSize(surface, maxWidth, maxHeight, &rect.w, &rect.h);
 
   SDL_Texture *texture = sdlGetImageTexture(surface, rect.w, rect.h);
   if (texture)
