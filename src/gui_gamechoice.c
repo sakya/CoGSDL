@@ -226,11 +226,7 @@ void gc_draw()
 
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
-
-  char select_msg[] = "Select";
-  int width;
-  TTF_MeasureUTF8(_Globals.defaultFont, select_msg, _Globals.windowWidth, &width, NULL);
-  sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, select_msg, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
+  sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
 }
 
 void gc_select_next()
