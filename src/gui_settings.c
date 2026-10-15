@@ -17,6 +17,7 @@ static const int themesCount = sizeof(themes) / sizeof(themes[0]);
 enum settings_row
 {
   st_theme = 0,
+  st_show_fps,
   st_rows_count
 };
 
@@ -83,7 +84,6 @@ void settingsSave()
     return;
   }
   fprintf(f, "theme=%s\n", themes[st_currentTheme()].name);
-  // Not shown in the settings screen: edit settings.cfg to change it
   fprintf(f, "show_fps=%s\n", _Globals.show_fps ? "true" : "false");
   fprintf(f, "log_level=%s\n", logLevelNames[_Globals.logLevel >= Debug && _Globals.logLevel <= Error ? _Globals.logLevel : Info]);
   fclose(f);
@@ -95,6 +95,28 @@ static void st_changeTheme(int delta)
   _theme = themes[idx].theme;
   settingsSave();
   Mix_PlayChannel(-1, sound_menu_change, 0);
+}
+
+static void st_toggleShowFps()
+{
+  _Globals.show_fps = !_Globals.show_fps;
+  settingsSave();
+  Mix_PlayChannel(-1, sound_menu_change, 0);
+}
+
+// Draws a settings row: label on the left, "< value >" on the right
+static void st_drawRow(int row, int y, const char *label, const char *valueText)
+{
+  SDL_Color color = rowIdx == row ? _theme->titleTextColor : _theme->textColor;
+  if (rowIdx == row)
+    sdlDrawSelection(y - 2, sdlSelectionHeight());
+  sdlWriteText(_Globals.defaultFont, color, (char *)label, 30, y, 0, 0);
+
+  char value[64];
+  snprintf(value, sizeof(value), "< %s >", valueText);
+  int width;
+  TTF_MeasureUTF8(_Globals.defaultFont, value, _Globals.windowWidth, &width, NULL);
+  sdlWriteText(_Globals.defaultFont, color, value, _Globals.windowWidth - width - 30, y, 0, 0);
 }
 
 void drawSettings()
@@ -117,6 +139,8 @@ void drawSettings()
     _Globals.input[_Keys.KeyRight] = 0;
     if (rowIdx == st_theme)
       st_changeTheme(delta);
+    else if (rowIdx == st_show_fps)
+      st_toggleShowFps();
   } else if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
     rowIdx = 0;
@@ -125,16 +149,9 @@ void drawSettings()
   }
 
   int y = HEADER_HEIGHT + 20;
-  SDL_Color color = rowIdx == st_theme ? _theme->titleTextColor : _theme->textColor;
-  if (rowIdx == st_theme)
-    sdlDrawSelection(y - 2, sdlSelectionHeight());
-  char value[64];
-  snprintf(value, sizeof(value), "< %s >", themes[st_currentTheme()].name);
-  sdlWriteText(_Globals.defaultFont, color, "Theme", 30, y, 0, 0);
-
-  int width;
-  TTF_MeasureUTF8(_Globals.defaultFont, value, _Globals.windowWidth, &width, NULL);
-  sdlWriteText(_Globals.defaultFont, color, value, _Globals.windowWidth - width - 30, y, 0, 0);
+  const int rowHeight = 30;
+  st_drawRow(st_theme, y, "Theme", themes[st_currentTheme()].name);
+  st_drawRow(st_show_fps, y + rowHeight, "Show FPS", _Globals.show_fps ? "true" : "false");
 
   sdlBlitImage(button_b, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);
