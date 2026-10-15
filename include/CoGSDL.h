@@ -256,6 +256,11 @@ int stricmp(const char *s1, const char *s2);
 
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);
+
+// Game text font size (text_font_size in settings.cfg)
+#define TEXT_FONT_SIZE_MIN 12
+#define TEXT_FONT_SIZE_MAX 38
+int loadTextFonts();
 void sdlImageSize(SDL_Surface *surface, int maxWidth, int maxHeight, int *width, int *height);
 /// @brief Get the (cached) texture of a surface scaled to the given size
 /// The textures are kept between the frames: free the surfaces with sdlFreeSurface

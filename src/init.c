@@ -11,6 +11,11 @@ int init()
   _Globals.justify_text = 1;
   _Globals.show_fps = 0;
   _Globals.quit = 0;
+  #ifdef MIYOO
+    _Globals.textFontSize = 32;
+  #else
+    _Globals.textFontSize = 21;
+  #endif
 
   logInit("CoGSDL.log");
   logInfo("Initializing");
@@ -56,20 +61,16 @@ int init()
     _Globals.titleFontSize = 28;
     _Globals.defaultSmallFontSize = 21;
     _Globals.defaultFontSize = 24;
-    _Globals.textFontSize = 32;
   #else
     _Globals.titleFontSize = 24;
     _Globals.defaultSmallFontSize = 16;
     _Globals.defaultFontSize = 21;
-    _Globals.textFontSize = 21;
   #endif
 
   _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
   _Globals.titleFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.titleFontSize);
 
-  _Globals.textFont = TTF_OpenFont("./fonts/Cardo-Regular.ttf", _Globals.textFontSize);
-  _Globals.textItalicFont = TTF_OpenFont("./fonts/Cardo-Italic.ttf", _Globals.textFontSize);
-  _Globals.textBoldFont = TTF_OpenFont("./fonts/Cardo-Bold.ttf", _Globals.textFontSize);
+  loadTextFonts();
 
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
 
@@ -136,6 +137,40 @@ void load_images()
   button_b = IMG_Load("images/button_b.png");
   dpad = IMG_Load("images/dpad.png");
   dpad_up_down = IMG_Load("images/dpad_up_down.png");
+}
+
+/// @brief (Re)open the game text fonts using _Globals.textFontSize
+/// @return 0 on success. On failure the current fonts are kept
+int loadTextFonts()
+{
+  TTF_Font *regular = TTF_OpenFont("./fonts/Cardo-Regular.ttf", _Globals.textFontSize);
+  TTF_Font *italic = TTF_OpenFont("./fonts/Cardo-Italic.ttf", _Globals.textFontSize);
+  TTF_Font *bold = TTF_OpenFont("./fonts/Cardo-Bold.ttf", _Globals.textFontSize);
+  if (regular == NULL || italic == NULL || bold == NULL) {
+    logError("\tCannot open the text fonts (size %d): %s", _Globals.textFontSize, TTF_GetError());
+    if (regular)
+      TTF_CloseFont(regular);
+    if (italic)
+      TTF_CloseFont(italic);
+    if (bold)
+      TTF_CloseFont(bold);
+    return -1;
+  }
+
+  if (_Globals.textFont)
+    TTF_CloseFont(_Globals.textFont);
+  if (_Globals.textItalicFont)
+    TTF_CloseFont(_Globals.textItalicFont);
+  if (_Globals.textBoldFont)
+    TTF_CloseFont(_Globals.textBoldFont);
+  _Globals.textFont = regular;
+  _Globals.textItalicFont = italic;
+  _Globals.textBoldFont = bold;
+
+  // The text cache is keyed by font pointer: a new font could reuse the
+  // address of a closed one
+  sdlCacheClear();
+  return 0;
 }
 
 void free_fonts()
