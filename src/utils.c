@@ -171,28 +171,213 @@ int sdlSelectionHeight()
   return TTF_FontHeight(_Globals.defaultFont) + 4;
 }
 
+/* ---------------------------------------------------------------------------
+ * Texture caches
+ *
+ * Creating a texture from a surface (and scaling it) every frame is slow with
+ * the software renderer: the textures of the images and of the texts are kept
+ * between the frames and released when they are not used for a while.
+ * ------------------------------------------------------------------------- */
+
+#define IMAGE_CACHE_SIZE 64
+#define TEXT_CACHE_SIZE 128
+/// @brief Frames before an unused texture is released
+#define IMAGE_CACHE_MAX_AGE 600
+#define TEXT_CACHE_MAX_AGE 120
+
+struct image_cache_entry
+{
+  SDL_Surface *surface;
+  /// @brief Used to detect a different surface allocated at the same address
+  void *pixels;
+  int surfaceW;
+  int surfaceH;
+  int w;
+  int h;
+  SDL_Texture *texture;
+  Uint32 lastUsed;
+} typedef image_cache_entry;
+
+struct text_cache_entry
+{
+  TTF_Font *font;
+  Uint32 color;
+  char *text;
+  SDL_Texture *texture;
+  int w;
+  int h;
+  Uint32 lastUsed;
+} typedef text_cache_entry;
+
+static image_cache_entry imageCache[IMAGE_CACHE_SIZE];
+static text_cache_entry textCache[TEXT_CACHE_SIZE];
+static Uint32 cacheFrame = 1;
+
+static void sdlClearImageEntry(image_cache_entry *e)
+{
+  if (e->texture)
+    SDL_DestroyTexture(e->texture);
+  memset(e, 0, sizeof(image_cache_entry));
+}
+
+static void sdlClearTextEntry(text_cache_entry *e)
+{
+  if (e->texture)
+    SDL_DestroyTexture(e->texture);
+  free(e->text);
+  memset(e, 0, sizeof(text_cache_entry));
+}
+
+SDL_Texture *sdlGetImageTexture(SDL_Surface *surface, int width, int height)
+{
+  if (surface == NULL || width <= 0 || height <= 0)
+    return NULL;
+
+  int freeIdx = -1;
+  int oldestIdx = -1;
+  for (int i = 0; i < IMAGE_CACHE_SIZE; i++) {
+    image_cache_entry *e = &imageCache[i];
+    if (e->texture == NULL) {
+      if (freeIdx < 0)
+        freeIdx = i;
+      continue;
+    }
+    if (e->surface == surface && e->w == width && e->h == height) {
+      if (e->pixels == surface->pixels && e->surfaceW == surface->w && e->surfaceH == surface->h) {
+        e->lastUsed = cacheFrame;
+        return e->texture;
+      }
+      // Another surface at the same address
+      sdlClearImageEntry(e);
+      if (freeIdx < 0)
+        freeIdx = i;
+      continue;
+    }
+    if (oldestIdx < 0 || e->lastUsed < imageCache[oldestIdx].lastUsed)
+      oldestIdx = i;
+  }
+
+  int idx = freeIdx >= 0 ? freeIdx : oldestIdx;
+  sdlClearImageEntry(&imageCache[idx]);
+
+  // Scale the image once (scaling it at every frame is slow)
+  SDL_Surface *scaled = NULL;
+  if (width != surface->w || height != surface->h) {
+    SDL_Surface *converted = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
+    scaled = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (converted == NULL || scaled == NULL || SDL_SoftStretchLinear(converted, NULL, scaled, NULL) < 0) {
+      SDL_FreeSurface(scaled);
+      scaled = NULL;
+    }
+    SDL_FreeSurface(converted);
+  }
+  SDL_Texture *texture = SDL_CreateTextureFromSurface(_Globals.renderer, scaled ? scaled : surface);
+  SDL_FreeSurface(scaled);
+  if (texture == NULL) {
+    logWarning("Failed to create texture for image: %s", SDL_GetError());
+    return NULL;
+  }
+
+  image_cache_entry *e = &imageCache[idx];
+  e->surface = surface;
+  e->pixels = surface->pixels;
+  e->surfaceW = surface->w;
+  e->surfaceH = surface->h;
+  e->w = width;
+  e->h = height;
+  e->texture = texture;
+  e->lastUsed = cacheFrame;
+  return texture;
+}
+
+void sdlFreeSurface(SDL_Surface *surface)
+{
+  if (surface == NULL)
+    return;
+  for (int i = 0; i < IMAGE_CACHE_SIZE; i++) {
+    if (imageCache[i].texture && imageCache[i].surface == surface)
+      sdlClearImageEntry(&imageCache[i]);
+  }
+  SDL_FreeSurface(surface);
+}
+
+void sdlCacheEndFrame()
+{
+  cacheFrame++;
+  for (int i = 0; i < IMAGE_CACHE_SIZE; i++) {
+    if (imageCache[i].texture && cacheFrame - imageCache[i].lastUsed > IMAGE_CACHE_MAX_AGE)
+      sdlClearImageEntry(&imageCache[i]);
+  }
+  for (int i = 0; i < TEXT_CACHE_SIZE; i++) {
+    if (textCache[i].texture && cacheFrame - textCache[i].lastUsed > TEXT_CACHE_MAX_AGE)
+      sdlClearTextEntry(&textCache[i]);
+  }
+}
+
+void sdlCacheClear()
+{
+  for (int i = 0; i < IMAGE_CACHE_SIZE; i++)
+    sdlClearImageEntry(&imageCache[i]);
+  for (int i = 0; i < TEXT_CACHE_SIZE; i++)
+    sdlClearTextEntry(&textCache[i]);
+}
+
+/// @brief Get the (cached) texture of a text
+static text_cache_entry *sdlGetTextTexture(TTF_Font *font, SDL_Color color, const char *text)
+{
+  const Uint32 packedColor = ((Uint32)color.r << 24) | ((Uint32)color.g << 16) | ((Uint32)color.b << 8) | color.a;
+  int freeIdx = -1;
+  int oldestIdx = -1;
+  for (int i = 0; i < TEXT_CACHE_SIZE; i++) {
+    text_cache_entry *e = &textCache[i];
+    if (e->texture == NULL) {
+      if (freeIdx < 0)
+        freeIdx = i;
+      continue;
+    }
+    if (e->font == font && e->color == packedColor && strcmp(e->text, text) == 0) {
+      e->lastUsed = cacheFrame;
+      return e;
+    }
+    if (oldestIdx < 0 || e->lastUsed < textCache[oldestIdx].lastUsed)
+      oldestIdx = i;
+  }
+
+  SDL_Surface *surface = TTF_RenderUTF8_Blended(font, text, color);
+  if (surface == NULL) {
+    logWarning("Failed to create surface for text");
+    return NULL;
+  }
+  SDL_Texture *texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
+  if (texture == NULL) {
+    SDL_FreeSurface(surface);
+    logWarning("Failed to create texture for text");
+    return NULL;
+  }
+
+  text_cache_entry *e = &textCache[freeIdx >= 0 ? freeIdx : oldestIdx];
+  sdlClearTextEntry(e);
+  e->font = font;
+  e->color = packedColor;
+  e->text = strdup(text);
+  e->texture = texture;
+  e->w = surface->w;
+  e->h = surface->h;
+  e->lastUsed = cacheFrame;
+  SDL_FreeSurface(surface);
+  return e;
+}
+
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight)
 {
   if (!text || !font || !strlen(text))
     return 0;
-  SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
-  if (surface == NULL) {
-    logWarning("Failed to create surface for text");
+  text_cache_entry *e = sdlGetTextTexture(font, color, text);
+  if (e == NULL)
     return 0;
-  }
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
-  if (texture == NULL) {
-    SDL_FreeSurface(surface);
-    logWarning("Failed to create texture for text");
-    return 0;
-  }
 
-  SDL_Rect rect = { x, y, maxWidth > 0 && maxWidth < surface->w ? maxWidth : surface->w, maxHeight > 0 && maxHeight < surface->h ? maxHeight : surface->h };
-  SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE);
-
-  SDL_FreeSurface(surface);
-  SDL_DestroyTexture(texture);
-
+  SDL_Rect rect = { x, y, maxWidth > 0 && maxWidth < e->w ? maxWidth : e->w, maxHeight > 0 && maxHeight < e->h ? maxHeight : e->h };
+  SDL_RenderCopy(_Globals.renderer, e->texture, NULL, &rect);
   return rect.w;
 }
 
@@ -210,7 +395,6 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
 {
   if (surface == NULL)
     return;
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, surface);
 
   SDL_Rect rect = { x, y, surface->w, surface->h };
   float ratio = (float)rect.w / (float)rect.h;
@@ -223,8 +407,9 @@ void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeigh
     rect.w = rect.h * ratio;
   }
 
-  SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE);
-  SDL_DestroyTexture(texture);
+  SDL_Texture *texture = sdlGetImageTexture(surface, rect.w, rect.h);
+  if (texture)
+    SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
 }
 
 int get_line_height(TTF_Font *font)

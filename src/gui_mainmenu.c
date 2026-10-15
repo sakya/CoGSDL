@@ -55,13 +55,11 @@ void drawMainMenu()
     _Globals.input[_Keys.KeyA] = 0;
   }
 
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, app_icon);
+  SDL_Texture* texture = sdlGetImageTexture(app_icon, 100, 100);
   SDL_Rect rect = {30, 50, 100, 100};
-  SDL_Rect crop = {0, 0, app_icon->w, app_icon->h};
   SDL_Point center = { 50, 50};
   SDL_RendererFlip flip = SDL_FLIP_NONE;
-  SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, about_angle, &center, flip);
-  SDL_DestroyTexture(texture);
+  SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, about_angle, &center, flip);
 
   about_angle += 0.5;
   if (about_angle >= 360)

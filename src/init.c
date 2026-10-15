@@ -113,7 +113,8 @@ int init()
     return -1;
   }
 
-  SDL_SetRenderDrawBlendMode(_Globals.renderer, SDL_BLENDMODE_BLEND);
+  // All the rectangles are opaque: without blending the software renderer fills them much faster
+  SDL_SetRenderDrawBlendMode(_Globals.renderer, SDL_BLENDMODE_NONE);
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
   _Globals.scroll = scroll_page;
@@ -151,13 +152,13 @@ void free_fonts()
 
 void free_images()
 {
-  SDL_FreeSurface(app_icon);
-  SDL_FreeSurface(button_x);
-  SDL_FreeSurface(button_y);
-  SDL_FreeSurface(button_a);
-  SDL_FreeSurface(button_b);
-  SDL_FreeSurface(dpad);
-  SDL_FreeSurface(dpad_up_down);
+  sdlFreeSurface(app_icon);
+  sdlFreeSurface(button_x);
+  sdlFreeSurface(button_y);
+  sdlFreeSurface(button_a);
+  sdlFreeSurface(button_b);
+  sdlFreeSurface(dpad);
+  sdlFreeSurface(dpad_up_down);
 }
 
 void load_sounds()

@@ -20,7 +20,7 @@ void drawGameSelectMenu()
       firstIdx = 0;
     }
     if (iconSurface != NULL) {
-      SDL_FreeSurface(iconSurface);
+      sdlFreeSurface(iconSurface);
       iconSurface = NULL;
     }
     if (selectedIdx - firstIdx + 1 > items)
@@ -35,7 +35,7 @@ void drawGameSelectMenu()
         firstIdx = 0;
     }
     if (iconSurface != NULL) {
-      SDL_FreeSurface(iconSurface);
+      sdlFreeSurface(iconSurface);
       iconSurface = NULL;
     }
     if (selectedIdx < firstIdx)
@@ -53,7 +53,7 @@ void drawGameSelectMenu()
   } else if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
     if (iconSurface != NULL) {
-      SDL_FreeSurface(iconSurface);
+      sdlFreeSurface(iconSurface);
       iconSurface = NULL;
     }
 

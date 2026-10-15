@@ -251,6 +251,15 @@ int stricmp(const char *s1, const char *s2);
 
 int sdlWriteText(TTF_Font* font, SDL_Color color, char* text, int x, int y, int maxWidth, int maxHeight);
 void sdlBlitImage(SDL_Surface *surface, int x, int y, int maxWidth, int maxHeight);
+/// @brief Get the (cached) texture of a surface scaled to the given size
+/// The textures are kept between the frames: free the surfaces with sdlFreeSurface
+SDL_Texture *sdlGetImageTexture(SDL_Surface *surface, int width, int height);
+/// @brief Remove the cached textures of a surface and free it
+void sdlFreeSurface(SDL_Surface *surface);
+/// @brief Called at the end of each frame: release the cached textures not used for a while
+void sdlCacheEndFrame();
+/// @brief Release all the cached textures
+void sdlCacheClear();
 /// @brief Draw the background of the selected item of a menu (almost as wide as the screen)
 /// @param y The top of the item
 /// @param height The height of the item

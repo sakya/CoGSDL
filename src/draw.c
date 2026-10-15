@@ -80,6 +80,7 @@ int draw()
 void presentFrame()
 {
   SDL_RenderPresent(_Globals.renderer);
+  sdlCacheEndFrame();
 #ifdef MIYOO
   // Copy the whole frame to the screen
   SDL_UpdateTexture(_Globals.screenTexture, NULL, _Globals.screenSurface->pixels, _Globals.screenSurface->pitch);
@@ -127,13 +128,11 @@ void drawFooter()
 
 void drawAppIcon()
 {
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, app_icon);
+  SDL_Texture* texture = sdlGetImageTexture(app_icon, 26, 26);
   SDL_Rect rect = {2, 2, 26, 26};
-  SDL_Rect crop = {0, 0, app_icon->w, app_icon->h};
   SDL_Point center = { 13, 13};
   SDL_RendererFlip flip = SDL_FLIP_NONE;
-  SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, header_angle, &center, flip);
-  SDL_DestroyTexture(texture);
+  SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, header_angle, &center, flip);
 
   header_angle += 0.5;
   if (header_angle >= 360)

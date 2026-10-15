@@ -159,8 +159,8 @@ void gc_init()
 void gc_dispose()
 {
   for (int i = 0; i < choice_surface_count; i++) {
-    SDL_FreeSurface(choice_surface[i]);
-    SDL_FreeSurface(choice_surface_selected[i]);
+    sdlFreeSurface(choice_surface[i]);
+    sdlFreeSurface(choice_surface_selected[i]);
     choice_surface_selected[i] = NULL;
   }
   choice_surface_count = 0;
@@ -214,11 +214,11 @@ void gc_draw()
     }
     y += 1;
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(_Globals.renderer, i == selectedIdx ? gc_selectedSurface(i) : choice_surface[i]);
+    SDL_Surface *surface = i == selectedIdx ? gc_selectedSurface(i) : choice_surface[i];
+    SDL_Texture* texture = sdlGetImageTexture(surface, surface->w, surface->h);
     SDL_Rect crop = { 0, delta_y, choice_surface[i]->w, height - 2};
     SDL_Rect rect = { TEXT_MARGIN, y - scroll_y + delta_y, choice_surface[i]->w, height - 2 };
-    SDL_RenderCopyEx(_Globals.renderer, texture, &crop , &rect, 0, NULL, SDL_FLIP_NONE);
-    SDL_DestroyTexture(texture);
+    SDL_RenderCopy(_Globals.renderer, texture, &crop, &rect);
     y += choice_surface[i]->h + 1;
     if (y - scroll_y >= _Globals.windowHeight - HEADER_HEIGHT)
       break;

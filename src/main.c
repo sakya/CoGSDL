@@ -106,6 +106,7 @@ int main(int argc, char* argv[])
   free_fonts();
   IMG_Quit();
   TTF_Quit();
+  sdlCacheClear();
   SDL_DestroyRenderer(_Globals.renderer);
 #ifdef MIYOO
   SDL_DestroyTexture(_Globals.screenTexture);

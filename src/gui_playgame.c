@@ -275,7 +275,7 @@ void pg_drawPage()
   }
 
   if (scrollY != pg_game_status.scrollY) {
-    SDL_FreeSurface(text_surface);
+    sdlFreeSurface(text_surface);
     text_surface = NULL;
   }
 
@@ -385,7 +385,7 @@ int pg_statsOpen()
   pg_game_status.selectedChoiceIndex = -1;
   pg_game_status.sceneIndex = pg_savedGameStatus.sceneIndex;
   if (text_surface) {
-    SDL_FreeSurface(text_surface);
+    sdlFreeSurface(text_surface);
     text_surface = NULL;
   }
   pg_statsActive = 1;
@@ -416,7 +416,7 @@ void pg_statsClose()
   if (pg_game_status.fp)
     fclose(pg_game_status.fp);
   if (text_surface) {
-    SDL_FreeSurface(text_surface);
+    sdlFreeSurface(text_surface);
     text_surface = NULL;
   }
   // The images of the game page are loaded again when needed
@@ -432,7 +432,7 @@ void pg_init()
 {
   pg_clear_image_cache();
   if (text_surface) {
-    SDL_FreeSurface(text_surface);
+    sdlFreeSurface(text_surface);
     text_surface = NULL;
   }
 
@@ -502,7 +502,7 @@ void pg_dispose()
   pg_clearChoices();
   pg_clear_labels();
   if (text_surface) {
-    SDL_FreeSurface(text_surface);
+    sdlFreeSurface(text_surface);
     text_surface = NULL;
   }
 
@@ -524,7 +524,7 @@ void pg_dispose()
   freeGame(runningGame);
   runningGame = NULL;
 
-  SDL_FreeSurface(runningGameIcon);
+  sdlFreeSurface(runningGameIcon);
   runningGameIcon = NULL;
 }
 
@@ -1049,7 +1049,7 @@ int pg_exec_primitive()
     pg_game_status.text = NULL;
   }
   if (text_surface) {
-    SDL_FreeSurface(text_surface);
+    sdlFreeSurface(text_surface);
     text_surface = NULL;
   }
 
@@ -5251,7 +5251,7 @@ static long pg_applyState(char **lines, int start, int end)
   free(pg_game_status.text);
   pg_game_status.text = NULL;
   if (text_surface) {
-    SDL_FreeSurface(text_surface);
+    sdlFreeSurface(text_surface);
     text_surface = NULL;
   }
   // The achievements are not restored: they stay earned (they are saved in achievements.txt)
