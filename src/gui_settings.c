@@ -57,7 +57,7 @@ void settingsLoad()
     } else if (startsWith("show_fps=", line)) {
       const char *value = line + 9;
       _Globals.show_fps = stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
-    } else if (startsWith("logLevel=", line)) {
+    } else if (startsWith("log_level=", line)) {
       const char *value = line + 9;
       int found = 0;
       for (int i = Debug; i <= Error; i++) {
@@ -68,7 +68,7 @@ void settingsLoad()
         }
       }
       if (!found)
-        logWarning("\tInvalid logLevel in %s: %s", SETTINGS_FILE, value);
+        logWarning("\tInvalid log_level in %s: %s", SETTINGS_FILE, value);
     }
   }
   fclose(f);
@@ -85,7 +85,7 @@ void settingsSave()
   fprintf(f, "theme=%s\n", themes[st_currentTheme()].name);
   // Not shown in the settings screen: edit settings.cfg to change it
   fprintf(f, "show_fps=%s\n", _Globals.show_fps ? "true" : "false");
-  fprintf(f, "logLevel=%s\n", logLevelNames[_Globals.logLevel >= Debug && _Globals.logLevel <= Error ? _Globals.logLevel : Info]);
+  fprintf(f, "log_level=%s\n", logLevelNames[_Globals.logLevel >= Debug && _Globals.logLevel <= Error ? _Globals.logLevel : Info]);
   fclose(f);
 }
 
