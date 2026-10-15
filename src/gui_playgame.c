@@ -517,7 +517,9 @@ void pg_dispose()
   free(pg_game_status.text);
   pg_game_status.text = NULL;
 
-  fclose(pg_game_status.fp);
+  // The game could be opened but not started (saves page of the game selection)
+  if (pg_game_status.fp != NULL)
+    fclose(pg_game_status.fp);
   pg_game_status.fp = NULL;
   pg_game_status.fpPosition = 0;
 

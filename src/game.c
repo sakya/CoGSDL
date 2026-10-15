@@ -252,6 +252,15 @@ void freeGame(game *game)
   if (game == NULL)
     return;
 
+  freeGameData(game);
+  free(game);
+}
+
+void freeGameData(game *game)
+{
+  if (game == NULL)
+    return;
+
   free(game->title);
   game->title = NULL;
   free(game->author);
@@ -283,8 +292,6 @@ void freeGame(game *game)
     game->achievements[i].postEarnedDescription = NULL;
   }
   game->achievementsCount = 0;
-
-  free(game);
 }
 
 int listGames(const char* path, game *games)

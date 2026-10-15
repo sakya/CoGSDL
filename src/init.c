@@ -154,6 +154,9 @@ void free_fonts()
 
   TTF_CloseFont(_Globals.textItalicFont);
   _Globals.textItalicFont = NULL;
+
+  TTF_CloseFont(_Globals.defaultSmallFont);
+  _Globals.defaultSmallFont = NULL;
 }
 
 void free_images()

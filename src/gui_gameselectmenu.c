@@ -136,6 +136,12 @@ static void gs_drawSlotsPage()
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }
 
+void gameSelectDispose()
+{
+  sdlFreeSurface(iconSurface);
+  iconSurface = NULL;
+}
+
 void drawGameSelectMenu()
 {
   if (slotsPage) {

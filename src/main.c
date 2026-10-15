@@ -1,4 +1,5 @@
 #include "CoGSDL.h"
+#include "gui_playgame.h"
 
 SDL_Surface *app_icon = NULL;
 SDL_Surface *button_x = NULL;
@@ -101,8 +102,21 @@ int main(int argc, char* argv[])
 
   draw();
 
+  // The program can be closed during a game (e.g. closing the window)
+  if (runningGame != NULL) {
+    if (pg_isStatsActive())
+      pg_statsClose();
+    pg_dispose();
+  }
+  gameSelectDispose();
+  for (int i = 0; i < _Globals.gamesCount; i++)
+    freeGameData(&_Globals.games[i]);
+  _Globals.gamesCount = 0;
+
   free_images();
   free_sounds();
+  Mix_CloseAudio();
+  Mix_Quit();
   free_fonts();
   IMG_Quit();
   TTF_Quit();

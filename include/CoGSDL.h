@@ -168,6 +168,9 @@ int loadGame(const char *path, game *game, int forListing);
 /// @brief Free memory allocated by a game
 /// @param game The game
 void freeGame(game *game);
+/// @brief Free the memory allocated by a game, but not the game struct (e.g. the games of _Globals.games)
+/// @param game The game
+void freeGameData(game *game);
 /// @brief List all games in a directory
 /// @param path The directory path
 /// @param games A pointer to an array of games
@@ -300,6 +303,8 @@ void drawMainMenu();
 
 /* gameselectmenu.c */
 void drawGameSelectMenu();
+/// @brief Free the resources of the game selection menu (on exit)
+void gameSelectDispose();
 
 /* playgame.c */
 void drawGame();
