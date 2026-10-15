@@ -5,7 +5,8 @@ void load_sounds();
 
 int init()
 {
-  _Globals.logLevel = Debug;
+  // Default, settings.cfg can change it (logLevel=Debug|Info|Warning|Error)
+  _Globals.logLevel = Info;
   _Globals.scroll = scroll_page;
   _Globals.justify_text = 1;
   _Globals.show_fps = 0;
@@ -115,7 +116,6 @@ int init()
   SDL_SetRenderDrawBlendMode(_Globals.renderer, SDL_BLENDMODE_BLEND);
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
-  _Globals.logLevel = Debug;
   _Globals.scroll = scroll_page;
   _Globals.status = MainMenu;
   _Globals.gamesCount = listGames("./games/", _Globals.games);

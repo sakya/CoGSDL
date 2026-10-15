@@ -22,6 +22,8 @@ enum settings_row
 
 static int rowIdx = 0;
 
+static const char *logLevelNames[] = { "Debug", "Info", "Warning", "Error" };
+
 static int st_currentTheme()
 {
   for (int i = 0; i < themesCount; i++) {
@@ -55,6 +57,18 @@ void settingsLoad()
     } else if (startsWith("show_fps=", line)) {
       const char *value = line + 9;
       _Globals.show_fps = stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
+    } else if (startsWith("logLevel=", line)) {
+      const char *value = line + 9;
+      int found = 0;
+      for (int i = Debug; i <= Error; i++) {
+        if (stricmp(value, logLevelNames[i]) == 0) {
+          _Globals.logLevel = i;
+          found = 1;
+          break;
+        }
+      }
+      if (!found)
+        logWarning("\tInvalid logLevel in %s: %s", SETTINGS_FILE, value);
     }
   }
   fclose(f);
@@ -71,6 +85,7 @@ void settingsSave()
   fprintf(f, "theme=%s\n", themes[st_currentTheme()].name);
   // Not shown in the settings screen: edit settings.cfg to change it
   fprintf(f, "show_fps=%s\n", _Globals.show_fps ? "true" : "false");
+  fprintf(f, "logLevel=%s\n", logLevelNames[_Globals.logLevel >= Debug && _Globals.logLevel <= Error ? _Globals.logLevel : Info]);
   fclose(f);
 }
 
