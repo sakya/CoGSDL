@@ -1,5 +1,5 @@
 TARGET=CoGSDL
-VERSION=1.3.0
+VERSION=1.4.0
 
 # Miyoo Mini (Onion) build: make PLATFORM=miyoo
 # Run it inside the union-miyoomini-toolchain container.
