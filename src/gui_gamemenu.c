@@ -177,8 +177,9 @@ void drawGameMenu()
         return;
       }
 
+      sdlWriteText(_Globals.titleFont, _theme->textColor, "Game menu", 30, HEADER_HEIGHT + 10, 0, 0);
       for (int i = 0; i < mainItemsCount; i++) {
-        int y = HEADER_HEIGHT + 20 + i * 30;
+        int y = HEADER_HEIGHT + 40 + i * 30;
         if (i == mainItemsCount - 1) {
           y += 10;
         }
