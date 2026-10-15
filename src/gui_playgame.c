@@ -302,6 +302,8 @@ void pg_drawPage()
     // or choices, e.g. the stats screen or the last page, must stop at the end)
     pg_game_status.canScrollDown = !pg_game_status.textFullyRendered;
   } else {
+    // Empty page (e.g. *finish on an empty screen): nothing to scroll, the button is shown
+    pg_game_status.textFullyRendered = 1;
     pg_game_status.canScrollDown = 0;
   }
 
@@ -3485,6 +3487,24 @@ variable* pg_getVar(const char *varName)
     static char falseValue[] = "false";
     static variable falseVar = { falseName, falseValue, boolean };
     return &falseVar;
+  }
+
+  // Same as ChoiceScript on a device: not the web or Steam version, no purchases, ads or prerelease
+  static const char *falseSystemVars[] = {
+    "choice_is_web", "choice_is_steam", "choice_is_ios_app", "choice_purchase_supported",
+    "choice_prerelease", "choice_is_advertising_supported", NULL
+  };
+  for (int i = 0; falseSystemVars[i] != NULL; i++) {
+    if (stricmp(varName, falseSystemVars[i]) == 0) {
+      variable *var = getGameVarPrimitive(varName, runningGame);
+      if (var != NULL)
+        return var;
+      static char systemValue[] = "false";
+      static variable systemVar = { NULL, systemValue, boolean };
+      systemVar.name = (char *)falseSystemVars[i];
+      strcpy(systemValue, "false");
+      return &systemVar;
+    }
   }
 
   return getGameVar(varName, runningGame);
