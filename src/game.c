@@ -56,6 +56,9 @@ int loadGame(const char* path, game* game, int forListing)
 
   logInfo("Loading game from: %s", path);
   strcpy(game->path, path);
+  // The game struct can be uninitialized (e.g. a local variable in listGames)
+  game->icon[0] = '\0';
+  game->background[0] = '\0';
 
   char iconPath[256];
   strcpy(iconPath, path);
