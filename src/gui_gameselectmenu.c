@@ -87,6 +87,10 @@ static void gs_initSlotsMenu()
       snprintf(slotsTexts[i], sizeof(slotsTexts[i]), "%i. %s", i + 1, slots[i].name);
       strftime(slotsDates[i], sizeof(slotsDates[i]), "%Y-%m-%d %H:%M", localtime(&slots[i].time));
       item->subText = slotsDates[i];
+      // The date is aligned to the name of the save, after "1. "
+      char number[16];
+      snprintf(number, sizeof(number), "%i. ", i + 1);
+      TTF_SizeUTF8(_Globals.defaultFont, number, &item->subTextIndent, NULL);
     } else {
       snprintf(slotsTexts[i], sizeof(slotsTexts[i]), "%i. Empty", i + 1);
       item->disabled = 1;

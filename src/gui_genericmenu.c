@@ -258,6 +258,45 @@ static const char *gme_valueText(const gme_item *item, char *buffer, size_t size
   return NULL;
 }
 
+/// @brief Space in pixels between the text of an item and its value (list/number)
+#define GME_VALUE_GAP 10
+
+/// @brief The text, shortened with "..." if it is wider than maxWidth pixels
+/// @return text itself if it fits, otherwise buffer
+static const char *gme_ellipsize(TTF_Font *font, const char *text, int maxWidth, char *buffer, size_t size)
+{
+  int width = 0;
+  if (text == NULL || TTF_SizeUTF8(font, text, &width, NULL) != 0 || width <= maxWidth)
+    return text;
+
+  static const char *ellipsis = "...";
+  int ellipsisWidth = 0;
+  TTF_SizeUTF8(font, ellipsis, &ellipsisWidth, NULL);
+
+  // Number of characters (not bytes) that fit before the ellipsis
+  int extent = 0, count = 0;
+  if (maxWidth > ellipsisWidth)
+    TTF_MeasureUTF8(font, text, maxWidth - ellipsisWidth, &extent, &count);
+
+  // Bytes of the first count UTF-8 characters
+  size_t bytes = 0;
+  while (text[bytes] != '\0' && count > 0) {
+    bytes++;
+    while ((text[bytes] & 0xC0) == 0x80)
+      bytes++;
+    count--;
+  }
+  // No space before the ellipsis
+  while (bytes > 0 && text[bytes - 1] == ' ')
+    bytes--;
+  if (bytes > size - 4)
+    bytes = size - 4;
+
+  memcpy(buffer, text, bytes);
+  strcpy(buffer + bytes, ellipsis);
+  return buffer;
+}
+
 void gme_draw(gme_menu *menu)
 {
   if (menu->itemsCount <= 0)
@@ -311,16 +350,28 @@ void gme_draw(gme_menu *menu)
     }
 
     const int textY = y + GME_BOX_PADDING;
-    sdlWriteText(_Globals.defaultFont, color, (char *)item->text, textX, textY, 0, 0);
-    if (item->subText != NULL && item->subText[0] != '\0')
-      sdlWriteText(_Globals.defaultSmallFont, color, (char *)item->subText, textX, textY + mainHeight, 0, 0);
+    // The texts end at the same distance from the right edge of the box
+    const int textRight = _Globals.windowWidth - menu->margin - menu->textIndent;
+    int textMaxWidth = textRight - textX;
 
     char buffer[128];
     const char *value = gme_valueText(item, buffer, sizeof(buffer));
     if (value != NULL) {
       int width = 0;
       TTF_SizeUTF8(_Globals.defaultFont, value, &width, NULL);
-      sdlWriteText(_Globals.defaultFont, color, (char *)value, _Globals.windowWidth - menu->margin - menu->textIndent - width, textY, 0, 0);
+      sdlWriteText(_Globals.defaultFont, color, (char *)value, textRight - width, textY, 0, 0);
+      // The text must not cover the value
+      textMaxWidth -= width + GME_VALUE_GAP;
+    }
+
+    // Texts too long are shortened with "..."
+    char shortText[512];
+    const char *text = gme_ellipsize(_Globals.defaultFont, item->text, textMaxWidth, shortText, sizeof(shortText));
+    sdlWriteText(_Globals.defaultFont, color, (char *)text, textX, textY, 0, 0);
+    if (item->subText != NULL && item->subText[0] != '\0') {
+      const int subTextX = textX + item->subTextIndent;
+      const char *subText = gme_ellipsize(_Globals.defaultSmallFont, item->subText, textRight - subTextX, shortText, sizeof(shortText));
+      sdlWriteText(_Globals.defaultSmallFont, color, (char *)subText, subTextX, textY + mainHeight, 0, 0);
     }
 
     y += height;

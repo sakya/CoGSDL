@@ -22,6 +22,8 @@ typedef struct {
   const char *text;
   /// @brief Optional text below the main one (defaultSmallFont), NULL = none
   const char *subText;
+  /// @brief Indentation in pixels of subText from the main text (e.g. to align it after "1. ")
+  int subTextIndent;
   /// @brief 1: the item is shown with disabledTextColor and cannot be selected
   int disabled;
   /// @brief Extra space in pixels before the item (e.g. to separate "Quit")
