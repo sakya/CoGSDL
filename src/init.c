@@ -18,6 +18,13 @@ void playMenuSound()
     Mix_PlayChannel(MENU_SOUND_CHANNEL, sound_menu_change, 0);
 }
 
+void playMenuSelectSound()
+{
+  // Same channel of the menu change sound: it stops the previous one
+  if (sound_menu_select != NULL)
+    Mix_PlayChannel(MENU_SOUND_CHANNEL, sound_menu_select, 0);
+}
+
 const text_font_family textFontFamilies[] = {
   { "Cardo", "Cardo" },
   { "Charis SIL", "CharisSIL" },
@@ -246,10 +253,13 @@ void free_images()
 void load_sounds()
 {
   sound_menu_change = Mix_LoadWAV("sounds/menu_change.wav");
+  sound_menu_select = Mix_LoadWAV("sounds/menu_select.wav");
 }
 
 void free_sounds()
 {
   Mix_FreeChunk(sound_menu_change);
   sound_menu_change = NULL;
+  Mix_FreeChunk(sound_menu_select);
+  sound_menu_select = NULL;
 }

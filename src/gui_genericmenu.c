@@ -231,8 +231,10 @@ gme_event gme_handleInput(gme_menu *menu)
     }
   } else if (_Globals.input[_Keys.KeyA] == 1) {
     _Globals.input[_Keys.KeyA] = 0;
-    if (gme_selectedItem(menu) != NULL)
+    if (gme_selectedItem(menu) != NULL) {
+      playMenuSelectSound();
       return gme_event_selected;
+    }
   } else if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
     return gme_event_back;

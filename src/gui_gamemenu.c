@@ -227,6 +227,7 @@ void drawGameMenu()
     case gm_confirm_overwrite:
       if (_Globals.input[_Keys.KeyA] == 1) {
         _Globals.input[_Keys.KeyA] = 0;
+        playMenuSelectSound();
         gm_doSave();
         return;
       } else if (_Globals.input[_Keys.KeyB] == 1) {
@@ -244,6 +245,7 @@ void drawGameMenu()
     case gm_confirm_quit:
       if (_Globals.input[_Keys.KeyA] == 1) {
         _Globals.input[_Keys.KeyA] = 0;
+        playMenuSelectSound();
         page = gm_main;
         gme_select(&mainMenu, 0);
         pg_dispose();
