@@ -215,9 +215,7 @@ void drawGame()
 
   if (_Globals.input[_Keys.KeyStart] == 1) {
     _Globals.input[_Keys.KeyStart] = 0;
-    pg_dispose();
-
-    _Globals.status = GameSelect;
+    _Globals.status = GameMenu;
     return;
   }
 
@@ -4138,7 +4136,8 @@ void pg_read_labels()
     }
   }
   fseek(pg_game_status.fp, pos, SEEK_SET);
-}
+}
+
 
 /* ---------------------------------------------------------------------------
  * Save / load
