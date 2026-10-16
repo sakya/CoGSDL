@@ -71,7 +71,7 @@ static void gm_refreshSlots()
   }
 
   gme_init(&slotsMenu, slotsItems, SAVE_SLOTS);
-  slotsMenu.y = HEADER_HEIGHT + 48;
+  slotsMenu.y = HEADER_HEIGHT + 10 + sdlTitleHeight() + 6;
   slotsMenu.wrap = 1;
   if (selected >= 0)
     gme_select(&slotsMenu, selected);
@@ -125,7 +125,7 @@ static void gm_drawFooter(int showA, int showB)
 
 static void gm_drawTitle(const char *title, const gme_menu *menu)
 {
-  sdlWriteText(_Globals.titleFont, _theme->textColor, (char *)title, menu->margin + menu->textIndent, HEADER_HEIGHT + 10, 0, 0);
+  sdlDrawTitle(title, menu->margin + menu->textIndent, HEADER_HEIGHT + 10);
 }
 
 static void gm_drawConfirm(const char *question, const char *detail)
@@ -141,7 +141,7 @@ void drawGameMenu()
 {
   if (!mainMenuInitialized) {
     gme_init(&mainMenu, mainItems, sizeof(mainItems) / sizeof(mainItems[0]));
-    mainMenu.y = HEADER_HEIGHT + 48;
+    mainMenu.y = HEADER_HEIGHT + 10 + sdlTitleHeight() + 6;
     mainMenu.wrap = 1;
     mainMenuInitialized = 1;
   }

@@ -96,7 +96,7 @@ int init()
 
   _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
   _Globals.defaultFontHeight = get_line_height(_Globals.defaultFont);
-  _Globals.titleFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.titleFontSize);
+  _Globals.titleFont = TTF_OpenFont("./fonts/Roboto-Bold.ttf", _Globals.titleFontSize);
   _Globals.titleFontHeight = get_line_height(_Globals.titleFont);
 
   loadTextFonts();

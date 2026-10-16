@@ -94,7 +94,7 @@ static void gs_initSlotsMenu()
     item->text = slotsTexts[i];
   }
   // Space for the "Load game" title before the first slot
-  slotsItems[1].spaceBefore = get_line_height(_Globals.titleFont) + 10;
+  slotsItems[1].spaceBefore = sdlTitleHeight() + 10;
 
   gme_init(&slotsMenu, slotsItems, SAVE_SLOTS + 1);
   slotsMenu.y = HEADER_HEIGHT + 43;
@@ -151,7 +151,7 @@ static void gs_drawSlotsPage()
   // "Load game" title, in the space before the first slot (if not scrolled away)
   if (slotsMenu.firstIdx == 0) {
     y = slotsMenu.y + gme_itemHeight(&slotsItems[0]) + slotsMenu.spacing + 5;
-    sdlWriteText(_Globals.titleFont, _theme->textColor, "Load game", x, y, 0, 0);
+    sdlDrawTitle("Load game", x, y);
   }
 
   if (messageTime > 0 && SDL_GetTicks() - messageTime < 2500)

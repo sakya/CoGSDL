@@ -292,6 +292,11 @@ void sdlCacheClear();
 void sdlDrawSelection(int y, int height);
 /// @brief The height of the selection of a menu item with a single line of text
 int sdlSelectionHeight();
+/// @brief Draw a title (titleFont) with a line below it, from x to the same distance from the right edge
+/// @return The height used (sdlTitleHeight)
+int sdlDrawTitle(const char *text, int x, int y);
+/// @brief Height of a title drawn with sdlDrawTitle (text and line)
+int sdlTitleHeight();
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight);
 int get_line_height(TTF_Font *font);
 

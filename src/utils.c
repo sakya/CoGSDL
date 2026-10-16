@@ -171,6 +171,24 @@ int sdlSelectionHeight()
   return TTF_FontHeight(_Globals.defaultFont) + 4;
 }
 
+#define TITLE_LINE_GAP 2
+#define TITLE_LINE_HEIGHT 2
+
+int sdlTitleHeight()
+{
+  return _Globals.titleFontHeight + TITLE_LINE_GAP + TITLE_LINE_HEIGHT;
+}
+
+int sdlDrawTitle(const char *text, int x, int y)
+{
+  sdlWriteText(_Globals.titleFont, _theme->textColor, (char *)text, x, y, 0, 0);
+
+  SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
+  SDL_Rect line = { x, y + _Globals.titleFontHeight + TITLE_LINE_GAP, _Globals.windowWidth - 2 * x, TITLE_LINE_HEIGHT };
+  SDL_RenderFillRect(_Globals.renderer, &line);
+  return sdlTitleHeight();
+}
+
 /* ---------------------------------------------------------------------------
  * Texture caches
  *
