@@ -1,5 +1,6 @@
 #include "CoGSDL.h"
 #include "gui_generic_menu.h"
+#include "gui_playgame.h"
 
 #define SETTINGS_FILE "./settings.cfg"
 
@@ -37,6 +38,8 @@ static gme_item st_items[st_rows_count] = {
   [st_text_font_size] = { .type = gme_item_number, .id = st_text_font_size, .text = "Text size", .minValue = TEXT_FONT_SIZE_MIN, .maxValue = TEXT_FONT_SIZE_MAX },
 };
 static gme_menu st_menu;
+/// @brief Status set by B (the screen that opened the settings)
+static int st_returnStatus = MainMenu;
 static int st_menuInitialized = 0;
 
 static const char *logLevelNames[] = { "Debug", "Info", "Warning", "Error" };
@@ -180,6 +183,15 @@ static void st_applyItem(const gme_item *item)
     }
   }
   settingsSave();
+  // A game is running (settings opened from the game menu): render its page again
+  if (runningGame != NULL)
+    pg_refreshLayout();
+}
+
+void settingsOpen(int returnStatus)
+{
+  st_returnStatus = returnStatus;
+  _Globals.status = Settings;
 }
 
 void drawSettings()
@@ -197,7 +209,8 @@ void drawSettings()
       break;
     case gme_event_back:
       gme_select(&st_menu, 0);
-      _Globals.status = MainMenu;
+      _Globals.status = st_returnStatus;
+      st_returnStatus = MainMenu;
       return;
     default:
       break;

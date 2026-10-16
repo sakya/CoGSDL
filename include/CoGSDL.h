@@ -346,6 +346,8 @@ void drawSettings();
 void settingsLoad();
 /// @brief Save the settings (theme) to settings.cfg
 void settingsSave();
+/// @brief Open the settings screen: B goes back to returnStatus (e.g. MainMenu or GameMenu)
+void settingsOpen(int returnStatus);
 /* gui_osk.c */
 /// @brief Open the on screen keyboard (the current status is restored when it closes)
 /// @param title The text shown above the text box

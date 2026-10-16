@@ -16,6 +16,7 @@ enum gm_main_item
 {
   gm_item_save = 0,
   gm_item_load,
+  gm_item_settings,
   gm_item_quit
 };
 
@@ -29,6 +30,7 @@ static enum gm_page messageNextPage = gm_main;
 static gme_item mainItems[] = {
   { .id = gm_item_save, .text = "Save" },
   { .id = gm_item_load, .text = "Load" },
+  { .id = gm_item_settings, .text = "Settings" },
   // "Quit" is separated from the other items
   { .id = gm_item_quit, .text = "Quit", .spaceBefore = 10 }
 };
@@ -170,6 +172,10 @@ void drawGameMenu()
               break;
             case gm_item_load:
               gm_enterSlots(gm_load);
+              break;
+            case gm_item_settings:
+              // B in the settings comes back here
+              settingsOpen(GameMenu);
               break;
             case gm_item_quit:
               page = gm_confirm_quit;

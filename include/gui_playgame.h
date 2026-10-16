@@ -170,6 +170,8 @@ void pg_drawPage();
 /// @brief Close the running game and free its memory
 /// @brief Initialize the running game (runningGame) at the start of the first scene
 void pg_init();
+/// @brief Apply the changed settings (text font, size, theme) to the running game: the page is rendered again
+void pg_refreshLayout();
 void pg_dispose();
 
 /// @brief Number of save slots for each game

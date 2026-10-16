@@ -21,6 +21,7 @@ static void pg_clearParams();
 void pg_exec();
 void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY);
 int pg_renderPageBreak();
+static void pg_computeLineHeight();
 int pg_indexOfWordEnd(const char *string, const int startFrom);
 void pg_getCommand(const char *line, char *command) ;
 /// @brief Go to the next scene of the scene list
@@ -476,6 +477,12 @@ void pg_init()
   logDebug("Position set to %li", pg_game_status.fpPosition);
   fseek(pg_game_status.fp, pg_game_status.fpPosition, SEEK_SET);
 
+  pg_computeLineHeight();
+}
+
+/// @brief Line height and scroll step of the text (they depend on the text font)
+static void pg_computeLineHeight()
+{
   line_height = get_line_height(_Globals.textFont);
   logDebug("Line height %i", line_height);
 
@@ -486,6 +493,19 @@ void pg_init()
     scroll_height = line_height;
   }
   logDebug("scroll_height=%i", scroll_height);
+}
+
+void pg_refreshLayout()
+{
+  pg_computeLineHeight();
+  // The scroll position depends on the line height: back to the top of the page
+  pg_game_status.scrollY = 0;
+  pg_game_status.textFullyRendered = 0;
+  pg_game_status.lastRenderedY = 0;
+  if (text_surface) {
+    sdlFreeSurface(text_surface);
+    text_surface = NULL;
+  }
 }
 
 void pg_dispose()
