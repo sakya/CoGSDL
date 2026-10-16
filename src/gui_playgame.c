@@ -1021,7 +1021,9 @@ int pg_renderPageBreak()
 
     int width;
     TTF_MeasureUTF8(_Globals.defaultFont, pg_game_status.pageBreakMessage, _Globals.windowWidth, &width, NULL);
-    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, pg_game_status.pageBreakMessage, _Globals.windowWidth - 35 - width - 5, _Globals.windowHeight - 28, 0, 0);
+    // Vertically centered in the bottom toolbar
+    const int y = _Globals.windowHeight - HEADER_HEIGHT + (HEADER_HEIGHT - _Globals.defaultFontHeight) / 2;
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, pg_game_status.pageBreakMessage, _Globals.windowWidth - 35 - width - 5, y, 0, 0);
 
     return 1;
   }
