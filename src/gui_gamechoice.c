@@ -1,21 +1,17 @@
 #include "CoGSDL.h"
 #include "gui_playgame.h"
+#include "gui_generic_menu.h"
 
 extern game_status pg_game_status;
-static int scroll_y = 0;
-static int selectedIdx = 0;
-static SDL_Surface* choice_surface[16];
-/// @brief The text of the selected choice, in the color used on the selection background
-static SDL_Surface* choice_surface_selected[16];
-static int choice_surface_count = 0;
-static int line_height = 0;
-static int total_height = 0;
+
+/// @brief Menu of the visible choices: the id of an item is the index of the choice
+static gme_menu gc_menu;
+static gme_item *gc_items = NULL;
+static int gc_itemsCount = 0;
+static int gc_initialized = 0;
 
 void gc_init();
 void gc_dispose();
-void gc_draw();
-void gc_select_next();
-void gc_select_previous();
 
 /// @brief Check if a choice can be selected
 /// Choices that cannot be selected (*selectable_if false, used with *hide_reuse or *disable_reuse) are hidden
@@ -37,10 +33,17 @@ static int gc_is_visible(const choice *c)
 void pg_renderTextToSurface(SDL_Surface *surface, const char* text, int scrollY);
 char* pg_getNextLine(const char *text, int* startPosition, int maxWidth, int *wordWrap, int *last_x);
 
-/// @brief Render the text of a choice on a transparent surface
+/// @brief Width of the surfaces of the choices: the menu area minus the margins of the menu
+static int gc_surfaceWidth()
+{
+  return _Globals.windowWidth - 2 * (gc_menu.margin + gc_menu.textIndent);
+}
+
+/// @brief Render the text of a choice on a transparent surface, with the game text font
+/// (more lines, bold/italic): the surface includes a margin of TEXT_MARGIN pixels
 static SDL_Surface *gc_renderChoice(const choice *c, int height, SDL_Color color)
 {
-  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, _Globals.windowWidth - 2 * TEXT_MARGIN, height, 32, SDL_PIXELFORMAT_ARGB8888);
+  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, gc_surfaceWidth(), height, 32, SDL_PIXELFORMAT_ARGB8888);
   if (surface == NULL)
     return NULL;
   SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, color.r, color.g, color.b, 0));
@@ -55,28 +58,25 @@ static SDL_Surface *gc_renderChoice(const choice *c, int height, SDL_Color color
   return surface;
 }
 
-/// @brief The surface of the selected choice (rendered when needed)
-static SDL_Surface *gc_selectedSurface(int index)
+/// @brief Render the selected choice in titleTextColor (when it is selected the first time)
+static void gc_renderSelected()
 {
-  if (choice_surface_selected[index] == NULL)
-    choice_surface_selected[index] = gc_renderChoice(&pg_game_status.choices[index], choice_surface[index]->h, _theme->titleTextColor);
-  return choice_surface_selected[index] ? choice_surface_selected[index] : choice_surface[index];
+  gme_item *item = gme_selectedItem(&gc_menu);
+  if (item == NULL || item->selectedSurface != NULL || item->surface == NULL)
+    return;
+  item->selectedSurface = gc_renderChoice(&pg_game_status.choices[item->id], item->surface->h, _theme->titleTextColor);
 }
 
 void drawGameChoice()
 {
-  const int old_selected_idx = selectedIdx;
-  if (_Globals.input[_Keys.KeyDown] == 1 && selectedIdx >= 0) {
-    _Globals.input[_Keys.KeyDown] = 0;
-    gc_select_next();
-  } else if (_Globals.input[_Keys.KeyUp] == 1 && selectedIdx >= 0) {
-    _Globals.input[_Keys.KeyUp] = 0;
-    gc_select_previous();
-  } else if (_Globals.input[_Keys.KeyA] == 1) {
-    _Globals.input[_Keys.KeyA] = 0;
-    if (selectedIdx >= 0 && gc_is_enabled(&pg_game_status.choices[selectedIdx])) {
-      choice* c = &pg_game_status.choices[selectedIdx];
-      pg_game_status.selectedChoiceIndex = selectedIdx;
+  if (!gc_initialized)
+    gc_init();
+
+  switch (gme_handleInput(&gc_menu)) {
+    case gme_event_selected: {
+      int index = gme_selectedItem(&gc_menu)->id;
+      choice* c = &pg_game_status.choices[index];
+      pg_game_status.selectedChoiceIndex = index;
       logInfo("Selected choice: %s (%i)", c->text, c->position);
       c->used = 1;
       int alreadyUsed = 0;
@@ -95,176 +95,80 @@ void drawGameChoice()
       gc_dispose();
       return;
     }
-  } else if (_Globals.input[_Keys.KeyB] == 1) {
-    _Globals.input[_Keys.KeyB] = 0;
-    _Globals.status = pg_isStatsActive() ? GameStats : Game;
-    gc_dispose();
-    return;
-  }
-
-  if (old_selected_idx != selectedIdx) {
-    playMenuSound();
-  }
-
-  if (!choice_surface_count) {
-    gc_init();
-  }
-  gc_draw();
-}
-
-void gc_init()
-{
-  selectedIdx = 0;
-  scroll_y = 0;
-
-  line_height = get_line_height(_Globals.textFont);
-  pg_game_status.selectedChoiceIndex = -1;
-  total_height = 0;
-  if (!choice_surface_count) {
-    int text_width = _Globals.windowWidth - 2 * TEXT_MARGIN;
-
-    for (int i = 0; i < pg_game_status.choicesCount; i++) {
-      choice* c = &pg_game_status.choices[i];
-      int lines = 0;
-      int linePos = 0;
-      char *line = NULL;
-      while ((line = pg_getNextLine(c->text, &linePos, text_width, NULL, NULL)) != NULL) {
-        lines++;
-        free(line);
-      }
-      SDL_Surface *surface = gc_renderChoice(c, lines * line_height + 2 * TEXT_MARGIN, _theme->textColor);
-      if (surface == NULL) {
-        logWarning("Failed to create surface");
-        return;
-      }
-
-      choice_surface[choice_surface_count] = surface;
-      choice_surface_count++;
-      if (gc_is_visible(c)) {
-        total_height += surface->h + 2;
-      }
-    }
-  }
-
-  // Select the first enabled choice
-  selectedIdx = -1;
-  for (int i = 0; i < pg_game_status.choicesCount; i++) {
-    if (gc_is_enabled(&pg_game_status.choices[i])) {
-      selectedIdx = i;
-      break;
-    }
-  }
-}
-
-void gc_dispose()
-{
-  for (int i = 0; i < choice_surface_count; i++) {
-    sdlFreeSurface(choice_surface[i]);
-    sdlFreeSurface(choice_surface_selected[i]);
-    choice_surface_selected[i] = NULL;
-  }
-  choice_surface_count = 0;
-  total_height = 0;
-}
-
-void gc_draw()
-{
-  int i = 0;
-  int y = HEADER_HEIGHT + TEXT_MARGIN;
-  for (i = 0; i < pg_game_status.choicesCount; i++) {
-    choice* c = &pg_game_status.choices[i];
-    int height = choice_surface[i]->h + 2;
-
-    if (!gc_is_visible(c)) {
-      if (selectedIdx == i) {
-        gc_select_next();
-      }
-      continue;
-    }
-    if (y - scroll_y + height < HEADER_HEIGHT + TEXT_MARGIN || y - scroll_y > _Globals.windowHeight - HEADER_HEIGHT) {
-      y += height;
-      continue;
-    }
-
-    int cropped = 0;
-    int delta_y = 0;
-    if (y - scroll_y < HEADER_HEIGHT + TEXT_MARGIN) {
-      height -=  HEADER_HEIGHT + TEXT_MARGIN - (y - scroll_y);
-      delta_y = HEADER_HEIGHT + TEXT_MARGIN - (y - scroll_y);
-      cropped = 1;
-    } else if (y - scroll_y + height > _Globals.windowHeight - HEADER_HEIGHT) {
-      height = _Globals.windowHeight - HEADER_HEIGHT - y - TEXT_MARGIN;
-      delta_y = 0;
-      cropped = 1;
-    }
-
-    if (i == selectedIdx) {
-      if (cropped) {
-        // Scroll
-        if (delta_y) {
-          scroll_y -= delta_y;
-        } else {
-          scroll_y += choice_surface[i]->h + 2 - height;
-        }
-      }
-
-      SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
-      SDL_Rect rect = { 2, y - scroll_y + delta_y, _Globals.windowWidth - 4, height };
-      SDL_RenderFillRect(_Globals.renderer, &rect);
-    }
-    y += 1;
-
-    SDL_Surface *surface = i == selectedIdx ? gc_selectedSurface(i) : choice_surface[i];
-    SDL_Texture* texture = sdlGetImageTexture(surface, surface->w, surface->h);
-    SDL_Rect crop = { 0, delta_y, choice_surface[i]->w, height - 2};
-    SDL_Rect rect = { TEXT_MARGIN, y - scroll_y + delta_y, choice_surface[i]->w, height - 2 };
-    SDL_RenderCopy(_Globals.renderer, texture, &crop, &rect);
-    y += choice_surface[i]->h + 1;
-    if (y - scroll_y >= _Globals.windowHeight - HEADER_HEIGHT)
+    case gme_event_back:
+      _Globals.status = pg_isStatsActive() ? GameStats : Game;
+      gc_dispose();
+      return;
+    default:
       break;
   }
+
+  gc_renderSelected();
+  gme_draw(&gc_menu);
 
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
 }
 
-void gc_select_next()
+void gc_init()
 {
-  if (selectedIdx < 0 || pg_game_status.choicesCount == 0)
-    return;
+  pg_game_status.selectedChoiceIndex = -1;
+  gc_dispose();
+  if (pg_game_status.choicesCount > 0)
+    gc_items = calloc(pg_game_status.choicesCount, sizeof(gme_item));
 
-  for (int n = 0; n < pg_game_status.choicesCount; n++) {
-    selectedIdx++;
-    if (selectedIdx == pg_game_status.choicesCount) {
-      selectedIdx = 0;
+  // Layout of the menu (used by gc_surfaceWidth): the margins of the text are in the surfaces
+  gme_init(&gc_menu, gc_items, 0);
+  gc_menu.y = HEADER_HEIGHT + TEXT_MARGIN;
+  gc_menu.height = _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN;
+  gc_menu.textIndent = 0;
+  // From the last choice go back to the first one (and vice versa)
+  gc_menu.wrap = 1;
+  // Scroll by pixels: the choices at the bottom are shown even if they fit only in part
+  gc_menu.partialItems = 1;
+
+  const int lineHeight = get_line_height(_Globals.textFont);
+  const int textWidth = gc_surfaceWidth() - 2 * TEXT_MARGIN;
+  for (int i = 0; gc_items != NULL && i < pg_game_status.choicesCount; i++) {
+    choice* c = &pg_game_status.choices[i];
+    // Only the choices that can be selected are shown
+    if (!gc_is_visible(c))
+      continue;
+
+    int lines = 0;
+    int linePos = 0;
+    char *line = NULL;
+    while ((line = pg_getNextLine(c->text, &linePos, textWidth, NULL, NULL)) != NULL) {
+      lines++;
+      free(line);
     }
-    if (gc_is_enabled(&pg_game_status.choices[selectedIdx]))
-      break;
+    SDL_Surface *surface = gc_renderChoice(c, lines * lineHeight + 2 * TEXT_MARGIN, _theme->textColor);
+    if (surface == NULL) {
+      logWarning("Failed to create surface");
+      continue;
+    }
+
+    gme_item *item = &gc_items[gc_itemsCount++];
+    item->id = i;
+    item->surface = surface;
   }
 
-  if (selectedIdx == 0) {
-    scroll_y = 0;
-  }
+  gc_menu.itemsCount = gc_itemsCount;
+  // Select the first choice
+  gme_select(&gc_menu, 0);
+  gc_initialized = 1;
 }
 
-void gc_select_previous()
+void gc_dispose()
 {
-  if (selectedIdx < 0 || pg_game_status.choicesCount == 0)
-    return;
-
-  for (int n = 0; n < pg_game_status.choicesCount; n++) {
-    selectedIdx--;
-    if (selectedIdx < 0) {
-      selectedIdx = pg_game_status.choicesCount - 1;
-    }
-    if (gc_is_enabled(&pg_game_status.choices[selectedIdx]))
-      break;
+  for (int i = 0; i < gc_itemsCount; i++) {
+    sdlFreeSurface(gc_items[i].surface);
+    sdlFreeSurface(gc_items[i].selectedSurface);
   }
-
-  if (selectedIdx == pg_game_status.choicesCount - 1) {
-    if (total_height > _Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) {
-      scroll_y = total_height - (_Globals.windowHeight - 2 * HEADER_HEIGHT - 2 * TEXT_MARGIN) - choice_surface[selectedIdx]->h - 2;
-    }
-  }
+  free(gc_items);
+  gc_items = NULL;
+  gc_itemsCount = 0;
+  gc_menu.itemsCount = 0;
+  gc_initialized = 0;
 }

@@ -27,6 +27,8 @@ static int gme_isSelectable(const gme_menu *menu, int idx)
 
 int gme_itemHeight(const gme_item *item)
 {
+  if (item->surface != NULL)
+    return item->surface->h;
   int h = _Globals.defaultFontHeight;
   if (item->subText != NULL && item->subText[0] != '\0')
     h += _Globals.defaultSmallFontHeight;
@@ -56,9 +58,48 @@ static int gme_lastVisible(const gme_menu *menu)
   return last;
 }
 
+/// @brief Position in pixels of an item from the top of the menu (partialItems)
+static int gme_itemTop(const gme_menu *menu, int idx)
+{
+  int y = 0;
+  for (int i = 0; i < idx; i++)
+    y += gme_itemHeight(&menu->items[i]) + menu->spacing + menu->items[i + 1].spaceBefore;
+  return y;
+}
+
+/// @brief Height in pixels of all the items (partialItems)
+static int gme_totalHeight(const gme_menu *menu)
+{
+  if (menu->itemsCount <= 0)
+    return 0;
+  return gme_itemTop(menu, menu->itemsCount - 1) + gme_itemHeight(&menu->items[menu->itemsCount - 1]);
+}
+
+/// @brief Scroll by pixels just enough to show the whole selected item (partialItems)
+static void gme_ensureVisiblePartial(gme_menu *menu)
+{
+  if (menu->selectedIdx >= 0) {
+    const int top = gme_itemTop(menu, menu->selectedIdx);
+    const int bottom = top + gme_itemHeight(&menu->items[menu->selectedIdx]);
+    if (top < menu->scrollY || bottom - top > menu->height)
+      menu->scrollY = top;
+    else if (bottom > menu->scrollY + menu->height)
+      menu->scrollY = bottom - menu->height;
+  }
+  const int maxScroll = gme_totalHeight(menu) - menu->height;
+  if (menu->scrollY > maxScroll)
+    menu->scrollY = maxScroll;
+  if (menu->scrollY < 0)
+    menu->scrollY = 0;
+}
+
 /// @brief Scroll the menu so that the selected item is visible
 static void gme_ensureVisible(gme_menu *menu)
 {
+  if (menu->partialItems) {
+    gme_ensureVisiblePartial(menu);
+    return;
+  }
   if (menu->selectedIdx < 0)
     return;
   if (menu->firstIdx > menu->selectedIdx)
@@ -221,16 +262,31 @@ void gme_draw(gme_menu *menu)
     return;
   gme_ensureVisible(menu);
 
-  const int last = gme_lastVisible(menu);
+  // partialItems: all the items, cut at the borders of the area; otherwise the whole visible ones
+  const int first = menu->partialItems ? 0 : menu->firstIdx;
+  const int last = menu->partialItems ? menu->itemsCount - 1 : gme_lastVisible(menu);
   const int mainHeight = _Globals.defaultFontHeight;
   const int textX = menu->margin + menu->textIndent;
-  int y = menu->y;
-  for (int i = menu->firstIdx; i <= last; i++) {
+  int y = menu->partialItems ? menu->y - menu->scrollY : menu->y;
+  if (menu->partialItems) {
+    SDL_Rect clip = { 0, menu->y, _Globals.windowWidth, menu->height };
+    SDL_RenderSetClipRect(_Globals.renderer, &clip);
+  }
+  for (int i = first; i <= last; i++) {
     gme_item *item = &menu->items[i];
-    if (i > menu->firstIdx)
+    if (i > first)
       y += menu->spacing + item->spaceBefore;
     const int height = gme_itemHeight(item);
     const int selected = i == menu->selectedIdx;
+    if (menu->partialItems) {
+      // Outside the area
+      if (y >= menu->y + menu->height)
+        break;
+      if (y + height <= menu->y) {
+        y += height;
+        continue;
+      }
+    }
 
     if (selected) {
       SDL_SetRenderDrawColor(_Globals.renderer, _theme->headerBackgroundColor.r, _theme->headerBackgroundColor.g, _theme->headerBackgroundColor.b, 255);
@@ -241,6 +297,16 @@ void gme_draw(gme_menu *menu)
     SDL_Color color = selected ? _theme->titleTextColor : _theme->textColor;
     if (item->disabled)
       color = _theme->disabledTextColor;
+
+    if (item->surface != NULL) {
+      SDL_Surface *surface = selected && item->selectedSurface != NULL ? item->selectedSurface : item->surface;
+      SDL_Texture *texture = sdlGetImageTexture(surface, surface->w, surface->h);
+      SDL_Rect rect = { textX, y, surface->w, surface->h };
+      if (texture)
+        SDL_RenderCopy(_Globals.renderer, texture, NULL, &rect);
+      y += height;
+      continue;
+    }
 
     const int textY = y + GME_BOX_PADDING;
     sdlWriteText(_Globals.defaultFont, color, (char *)item->text, textX, textY, 0, 0);
@@ -257,4 +323,6 @@ void gme_draw(gme_menu *menu)
 
     y += height;
   }
+  if (menu->partialItems)
+    SDL_RenderSetClipRect(_Globals.renderer, NULL);
 }

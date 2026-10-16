@@ -27,6 +27,12 @@ typedef struct {
   /// @brief Extra space in pixels before the item (e.g. to separate "Quit")
   int spaceBefore;
 
+  /// @brief Optional pre-rendered content drawn instead of text/subText (e.g. a text with
+  /// another font, on more lines). The item is as high as the surface (its margins included)
+  SDL_Surface *surface;
+  /// @brief Optional content of the selected item (e.g. the text in titleTextColor), NULL = surface
+  SDL_Surface *selectedSurface;
+
   /// @brief gme_item_list: the values and the index of the current one
   const char *const *values;
   int valuesCount;
@@ -58,10 +64,15 @@ typedef struct {
   int spacing;
   /// @brief 1 = moving down from the last item goes to the first one (and up from the first to the last)
   int wrap;
+  /// @brief 1 = scroll by pixels: the items at the top/bottom of the area are shown even if they
+  /// fit only in part (cut at the border). 0 = scroll by items: only whole items are shown
+  int partialItems;
 
-  /// @brief State: selected item and first visible item
+  /// @brief State: selected item and first visible item (partialItems = 0)
   int selectedIdx;
   int firstIdx;
+  /// @brief State: scroll position in pixels (partialItems = 1)
+  int scrollY;
 } gme_menu;
 
 /// @brief Result of gme_handleInput
