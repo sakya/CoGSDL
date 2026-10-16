@@ -1042,7 +1042,7 @@ int pg_renderPageBreak()
     int width;
     TTF_MeasureUTF8(_Globals.defaultFont, pg_game_status.pageBreakMessage, _Globals.windowWidth, &width, NULL);
     // Vertically centered in the bottom toolbar
-    const int y = _Globals.windowHeight - HEADER_HEIGHT + (HEADER_HEIGHT - _Globals.defaultFontHeight) / 2;
+    const int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
     sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, pg_game_status.pageBreakMessage, _Globals.windowWidth - 35 - width - 5, y, 0, 0);
 
     return 1;

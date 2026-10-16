@@ -305,6 +305,9 @@ int sdlSelectionHeight();
 int sdlDrawTitle(const char *text, int x, int y);
 /// @brief Height of a title drawn with sdlDrawTitle (text and line)
 int sdlTitleHeight();
+/// @brief y to write a line of text with font vertically centered in the band [top, top + height]
+/// (the capital letters are centered: the font height includes the space of the descenders)
+int sdlTextCenterY(TTF_Font *font, int top, int height);
 void sdlBlitImageFile(char* image, int x, int y, int maxWidth, int maxHeight);
 int get_line_height(TTF_Font *font);
 

@@ -105,16 +105,19 @@ void drawHeader()
   SDL_Rect rect = { 0, 0, _Globals.windowWidth, HEADER_HEIGHT };
   SDL_RenderFillRect(_Globals.renderer, &rect);
 
+  // Texts vertically centered in the header
+  const int textY = sdlTextCenterY(_Globals.defaultFont, 0, HEADER_HEIGHT);
+
   if (runningGame != NULL && (_Globals.status == Game || _Globals.status == GameMenu || _Globals.status == GameStats || _Globals.status == GameChoice || _Globals.status == OnScreenKeyboard)) {
     if (runningGameIcon != NULL) {
       sdlBlitImage(runningGameIcon, 0, 0, HEADER_HEIGHT, HEADER_HEIGHT);
     } else {
       drawAppIcon();
     }
-    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, runningGame->title, 35, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, runningGame->title, 35, textY, 0, 0);
   } else if (_Globals.status != MainMenu && _Globals.status != About) {
     drawAppIcon();
-    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "CoGSDL v" VERSION, 35, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "CoGSDL v" VERSION, 35, textY, 0, 0);
   }
 
   if (_Globals.show_fps && fps > 0) {
@@ -123,7 +126,7 @@ void drawHeader()
     snprintf(fpsStr, sizeof(fpsStr), "Fps: %i", fps);
     TTF_MeasureUTF8(_Globals.defaultFont, fpsStr, _Globals.windowWidth, &width, NULL);
 
-    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, fpsStr, _Globals.windowWidth - width - 2, 2, 0, 0);
+    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, fpsStr, _Globals.windowWidth - width - 2, textY, 0, 0);
   }
 }
 
@@ -138,7 +141,7 @@ void drawFooter()
 void drawAppIcon()
 {
   SDL_Texture* texture = sdlGetImageTexture(app_icon, 26, 26);
-  SDL_Rect rect = {2, 2, 26, 26};
+  SDL_Rect rect = {2, (HEADER_HEIGHT - 26) / 2, 26, 26};
   SDL_Point center = { 13, 13};
   SDL_RendererFlip flip = SDL_FLIP_NONE;
   SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, header_angle, &center, flip);

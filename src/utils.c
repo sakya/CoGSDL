@@ -174,6 +174,17 @@ int sdlSelectionHeight()
 #define TITLE_LINE_GAP 2
 #define TITLE_LINE_HEIGHT 2
 
+int sdlTextCenterY(TTF_Font *font, int top, int height)
+{
+  if (font == NULL)
+    return top;
+  int minx, maxx, miny, capHeight, advance;
+  if (TTF_GlyphMetrics(font, 'H', &minx, &maxx, &miny, &capHeight, &advance) != 0 || capHeight <= 0)
+    return top + (height - TTF_FontHeight(font)) / 2;
+  // The top of the capital letters is (ascent - capHeight) pixels below the y of the text
+  return top + (height - capHeight) / 2 - (TTF_FontAscent(font) - capHeight);
+}
+
 int sdlTitleHeight()
 {
   return _Globals.titleFontHeight + TITLE_LINE_GAP + TITLE_LINE_HEIGHT;
