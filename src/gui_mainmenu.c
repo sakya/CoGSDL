@@ -40,7 +40,7 @@ void drawMainMenu()
   // "Continue" can be selected only if there is a save (checked when the menu is shown)
   if (mm_canContinue < 0) {
     int gameIndex, slot;
-    mm_canContinue = pg_findLastSave(&gameIndex, &slot);
+    mm_canContinue = sv_findLastSave(&gameIndex, &slot);
     mm_continueGame = mm_canContinue ? gameIndex : -1;
 
     gme_item *item = &mm_items[mm_continue];
@@ -59,7 +59,7 @@ void drawMainMenu()
     switch (gme_selectedItem(&mm_menu)->id) {
       case mm_continue:
         // Load the most recent save (of any game)
-        if (pg_continueLastSave())
+        if (sv_continueLastSave())
           _Globals.status = Game;
         break;
       case mm_games:

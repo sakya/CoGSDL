@@ -4,7 +4,7 @@
  * Execution of the scenes: reading of the lines, commands (*if, *goto, *gosub,
  * *choice, *set, *temp, *rand...), labels, variables, expressions and text
  * substitutions. The page text is built in pg_game_status.text and drawn by
- * gui_playgame.c, that also manages saves, checkpoints and achievements.
+ * gui_playgame.c. Saves, checkpoints, episodes and achievements are in saves.c.
  * ------------------------------------------------------------------------- */
 
 #include "CoGSDL.h"
@@ -32,7 +32,7 @@ void cs_selectChoice(int index)
   choice *c = &pg_game_status.choices[index];
 
   // Options of the *restore_game menu
-  if (pg_selectRestoreOption(c))
+  if (sv_selectRestoreOption(c))
     return;
 
   // When the option body ends, continue after the choice block
@@ -400,7 +400,7 @@ int cs_exec_primitive()
   pg_game_status.scrollY = 0;
   cs_clearChoices();
   // *restore_game menu closed, message to show at the start of the page
-  pg_restoreGameNewPage();
+  sv_restoreGameNewPage();
   // Same as ChoiceScript: *looplimit counts the visits to a label in a page
   pg_game_status.labelVisitsCount = 0;
 
@@ -499,14 +499,14 @@ int cs_exec_primitive()
 
       if (stricmp(command, "restore_game") == 0) {
         // restore_game [cancel=label]: a choice between the saves of the previous episodes
-        long newPosition = pg_manageRestoreGameCommand(line, lineIndentation);
+        long newPosition = sv_manageRestoreGameCommand(line, lineIndentation);
         pg_game_status.fpPosition = newPosition;
         break;
       }
 
       if (stricmp(command, "save_game") == 0) {
         // save_game destination_scene: save the game for the next episode
-        pg_manageSaveGameCommand(line);
+        sv_manageSaveGameCommand(line);
         textStarted = 1;
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
@@ -514,16 +514,16 @@ int cs_exec_primitive()
 
       if (stricmp(command, "save_checkpoint") == 0) {
         // save_checkpoint [slot]
-        pg_manageSaveCheckpointCommand(line);
+        sv_manageSaveCheckpointCommand(line);
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
       }
 
       if (stricmp(command, "restore_checkpoint") == 0) {
         // restore_checkpoint [slot]: a new page starts at the checkpoint
-        if (pg_restoreCheckpoint(line)) {
+        if (sv_restoreCheckpoint(line)) {
           textStarted = 0;
-          pg_takeSnapshot();
+          sv_takeSnapshot();
         } else {
           pg_game_status.fpPosition = ftell(pg_game_status.fp);
         }
@@ -550,7 +550,7 @@ int cs_exec_primitive()
 
       if (stricmp(command, "achieve") == 0) {
         // achieve name
-        pg_manageAchieveCommand(line);
+        sv_manageAchieveCommand(line);
         textStarted = 1;
         pg_game_status.fpPosition = ftell(pg_game_status.fp);
         continue;
@@ -838,7 +838,7 @@ void cs_exec()
 {
   // The saves contain the state at the start of the page
   if (!pg_isStatsActive())
-    pg_takeSnapshot();
+    sv_takeSnapshot();
   while (!cs_exec_primitive());
 }
 

@@ -174,64 +174,18 @@ void pg_init();
 void pg_refreshLayout();
 void pg_dispose();
 
-/// @brief Number of save slots for each game
-#define SAVE_SLOTS 5
-
-struct save_info
-{
-  /// @brief Set to 1 if the slot contains a save
-  int used;
-  /// @brief Name of the save (built from the position in the game)
-  char name[256];
-  /// @brief Time of the save
-  time_t time;
-} typedef save_info;
-
-/// @brief Read the information of a save slot of the running game
-/// @return 1 if the slot contains a save
-int pg_getSaveInfo(int slot, save_info *info);
-/// @brief Save the state at the start of the current page in a slot
-/// @return 1 on success
-int pg_saveGame(int slot);
-/// @brief Load a saved game and execute the saved page
-/// @return 1 on success
-int pg_loadGame(int slot);
-/// @brief Find the most recent save of all the games
-/// @param gameIndex The index of the game in _Globals.games
-/// @param slot The save slot
-/// @return 1 if a save was found
-int pg_findLastSave(int *gameIndex, int *slot);
-/// @brief Start the game of the most recent save and load it
-/// @return 1 on success
-int pg_continueLastSave();
-
 /// @brief State of the running game (interpreter and page)
 extern game_status pg_game_status;
 
-/* Functions of gui_playgame.c used by the interpreter (choicescript.c) */
+/* Functions of gui_playgame.c used by the interpreter and the saves */
 
 /// @brief Free the rendered text of the page (it is rendered again)
 void pg_freeTextSurface();
-/// @brief Close the *restore_game menu and add the pending message (if any) at the start of the new page
-void pg_restoreGameNewPage();
-/// @brief Save the state at the start of the page (used by pg_saveGame)
-void pg_takeSnapshot();
-/// @brief Manage *save_checkpoint [slot]
-void pg_manageSaveCheckpointCommand(const char *text);
-/// @brief Manage *restore_checkpoint [slot]
-/// @return 1 if the checkpoint was restored (the execution continues from the checkpoint)
-int pg_restoreCheckpoint(const char *text);
-/// @brief Manage the achieve command: mark the achievement as earned and show it
-void pg_manageAchieveCommand(const char *text);
-/// @brief Manage the save_game command: save the variables for the next episode (./saves/episodes)
-void pg_manageSaveGameCommand(const char *text);
-/// @brief Manage *restore_game: show the saves of ./saves/episodes as a choice
-/// @return The position after the command (and its block)
-long pg_manageRestoreGameCommand(const char *text, int indentation);
-int pg_selectRestoreOption(choice *c);
 void pg_clear_image_cache();
 
 // The ChoiceScript interpreter
 #include "choicescript.h"
+// Saves, checkpoints, episodes and achievements
+#include "saves.h"
 
 #endif

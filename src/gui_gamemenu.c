@@ -57,7 +57,7 @@ static void gm_refreshSlots()
   int selected = slotsMenu.selectedIdx;
   memset(slotsItems, 0, sizeof(slotsItems));
   for (int i = 0; i < SAVE_SLOTS; i++) {
-    pg_getSaveInfo(i, &slots[i]);
+    sv_getSaveInfo(i, &slots[i]);
     gme_item *item = &slotsItems[i];
     item->id = i;
     if (slots[i].used) {
@@ -112,7 +112,7 @@ static void gm_enterSlots(enum gm_page slotsPage)
 static void gm_doSave()
 {
   char text[64];
-  if (pg_saveGame(gm_slotIdx())) {
+  if (sv_saveGame(gm_slotIdx())) {
     snprintf(text, sizeof(text), "Game saved in slot %i", gm_slotIdx() + 1);
     gm_showMessage(text, gm_main);
   } else {
@@ -215,7 +215,7 @@ void drawGameMenu()
             else
               gm_doSave();
           } else if (slots[gm_slotIdx()].used) {
-            if (pg_loadGame(gm_slotIdx())) {
+            if (sv_loadGame(gm_slotIdx())) {
               page = gm_main;
               _Globals.status = Game;
             } else {

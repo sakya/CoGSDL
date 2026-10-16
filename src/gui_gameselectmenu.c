@@ -120,7 +120,7 @@ static void gs_drawSlotsPage()
       }
 
       pg_init();
-      if (pg_loadGame(item - 1)) {
+      if (sv_loadGame(item - 1)) {
         slotsPage = 0;
         _Globals.status = Game;
         return;
@@ -198,7 +198,7 @@ void drawGameSelectMenu()
       // If the game has saves, choose between a new game and a save
       int usedSlots = 0;
       for (int i = 0; i < SAVE_SLOTS; i++)
-        usedSlots += pg_getSaveInfo(i, &slots[i]);
+        usedSlots += sv_getSaveInfo(i, &slots[i]);
       if (usedSlots > 0) {
         gs_initSlotsMenu();
         slotsPage = 1;
