@@ -94,12 +94,12 @@ static void gs_initSlotsMenu()
     item->text = slotsTexts[i];
   }
   // Space for the "Load game" title before the first slot
-  slotsItems[1].spaceBefore = TTF_FontHeight(_Globals.titleFont) + 10;
+  slotsItems[1].spaceBefore = get_line_height(_Globals.titleFont) + 10;
 
   gme_init(&slotsMenu, slotsItems, SAVE_SLOTS + 1);
   slotsMenu.y = HEADER_HEIGHT + 43;
   // Leave space for the error message at the bottom
-  slotsMenu.height = _Globals.windowHeight - HEADER_HEIGHT - slotsMenu.y - TTF_FontHeight(_Globals.defaultSmallFont) - 6;
+  slotsMenu.height = _Globals.windowHeight - HEADER_HEIGHT - slotsMenu.y - get_line_height(_Globals.defaultSmallFont) - 6;
 }
 
 /// @brief The page with "New game" and the saves of the selected game

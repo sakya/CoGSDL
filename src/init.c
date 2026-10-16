@@ -95,14 +95,14 @@ int init()
   #endif
 
   _Globals.defaultFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.defaultFontSize);
-  _Globals.defaultFontHeight = TTF_FontHeight(_Globals.defaultFont);
+  _Globals.defaultFontHeight = get_line_height(_Globals.defaultFont);
   _Globals.titleFont = TTF_OpenFont("./fonts/Roboto-Regular.ttf", _Globals.titleFontSize);
-  _Globals.titleFontHeight = TTF_FontHeight(_Globals.titleFont);
+  _Globals.titleFontHeight = get_line_height(_Globals.titleFont);
 
   loadTextFonts();
 
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
-  _Globals.defaultSmallFontHeight = TTF_FontHeight(_Globals.defaultSmallFont);
+  _Globals.defaultSmallFontHeight = get_line_height(_Globals.defaultSmallFont);
 
   load_images();
   load_sounds();

@@ -346,7 +346,7 @@ static void osk_drawTextBox(int x, int y, int w, int h)
     TTF_SizeUTF8(_Globals.defaultFont, visible, &tw, &th);
   }
   if (th == 0)
-    th = TTF_FontHeight(_Globals.defaultFont);
+    th = get_line_height(_Globals.defaultFont);
 
   int textY = y + (h - th) / 2;
   sdlWriteText(_Globals.defaultFont, _theme->textColor, (char *)visible, x + 8, textY, 0, 0);
