@@ -1,61 +1,80 @@
 #include "CoGSDL.h"
 #include "gui_playgame.h"
+#include "gui_generic_menu.h"
+
+enum mm_item_id
+{
+  mm_continue = 0,
+  mm_games,
+  mm_settings,
+  mm_about,
+  mm_quit
+};
 
 static double about_angle = 0;
-static int mm_index = 0;
 /// @brief -1: to check, 0: no saves, 1: "Continue" can be selected
 static int mm_canContinue = -1;
 /// @brief The game of the most recent save (loaded by "Continue")
 static int mm_continueGame = -1;
 
+static gme_item mm_items[] = {
+  { .id = mm_continue, .text = "Continue" },
+  { .id = mm_games, .text = "Games" },
+  { .id = mm_settings, .text = "Settings" },
+  { .id = mm_about, .text = "About" },
+  // "Quit" is separated from the other items
+  { .id = mm_quit, .text = "Quit", .spaceBefore = 20 }
+};
+static gme_menu mm_menu;
+static int mm_menuInitialized = 0;
+
 void drawMainMenu()
 {
+  if (!mm_menuInitialized) {
+    gme_init(&mm_menu, mm_items, sizeof(mm_items) / sizeof(mm_items[0]));
+    mm_menu.y = 200;
+    mm_menu.height = _Globals.windowHeight - HEADER_HEIGHT - mm_menu.y - 10;
+    mm_menuInitialized = 1;
+  }
+
   // "Continue" can be selected only if there is a save (checked when the menu is shown)
   if (mm_canContinue < 0) {
     int gameIndex, slot;
     mm_canContinue = pg_findLastSave(&gameIndex, &slot);
     mm_continueGame = mm_canContinue ? gameIndex : -1;
-  }
-  const int firstIndex = mm_canContinue ? 0 : 1;
-  if (mm_index < firstIndex)
-    mm_index = firstIndex;
 
-  if (_Globals.input[_Keys.KeyDown] == 1) {
-    if (mm_index < 4) {
-      mm_index++;
-      playMenuSound();
-    }
-    _Globals.input[_Keys.KeyDown] = 0;
-  } else if (_Globals.input[_Keys.KeyUp] == 1) {
-    if (mm_index > firstIndex) {
-      mm_index--;
-      playMenuSound();
-    }
-    _Globals.input[_Keys.KeyUp] = 0;
-  } else if (_Globals.input[_Keys.KeyA] == 1) {
-    _Globals.input[_Keys.KeyA] = 0;
+    gme_item *item = &mm_items[mm_continue];
+    item->disabled = !mm_canContinue;
+    // The game to load is shown below "Continue"
+    item->subText = NULL;
+    if (mm_canContinue && mm_continueGame >= 0 && mm_continueGame < _Globals.gamesCount)
+      item->subText = _Globals.games[mm_continueGame].title;
+    // Moves the selection to "Games" if "Continue" has been disabled
+    gme_select(&mm_menu, mm_menu.selectedIdx);
+  }
+
+  if (gme_handleInput(&mm_menu) == gme_event_selected) {
     // The saves are checked again when the menu is shown again
     mm_canContinue = -1;
-    switch (mm_index) {
-      case 0:
+    switch (gme_selectedItem(&mm_menu)->id) {
+      case mm_continue:
         // Load the most recent save (of any game)
         if (pg_continueLastSave())
           _Globals.status = Game;
         break;
-      case 1:
+      case mm_games:
         _Globals.status = GameSelect;
         break;
-      case 2:
+      case mm_settings:
         _Globals.status = Settings;
         break;
-      case 3:
+      case mm_about:
         _Globals.status = About;
         break;
-      case 4:
+      case mm_quit:
         _Globals.quit = 1;
         break;
     }
-    _Globals.input[_Keys.KeyA] = 0;
   }
 
   SDL_Texture* texture = sdlGetImageTexture(app_icon, 100, 100);
@@ -71,26 +90,7 @@ void drawMainMenu()
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "CoGSDL", 140, 75, 0, 0);
   sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, "A ChoiceScript interpreter", 140, 100, 0, 0);
 
-  // When "Continue" can be selected, the game to load is shown below it
-  const char *continueGame = NULL;
-  if (mm_canContinue && mm_continueGame >= 0 && mm_continueGame < _Globals.gamesCount)
-    continueGame = _Globals.games[mm_continueGame].title;
-  const int continueGameHeight = continueGame ? TTF_FontHeight(_Globals.defaultSmallFont) : 0;
-
-  const char *items[] = { "Continue", "Games", "Settings", "About", "Quit" };
-  int itemsY[] = { 200, 230, 260, 290, 340 };
-  for (int i = 1; i < 5; i++)
-    itemsY[i] += continueGameHeight;
-  for (int i = 0; i < 5; i++) {
-    if (i == mm_index)
-      sdlDrawSelection(itemsY[i] - 2, sdlSelectionHeight() + (i == 0 ? continueGameHeight : 0));
-    SDL_Color color = i == mm_index ? _theme->titleTextColor : _theme->textColor;
-    if (i == 0 && !mm_canContinue)
-      color = _theme->disabledTextColor;
-    sdlWriteText(_Globals.defaultFont, color, (char *)items[i], 30, itemsY[i], 0, 0);
-    if (i == 0 && continueGame)
-      sdlWriteText(_Globals.defaultSmallFont, color, (char *)continueGame, 30, itemsY[i] + TTF_FontHeight(_Globals.defaultFont), _Globals.windowWidth - 60, 0);
-  }
+  gme_draw(&mm_menu);
 
   sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);

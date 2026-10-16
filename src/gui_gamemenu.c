@@ -1,5 +1,6 @@
 #include "CoGSDL.h"
 #include "gui_playgame.h"
+#include "gui_generic_menu.h"
 
 enum gm_page
 {
@@ -11,22 +12,67 @@ enum gm_page
   gm_message = 5
 };
 
+enum gm_main_item
+{
+  gm_item_save = 0,
+  gm_item_load,
+  gm_item_quit
+};
+
 static enum gm_page page = gm_main;
-static int mainIdx = 0;
-static int slotIdx = 0;
 static save_info slots[SAVE_SLOTS];
 static char message[256];
 static Uint32 messageTime = 0;
 /// @brief The page shown after the message
 static enum gm_page messageNextPage = gm_main;
 
-static const char *mainItems[] = { "Save", "Load", "Quit" };
-static const int mainItemsCount = sizeof(mainItems) / sizeof(mainItems[0]);
+static gme_item mainItems[] = {
+  { .id = gm_item_save, .text = "Save" },
+  { .id = gm_item_load, .text = "Load" },
+  // "Quit" is separated from the other items
+  { .id = gm_item_quit, .text = "Quit", .spaceBefore = 10 }
+};
+static gme_menu mainMenu;
+static int mainMenuInitialized = 0;
 
+/// @brief Menu of the save/load pages: the id of an item is the slot index
+static gme_item slotsItems[SAVE_SLOTS];
+static char slotsTexts[SAVE_SLOTS][320];
+static char slotsDates[SAVE_SLOTS][64];
+static gme_menu slotsMenu;
+
+/// @brief Index of the selected slot in the save/load pages
+static int gm_slotIdx()
+{
+  return slotsMenu.selectedIdx >= 0 ? slotsMenu.selectedIdx : 0;
+}
+
+/// @brief Read the saves and update the items of the save/load pages (the selection is kept)
 static void gm_refreshSlots()
 {
-  for (int i = 0; i < SAVE_SLOTS; i++)
+  int selected = slotsMenu.selectedIdx;
+  memset(slotsItems, 0, sizeof(slotsItems));
+  for (int i = 0; i < SAVE_SLOTS; i++) {
     pg_getSaveInfo(i, &slots[i]);
+    gme_item *item = &slotsItems[i];
+    item->id = i;
+    if (slots[i].used) {
+      snprintf(slotsTexts[i], sizeof(slotsTexts[i]), "%i. %s", i + 1, slots[i].name);
+      strftime(slotsDates[i], sizeof(slotsDates[i]), "%Y-%m-%d %H:%M", localtime(&slots[i].time));
+      item->subText = slotsDates[i];
+    } else {
+      snprintf(slotsTexts[i], sizeof(slotsTexts[i]), "%i. Empty", i + 1);
+      // In the load page only the used slots can be selected
+      item->disabled = page == gm_load;
+    }
+    item->text = slotsTexts[i];
+  }
+
+  gme_init(&slotsMenu, slotsItems, SAVE_SLOTS);
+  slotsMenu.y = HEADER_HEIGHT + 48;
+  slotsMenu.wrap = 1;
+  if (selected >= 0)
+    gme_select(&slotsMenu, selected);
 }
 
 static int gm_usedSlots()
@@ -45,41 +91,21 @@ static void gm_showMessage(const char *text, enum gm_page nextPage)
   page = gm_message;
 }
 
-/// @brief Move the selection in the slot list (in the load page only the used slots can be selected)
-static void gm_moveSlot(int delta)
-{
-  int idx = slotIdx;
-  for (int n = 0; n < SAVE_SLOTS; n++) {
-    idx = (idx + delta + SAVE_SLOTS) % SAVE_SLOTS;
-    if (page != gm_load || slots[idx].used) {
-      slotIdx = idx;
-      playMenuSound();
-      return;
-    }
-  }
-}
-
 static void gm_enterSlots(enum gm_page slotsPage)
 {
-  gm_refreshSlots();
   page = slotsPage;
-  slotIdx = 0;
-  if (slotsPage == gm_load) {
-    if (gm_usedSlots() == 0) {
-      gm_showMessage("No saved games", gm_main);
-      return;
-    }
-    // First used slot
-    while (!slots[slotIdx].used)
-      slotIdx++;
-  }
+  // Start from the first slot (in the load page the first used one)
+  slotsMenu.selectedIdx = -1;
+  gm_refreshSlots();
+  if (slotsPage == gm_load && gm_usedSlots() == 0)
+    gm_showMessage("No saved games", gm_main);
 }
 
 static void gm_doSave()
 {
   char text[64];
-  if (pg_saveGame(slotIdx)) {
-    snprintf(text, sizeof(text), "Game saved in slot %i", slotIdx + 1);
+  if (pg_saveGame(gm_slotIdx())) {
+    snprintf(text, sizeof(text), "Game saved in slot %i", gm_slotIdx() + 1);
     gm_showMessage(text, gm_main);
   } else {
     gm_showMessage("Save failed", gm_main);
@@ -95,34 +121,9 @@ static void gm_drawFooter(int showA, int showB)
   sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
 }
 
-static void gm_drawSlots(const char *title)
+static void gm_drawTitle(const char *title, const gme_menu *menu)
 {
-  sdlWriteText(_Globals.titleFont, _theme->textColor, (char *)title, 30, HEADER_HEIGHT + 10, 0, 0);
-
-  int y = HEADER_HEIGHT + 50;
-  for (int i = 0; i < SAVE_SLOTS; i++) {
-    int selectable = page != gm_load || slots[i].used;
-    SDL_Color color = i == slotIdx ? _theme->titleTextColor : _theme->textColor;
-    if (!selectable)
-      color = _theme->disabledTextColor;
-    if (i == slotIdx && selectable)
-      sdlDrawSelection(y - 2, 50);
-
-    char line[320];
-    if (slots[i].used)
-      snprintf(line, sizeof(line), "%i. %s", i + 1, slots[i].name);
-    else
-      snprintf(line, sizeof(line), "%i. Empty", i + 1);
-    sdlWriteText(_Globals.defaultFont, color, line, 30, y, _Globals.windowWidth - 40, 0);
-    y += 25;
-
-    if (slots[i].used) {
-      char date[64];
-      strftime(date, sizeof(date), "%Y-%m-%d %H:%M", localtime(&slots[i].time));
-      sdlWriteText(_Globals.defaultSmallFont, color, date, 50, y, 0, 0);
-    }
-    y += 27;
-  }
+  sdlWriteText(_Globals.titleFont, _theme->textColor, (char *)title, menu->margin + menu->textIndent, HEADER_HEIGHT + 10, 0, 0);
 }
 
 static void gm_drawConfirm(const char *question, const char *detail)
@@ -136,6 +137,13 @@ static void gm_drawConfirm(const char *question, const char *detail)
 
 void drawGameMenu()
 {
+  if (!mainMenuInitialized) {
+    gme_init(&mainMenu, mainItems, sizeof(mainItems) / sizeof(mainItems[0]));
+    mainMenu.y = HEADER_HEIGHT + 48;
+    mainMenu.wrap = 1;
+    mainMenuInitialized = 1;
+  }
+
   if (page == gm_main || page == gm_save || page == gm_load) {
     if (_Globals.input[_Keys.KeyL1] == 1) {
       _Globals.input[_Keys.KeyL1] = 0;
@@ -154,73 +162,59 @@ void drawGameMenu()
 
   switch (page) {
     case gm_main:
-      if (_Globals.input[_Keys.KeyDown] == 1) {
-        _Globals.input[_Keys.KeyDown] = 0;
-        mainIdx = (mainIdx + 1) % mainItemsCount;
-        playMenuSound();
-      } else if (_Globals.input[_Keys.KeyUp] == 1) {
-        _Globals.input[_Keys.KeyUp] = 0;
-        mainIdx = (mainIdx + mainItemsCount - 1) % mainItemsCount;
-        playMenuSound();
-      } else if (_Globals.input[_Keys.KeyA] == 1) {
-        _Globals.input[_Keys.KeyA] = 0;
-        if (mainIdx == 0)
-          gm_enterSlots(gm_save);
-        else if (mainIdx == 1)
-          gm_enterSlots(gm_load);
-        else
-          page = gm_confirm_quit;
-        return;
-      } else if (_Globals.input[_Keys.KeyB] == 1) {
-        _Globals.input[_Keys.KeyB] = 0;
-        _Globals.status = Game;
-        return;
+      switch (gme_handleInput(&mainMenu)) {
+        case gme_event_selected:
+          switch (gme_selectedItem(&mainMenu)->id) {
+            case gm_item_save:
+              gm_enterSlots(gm_save);
+              break;
+            case gm_item_load:
+              gm_enterSlots(gm_load);
+              break;
+            case gm_item_quit:
+              page = gm_confirm_quit;
+              break;
+          }
+          return;
+        case gme_event_back:
+          _Globals.status = Game;
+          return;
+        default:
+          break;
       }
 
-      sdlWriteText(_Globals.titleFont, _theme->textColor, "Game menu", 30, HEADER_HEIGHT + 10, 0, 0);
-      for (int i = 0; i < mainItemsCount; i++) {
-        int y = HEADER_HEIGHT + 50 + i * 30;
-        if (i == mainItemsCount - 1) {
-          y += 10;
-        }
-        if (i == mainIdx)
-          sdlDrawSelection(y - 2, sdlSelectionHeight());
-        sdlWriteText(_Globals.defaultFont, i == mainIdx ? _theme->titleTextColor : _theme->textColor, (char *)mainItems[i], 30, y, 0, 0);
-      }
+      gm_drawTitle("Game menu", &mainMenu);
+      gme_draw(&mainMenu);
       gm_drawFooter(1, 1);
       break;
 
     case gm_save:
     case gm_load:
-      if (_Globals.input[_Keys.KeyDown] == 1) {
-        _Globals.input[_Keys.KeyDown] = 0;
-        gm_moveSlot(1);
-      } else if (_Globals.input[_Keys.KeyUp] == 1) {
-        _Globals.input[_Keys.KeyUp] = 0;
-        gm_moveSlot(-1);
-      } else if (_Globals.input[_Keys.KeyA] == 1) {
-        _Globals.input[_Keys.KeyA] = 0;
-        if (page == gm_save) {
-          if (slots[slotIdx].used)
-            page = gm_confirm_overwrite;
-          else
-            gm_doSave();
-        } else if (slots[slotIdx].used) {
-          if (pg_loadGame(slotIdx)) {
-            page = gm_main;
-            _Globals.status = Game;
-          } else {
-            gm_showMessage("Load failed: the save is not valid", gm_load);
+      switch (gme_handleInput(&slotsMenu)) {
+        case gme_event_selected:
+          if (page == gm_save) {
+            if (slots[gm_slotIdx()].used)
+              page = gm_confirm_overwrite;
+            else
+              gm_doSave();
+          } else if (slots[gm_slotIdx()].used) {
+            if (pg_loadGame(gm_slotIdx())) {
+              page = gm_main;
+              _Globals.status = Game;
+            } else {
+              gm_showMessage("Load failed: the save is not valid", gm_load);
+            }
           }
-        }
-        return;
-      } else if (_Globals.input[_Keys.KeyB] == 1) {
-        _Globals.input[_Keys.KeyB] = 0;
-        page = gm_main;
-        return;
+          return;
+        case gme_event_back:
+          page = gm_main;
+          return;
+        default:
+          break;
       }
 
-      gm_drawSlots(page == gm_save ? "Save game" : "Load game");
+      gm_drawTitle(page == gm_save ? "Save game" : "Load game", &slotsMenu);
+      gme_draw(&slotsMenu);
       gm_drawFooter(1, 1);
       break;
 
@@ -236,8 +230,8 @@ void drawGameMenu()
       }
       {
         char question[64];
-        snprintf(question, sizeof(question), "Overwrite slot %i?", slotIdx + 1);
-        gm_drawConfirm(question, slots[slotIdx].name);
+        snprintf(question, sizeof(question), "Overwrite slot %i?", gm_slotIdx() + 1);
+        gm_drawConfirm(question, slots[gm_slotIdx()].name);
       }
       break;
 
@@ -245,7 +239,7 @@ void drawGameMenu()
       if (_Globals.input[_Keys.KeyA] == 1) {
         _Globals.input[_Keys.KeyA] = 0;
         page = gm_main;
-        mainIdx = 0;
+        gme_select(&mainMenu, 0);
         pg_dispose();
         _Globals.status = MainMenu;
         return;
@@ -262,9 +256,9 @@ void drawGameMenu()
       if (_Globals.input[_Keys.KeyA] == 1 || _Globals.input[_Keys.KeyB] == 1 || SDL_GetTicks() - messageTime > 2000) {
         _Globals.input[_Keys.KeyA] = 0;
         _Globals.input[_Keys.KeyB] = 0;
-        if (messageNextPage == gm_load)
-          gm_refreshSlots();
         page = messageNextPage;
+        if (page == gm_load)
+          gm_refreshSlots();
         return;
       }
       sdlWriteText(_Globals.defaultFont, _theme->selectedTextColor, message, 30, HEADER_HEIGHT + 60, _Globals.windowWidth - 40, 0);

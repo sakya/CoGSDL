@@ -109,6 +109,7 @@ struct CoGSDL {
   TTF_Font *titleFont;
   TTF_Font *defaultSmallFont;
   int defaultSmallFontSize;
+  int defaultSmallFontHeight;
 
   TTF_Font *textFont;
   int textFontSize;

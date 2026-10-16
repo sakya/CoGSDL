@@ -1,4 +1,5 @@
 #include "CoGSDL.h"
+#include "gui_generic_menu.h"
 
 #define SETTINGS_FILE "./settings.cfg"
 
@@ -23,7 +24,20 @@ enum settings_row
   st_rows_count
 };
 
-static int rowIdx = 0;
+#define ST_MAX_LIST_VALUES 16
+
+static const char *st_themeNames[ST_MAX_LIST_VALUES];
+static const char *st_booleanNames[] = { "false", "true" };
+static const char *st_fontFamilyNames[ST_MAX_LIST_VALUES];
+
+static gme_item st_items[st_rows_count] = {
+  [st_theme] = { .type = gme_item_list, .id = st_theme, .text = "Theme", .values = st_themeNames, .wrapValues = 1 },
+  [st_show_fps] = { .type = gme_item_list, .id = st_show_fps, .text = "Show FPS", .values = st_booleanNames, .valuesCount = 2, .wrapValues = 1 },
+  [st_text_font_family] = { .type = gme_item_list, .id = st_text_font_family, .text = "Text font", .values = st_fontFamilyNames, .wrapValues = 1 },
+  [st_text_font_size] = { .type = gme_item_number, .id = st_text_font_size, .text = "Text size", .minValue = TEXT_FONT_SIZE_MIN, .maxValue = TEXT_FONT_SIZE_MAX },
+};
+static gme_menu st_menu;
+static int st_menuInitialized = 0;
 
 static const char *logLevelNames[] = { "Debug", "Info", "Warning", "Error" };
 
@@ -112,109 +126,93 @@ void settingsSave()
   fclose(f);
 }
 
-static void st_changeTheme(int delta)
+static void st_initMenu()
 {
-  int idx = (st_currentTheme() + delta + themesCount) % themesCount;
-  _theme = themes[idx].theme;
-  settingsSave();
-  playMenuSound();
+  st_items[st_theme].valuesCount = themesCount < ST_MAX_LIST_VALUES ? themesCount : ST_MAX_LIST_VALUES;
+  for (int i = 0; i < st_items[st_theme].valuesCount; i++)
+    st_themeNames[i] = themes[i].name;
+
+  st_items[st_text_font_family].valuesCount = textFontFamiliesCount < ST_MAX_LIST_VALUES ? textFontFamiliesCount : ST_MAX_LIST_VALUES;
+  for (int i = 0; i < st_items[st_text_font_family].valuesCount; i++)
+    st_fontFamilyNames[i] = textFontFamilies[i].name;
+
+  gme_init(&st_menu, st_items, st_rows_count);
+  st_menu.y = HEADER_HEIGHT + 18;
 }
 
-static void st_toggleShowFps()
+/// @brief Copy the current settings into the menu items
+static void st_syncItems()
 {
-  _Globals.show_fps = !_Globals.show_fps;
-  settingsSave();
-  playMenuSound();
+  st_items[st_theme].valueIdx = st_currentTheme();
+  st_items[st_show_fps].valueIdx = _Globals.show_fps ? 1 : 0;
+  st_items[st_text_font_family].valueIdx = _Globals.textFontFamily;
+  st_items[st_text_font_size].value = _Globals.textFontSize;
 }
 
-static void st_changeTextFontFamily(int delta)
+/// @brief Apply the value of a menu item changed by the user
+static void st_applyItem(const gme_item *item)
 {
-  int oldFamily = _Globals.textFontFamily;
-  _Globals.textFontFamily = (oldFamily + delta + textFontFamiliesCount) % textFontFamiliesCount;
-  if (loadTextFonts() != 0) {
-    _Globals.textFontFamily = oldFamily;
-    return;
+  switch (item->id) {
+    case st_theme:
+      _theme = themes[item->valueIdx].theme;
+      break;
+    case st_show_fps:
+      _Globals.show_fps = item->valueIdx == 1;
+      break;
+    case st_text_font_family: {
+      int oldFamily = _Globals.textFontFamily;
+      _Globals.textFontFamily = item->valueIdx;
+      if (loadTextFonts() != 0) {
+        // Font not available: keep the current one (the item is synced again)
+        _Globals.textFontFamily = oldFamily;
+        return;
+      }
+      break;
+    }
+    case st_text_font_size: {
+      int oldSize = _Globals.textFontSize;
+      _Globals.textFontSize = item->value;
+      if (loadTextFonts() != 0) {
+        _Globals.textFontSize = oldSize;
+        return;
+      }
+      break;
+    }
   }
   settingsSave();
-  playMenuSound();
-}
-
-static void st_changeTextFontSize(int delta)
-{
-  int size = _Globals.textFontSize + delta;
-  if (size < TEXT_FONT_SIZE_MIN || size > TEXT_FONT_SIZE_MAX)
-    return;
-
-  int oldSize = _Globals.textFontSize;
-  _Globals.textFontSize = size;
-  if (loadTextFonts() != 0) {
-    _Globals.textFontSize = oldSize;
-    return;
-  }
-  settingsSave();
-  playMenuSound();
-}
-
-// Draws a settings row: label on the left, "< value >" on the right
-static void st_drawRow(int row, int y, const char *label, const char *valueText)
-{
-  SDL_Color color = rowIdx == row ? _theme->titleTextColor : _theme->textColor;
-  if (rowIdx == row)
-    sdlDrawSelection(y - 2, sdlSelectionHeight());
-  sdlWriteText(_Globals.defaultFont, color, (char *)label, 30, y, 0, 0);
-
-  char value[64];
-  snprintf(value, sizeof(value), "< %s >", valueText);
-  int width;
-  TTF_MeasureUTF8(_Globals.defaultFont, value, _Globals.windowWidth, &width, NULL);
-  sdlWriteText(_Globals.defaultFont, color, value, _Globals.windowWidth - width - 30, y, 0, 0);
 }
 
 void drawSettings()
 {
-  if (_Globals.input[_Keys.KeyDown] == 1) {
-    _Globals.input[_Keys.KeyDown] = 0;
-    if (rowIdx < st_rows_count - 1) {
-      rowIdx++;
-      playMenuSound();
-    }
-  } else if (_Globals.input[_Keys.KeyUp] == 1) {
-    _Globals.input[_Keys.KeyUp] = 0;
-    if (rowIdx > 0) {
-      rowIdx--;
-      playMenuSound();
-    }
-  } else if (_Globals.input[_Keys.KeyLeft] == 1 || _Globals.input[_Keys.KeyRight] == 1) {
-    int delta = _Globals.input[_Keys.KeyRight] == 1 ? 1 : -1;
-    _Globals.input[_Keys.KeyLeft] = 0;
-    _Globals.input[_Keys.KeyRight] = 0;
-    if (rowIdx == st_theme)
-      st_changeTheme(delta);
-    else if (rowIdx == st_show_fps)
-      st_toggleShowFps();
-    else if (rowIdx == st_text_font_family)
-      st_changeTextFontFamily(delta);
-    else if (rowIdx == st_text_font_size)
-      st_changeTextFontSize(delta);
-  } else if (_Globals.input[_Keys.KeyB] == 1) {
-    _Globals.input[_Keys.KeyB] = 0;
-    rowIdx = 0;
-    _Globals.status = MainMenu;
-    return;
+  if (!st_menuInitialized) {
+    st_initMenu();
+    st_menuInitialized = 1;
+  }
+  st_syncItems();
+
+  switch (gme_handleInput(&st_menu)) {
+    case gme_event_value_changed:
+      st_applyItem(gme_selectedItem(&st_menu));
+      st_syncItems();
+      break;
+    case gme_event_back:
+      gme_select(&st_menu, 0);
+      _Globals.status = MainMenu;
+      return;
+    default:
+      break;
   }
 
-  int y = HEADER_HEIGHT + 20;
-  const int rowHeight = 30;
-  st_drawRow(st_theme, y, "Theme", themes[st_currentTheme()].name);
-  st_drawRow(st_show_fps, y + rowHeight, "Show FPS", _Globals.show_fps ? "true" : "false");
-  char fontSize[16];
-  snprintf(fontSize, sizeof(fontSize), "%d", _Globals.textFontSize);
-  st_drawRow(st_text_font_family, y + 2 * rowHeight, "Text font", textFontFamilies[_Globals.textFontFamily].name);
-  st_drawRow(st_text_font_size, y + 3 * rowHeight, "Text size", fontSize);
+  gme_draw(&st_menu);
 
-  // Preview of the game text font
-  if ((rowIdx == st_text_font_family || rowIdx == st_text_font_size) && _Globals.textFont != NULL)
-    sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", 30, y + 4 * rowHeight + 10, 0, 0);
+  // Preview of the game text font, below the menu
+  const int selected = st_menu.selectedIdx;
+  if ((selected == st_text_font_family || selected == st_text_font_size) && _Globals.textFont != NULL) {
+    int y = st_menu.y;
+    for (int i = 0; i < st_rows_count; i++)
+      y += gme_itemHeight(&st_items[i]) + st_menu.spacing;
+    sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", st_menu.margin + st_menu.textIndent, y + 10, 0, 0);
+  }
 
   sdlBlitImage(button_b, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
   sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);

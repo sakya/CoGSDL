@@ -101,6 +101,7 @@ int init()
   loadTextFonts();
 
   _Globals.defaultSmallFont = TTF_OpenFont("./fonts/Roboto-Light.ttf", _Globals.defaultSmallFontSize);
+  _Globals.defaultSmallFontHeight = TTF_FontHeight(_Globals.defaultSmallFont);
 
   load_images();
   load_sounds();
