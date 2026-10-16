@@ -32,7 +32,7 @@ void drawMainMenu()
 {
   if (!mm_menuInitialized) {
     gme_init(&mm_menu, mm_items, sizeof(mm_items) / sizeof(mm_items[0]));
-    mm_menu.y = 200;
+    mm_menu.y = 170;
     mm_menu.height = _Globals.windowHeight - HEADER_HEIGHT - mm_menu.y - 10;
     mm_menuInitialized = 1;
   }
