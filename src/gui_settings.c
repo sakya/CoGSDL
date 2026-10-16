@@ -20,6 +20,7 @@ enum settings_row
 {
   st_theme = 0,
   st_show_fps,
+  st_audio_enabled,
   st_text_font_family,
   st_text_font_size,
   st_rows_count
@@ -34,6 +35,7 @@ static const char *st_fontFamilyNames[ST_MAX_LIST_VALUES];
 static gme_item st_items[st_rows_count] = {
   [st_theme] = { .type = gme_item_list, .id = st_theme, .text = "Theme", .values = st_themeNames, .wrapValues = 1 },
   [st_show_fps] = { .type = gme_item_list, .id = st_show_fps, .text = "Show FPS", .values = st_booleanNames, .valuesCount = 2, .wrapValues = 1 },
+  [st_audio_enabled] = { .type = gme_item_list, .id = st_audio_enabled, .text = "Audio", .values = st_booleanNames, .valuesCount = 2, .wrapValues = 1 },
   [st_text_font_family] = { .type = gme_item_list, .id = st_text_font_family, .text = "Text font", .values = st_fontFamilyNames, .wrapValues = 1 },
   [st_text_font_size] = { .type = gme_item_number, .id = st_text_font_size, .text = "Text size", .minValue = TEXT_FONT_SIZE_MIN, .maxValue = TEXT_FONT_SIZE_MAX },
 };
@@ -74,6 +76,9 @@ void settingsLoad()
           break;
         }
       }
+    } else if (startsWith("audio_enabled=", line)) {
+      const char *value = line + 14;
+      _Globals.audio_enabled = stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
     } else if (startsWith("show_fps=", line)) {
       const char *value = line + 9;
       _Globals.show_fps = stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
@@ -123,6 +128,7 @@ void settingsSave()
   }
   fprintf(f, "theme=%s\n", themes[st_currentTheme()].name);
   fprintf(f, "show_fps=%s\n", _Globals.show_fps ? "true" : "false");
+  fprintf(f, "audio_enabled=%s\n", _Globals.audio_enabled ? "true" : "false");
   fprintf(f, "text_font_family=%s\n", textFontFamilies[_Globals.textFontFamily >= 0 && _Globals.textFontFamily < textFontFamiliesCount ? _Globals.textFontFamily : 0].name);
   fprintf(f, "text_font_size=%d\n", _Globals.textFontSize);
   fprintf(f, "log_level=%s\n", logLevelNames[_Globals.logLevel >= Debug && _Globals.logLevel <= Error ? _Globals.logLevel : Info]);
@@ -148,6 +154,7 @@ static void st_syncItems()
 {
   st_items[st_theme].valueIdx = st_currentTheme();
   st_items[st_show_fps].valueIdx = _Globals.show_fps ? 1 : 0;
+  st_items[st_audio_enabled].valueIdx = _Globals.audio_enabled ? 1 : 0;
   st_items[st_text_font_family].valueIdx = _Globals.textFontFamily;
   st_items[st_text_font_size].value = _Globals.textFontSize;
 }
@@ -161,6 +168,12 @@ static void st_applyItem(const gme_item *item)
       break;
     case st_show_fps:
       _Globals.show_fps = item->valueIdx == 1;
+      break;
+    case st_audio_enabled:
+      _Globals.audio_enabled = item->valueIdx == 1;
+      // Stop the sound being played (e.g. the menu sound of this change)
+      if (!_Globals.audio_enabled)
+        Mix_HaltChannel(-1);
       break;
     case st_text_font_family: {
       int oldFamily = _Globals.textFontFamily;

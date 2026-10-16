@@ -14,20 +14,20 @@ void playMenuSound()
 {
   // Playing on a busy channel stops the previous sound: when moving quickly
   // between the menu items the sound always starts immediately
-  if (sound_menu_change != NULL)
+  if (sound_menu_change != NULL && _Globals.audio_enabled)
     Mix_PlayChannel(MENU_SOUND_CHANNEL, sound_menu_change, 0);
 }
 
 void playMenuSelectSound()
 {
   // Same channel of the menu change sound: it stops the previous one
-  if (sound_menu_select != NULL)
+  if (sound_menu_select != NULL && _Globals.audio_enabled)
     Mix_PlayChannel(MENU_SOUND_CHANNEL, sound_menu_select, 0);
 }
 
 void playMenuBackSound()
 {
-  if (sound_menu_back != NULL)
+  if (sound_menu_back != NULL && _Globals.audio_enabled)
     Mix_PlayChannel(MENU_SOUND_CHANNEL, sound_menu_back, 0);
 }
 
@@ -45,6 +45,7 @@ int init()
   _Globals.scroll = scroll_page;
   _Globals.justify_text = 1;
   _Globals.show_fps = 0;
+  _Globals.audio_enabled = 1;
   _Globals.quit = 0;
   _Globals.textFontFamily = 0; // Cardo
   #ifdef MIYOO

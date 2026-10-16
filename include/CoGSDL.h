@@ -89,6 +89,8 @@ struct CoGSDL {
   int justify_text;
   /// @brief Show the FPS in the header (settings.cfg: show_fps=true)
   int show_fps;
+  /// @brief Play the sounds (settings.cfg: audio_enabled=true)
+  int audio_enabled;
   int quit;
   int32_t displayWidth;
   int32_t displayHeight;
