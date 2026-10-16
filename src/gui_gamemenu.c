@@ -32,7 +32,7 @@ static gme_item mainItems[] = {
   { .id = gm_item_load, .text = "Load" },
   { .id = gm_item_settings, .text = "Settings" },
   // "Quit" is separated from the other items
-  { .id = gm_item_quit, .text = "Quit", .spaceBefore = 10 }
+  { .id = gm_item_quit, .text = "Quit", .spaceBefore = 15 }
 };
 static gme_menu mainMenu;
 static int mainMenuInitialized = 0;

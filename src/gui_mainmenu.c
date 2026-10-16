@@ -23,7 +23,7 @@ static gme_item mm_items[] = {
   { .id = mm_settings, .text = "Settings" },
   { .id = mm_about, .text = "About" },
   // "Quit" is separated from the other items
-  { .id = mm_quit, .text = "Quit", .spaceBefore = 20 }
+  { .id = mm_quit, .text = "Quit", .spaceBefore = 15 }
 };
 static gme_menu mm_menu;
 static int mm_menuInitialized = 0;
