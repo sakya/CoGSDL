@@ -361,6 +361,8 @@ void settingsLoad();
 void settingsSave();
 /// @brief Open the settings screen: B goes back to returnStatus (e.g. MainMenu or GameMenu)
 void settingsOpen(int returnStatus);
+/// @brief Open the stats screen of the running game: B goes back to returnStatus (e.g. Game or GameMenu)
+void gameStatsOpen(int returnStatus);
 /* gui_osk.c */
 /// @brief Open the on screen keyboard (the current status is restored when it closes)
 /// @param title The text shown above the text box

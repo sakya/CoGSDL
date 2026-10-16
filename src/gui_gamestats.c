@@ -1,11 +1,21 @@
 #include "CoGSDL.h"
 #include "gui_playgame.h"
 
+/// @brief Status set by B (the screen that opened the stats)
+static int gs_returnStatus = Game;
+
+void gameStatsOpen(int returnStatus)
+{
+  gs_returnStatus = returnStatus;
+  _Globals.status = GameStats;
+}
+
 /// @brief Close the stats screen and go to the given status
 static void gs_close(enum status status)
 {
   pg_statsClose();
   _Globals.status = status;
+  gs_returnStatus = Game;
 }
 
 void drawGameStats()
@@ -25,7 +35,7 @@ void drawGameStats()
   if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
     playMenuBackSound();
-    gs_close(Game);
+    gs_close(gs_returnStatus);
     return;
   }
 

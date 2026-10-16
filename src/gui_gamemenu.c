@@ -14,7 +14,8 @@ enum gm_page
 
 enum gm_main_item
 {
-  gm_item_save = 0,
+  gm_item_stats = 0,
+  gm_item_save,
   gm_item_load,
   gm_item_settings,
   gm_item_quit
@@ -28,6 +29,7 @@ static Uint32 messageTime = 0;
 static enum gm_page messageNextPage = gm_main;
 
 static gme_item mainItems[] = {
+  { .id = gm_item_stats, .text = "Stats" },
   { .id = gm_item_save, .text = "Save" },
   { .id = gm_item_load, .text = "Load" },
   { .id = gm_item_settings, .text = "Settings" },
@@ -167,6 +169,10 @@ void drawGameMenu()
       switch (gme_handleInput(&mainMenu)) {
         case gme_event_selected:
           switch (gme_selectedItem(&mainMenu)->id) {
+            case gm_item_stats:
+              // B in the stats comes back here
+              gameStatsOpen(GameMenu);
+              break;
             case gm_item_save:
               gm_enterSlots(gm_save);
               break;
