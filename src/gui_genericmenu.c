@@ -17,6 +17,7 @@ void gme_init(gme_menu *menu, gme_item *items, int itemsCount)
   menu->textIndent = GME_DEFAULT_TEXT_INDENT;
   menu->spacing = GME_DEFAULT_SPACING;
   menu->selectedIdx = -1;
+  menu->partialItems = 1;
   gme_select(menu, 0);
 }
 
