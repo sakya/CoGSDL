@@ -137,7 +137,7 @@ static void st_initMenu()
     st_fontFamilyNames[i] = textFontFamilies[i].name;
 
   gme_init(&st_menu, st_items, st_rows_count);
-  st_menu.y = HEADER_HEIGHT + 18;
+  st_menu.y = HEADER_HEIGHT + 48;
 }
 
 /// @brief Copy the current settings into the menu items
@@ -203,6 +203,7 @@ void drawSettings()
       break;
   }
 
+  sdlWriteText(_Globals.titleFont, _theme->textColor, "Settings", st_menu.margin + st_menu.textIndent, HEADER_HEIGHT + 10, 0, 0);
   gme_draw(&st_menu);
 
   // Preview of the game text font, below the menu
