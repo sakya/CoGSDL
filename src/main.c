@@ -11,6 +11,7 @@ SDL_Surface *dpad_up_down = NULL;
 
 Mix_Chunk* sound_menu_change = NULL;
 Mix_Chunk* sound_menu_select = NULL;
+Mix_Chunk* sound_menu_back = NULL;
 
 game *runningGame = NULL;
 SDL_Surface *runningGameIcon = NULL;

@@ -24,6 +24,7 @@ void drawGameStats()
 
   if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
+    playMenuBackSound();
     gs_close(Game);
     return;
   }

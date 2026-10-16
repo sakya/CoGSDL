@@ -391,6 +391,7 @@ void drawOsk()
     osk_confirm();
   } else if (_Globals.input[_Keys.KeySelect] == 1) {
     _Globals.input[_Keys.KeySelect] = 0;
+    playMenuBackSound();
     osk_close(0);
   }
   if (_Globals.status != OnScreenKeyboard)

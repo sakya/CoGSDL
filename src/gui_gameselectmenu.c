@@ -129,6 +129,7 @@ static void gs_drawSlotsPage()
       break;
     }
     case gme_event_back:
+      playMenuBackSound();
       gs_closeGame();
       slotsPage = 0;
       return;
@@ -205,6 +206,7 @@ void drawGameSelectMenu()
       return;
     }
     case gme_event_back:
+      playMenuBackSound();
       gs_freeIcon();
       _Globals.status = MainMenu;
       return;

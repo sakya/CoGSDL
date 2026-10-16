@@ -183,6 +183,7 @@ void drawGameMenu()
           }
           return;
         case gme_event_back:
+          playMenuBackSound();
           _Globals.status = Game;
           return;
         default:
@@ -213,6 +214,7 @@ void drawGameMenu()
           }
           return;
         case gme_event_back:
+          playMenuBackSound();
           page = gm_main;
           return;
         default:
@@ -232,6 +234,7 @@ void drawGameMenu()
         return;
       } else if (_Globals.input[_Keys.KeyB] == 1) {
         _Globals.input[_Keys.KeyB] = 0;
+        playMenuBackSound();
         page = gm_save;
         return;
       }
@@ -253,6 +256,7 @@ void drawGameMenu()
         return;
       } else if (_Globals.input[_Keys.KeyB] == 1) {
         _Globals.input[_Keys.KeyB] = 0;
+        playMenuBackSound();
         page = gm_main;
         return;
       }

@@ -208,6 +208,7 @@ void drawSettings()
       st_syncItems();
       break;
     case gme_event_back:
+      playMenuBackSound();
       gme_select(&st_menu, 0);
       _Globals.status = st_returnStatus;
       st_returnStatus = MainMenu;

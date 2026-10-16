@@ -96,6 +96,7 @@ void drawGameChoice()
       return;
     }
     case gme_event_back:
+      playMenuBackSound();
       _Globals.status = pg_isStatsActive() ? GameStats : Game;
       gc_dispose();
       return;

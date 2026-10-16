@@ -45,10 +45,13 @@ extern SDL_Surface* dpad_up_down;
 
 extern Mix_Chunk* sound_menu_change;
 extern Mix_Chunk* sound_menu_select;
+extern Mix_Chunk* sound_menu_back;
 /// @brief Play the menu change sound (on its own channel, a new one stops the previous)
 void playMenuSound();
 /// @brief Play the confirm sound (A pressed on an enabled menu item)
 void playMenuSelectSound();
+/// @brief Play the back/cancel sound (B)
+void playMenuBackSound();
 
 extern game* runningGame;
 extern SDL_Surface *runningGameIcon;

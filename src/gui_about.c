@@ -5,6 +5,8 @@ static double about_angle = 0;
 void drawAbout()
 {
   if (_Globals.input[_Keys.KeyB] == 1) {
+      _Globals.input[_Keys.KeyB] = 0;
+      playMenuBackSound();
       _Globals.status = MainMenu;
       return;
   }
