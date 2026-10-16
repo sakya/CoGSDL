@@ -20,13 +20,17 @@ To obtain the files required to play a game:
 - Copy the renamed folder into the `/App/CoGSDL/games` folder
 
 ## Screenshots
-<img width="640" height="480" alt="CoGSDL_001" src="https://github.com/user-attachments/assets/be329c87-3d81-48b0-9d20-a2707c9797ea" />
+<img width="640" height="480" alt="CoGSDL_005" src="https://github.com/user-attachments/assets/0487ef16-b52c-4fae-967d-5f2584b7351a" />
 
-<img width="640" height="480" alt="CoGSDL_002" src="https://github.com/user-attachments/assets/bdb3abc9-eb81-42a8-ad97-b2c9875dfe22" />
+<img width="640" height="480" alt="CoGSDL_000" src="https://github.com/user-attachments/assets/b72c72ae-f196-4ca1-90ee-d2efef229456" />
 
-<img width="640" height="480" alt="CoGSDL_000" src="https://github.com/user-attachments/assets/18a8efdb-c0d1-4789-8906-fd7cfd476676" />
+<img width="640" height="480" alt="CoGSDL_001" src="https://github.com/user-attachments/assets/7f94f7a3-9627-4889-968a-7ca17b2901e2" />
 
-<img width="640" height="480" alt="CoGSDL_003" src="https://github.com/user-attachments/assets/6d8284b3-905e-4f5e-a929-8c8305086daa" />
+<img width="640" height="480" alt="CoGSDL_002" src="https://github.com/user-attachments/assets/41ce81e2-3bf7-437d-8cea-ccffee94ad48" />
+
+<img width="640" height="480" alt="CoGSDL_003" src="https://github.com/user-attachments/assets/bb43ac5f-0d80-473a-af11-5d4a55109bd0" />
+
+<img width="640" height="480" alt="CoGSDL_004" src="https://github.com/user-attachments/assets/bf2f42db-4894-46a0-a425-f2acc582e5bc" />
 
 ## Build for Miyoo Mini
 - Install the toolchain
