@@ -65,30 +65,30 @@ Keys _Keys = {
 #endif
 
 const theme sepiaTheme = {
-  {225, 228, 196},
-  {139, 90, 43},
-  {44, 44, 44},
-  {107, 66, 38},
-  {225, 228, 196},
-  {161, 163, 142}
+  .backgroundColor = {225, 228, 196},
+  .headerBackgroundColor = {139, 90, 43},
+  .textColor = {44, 44, 44},
+  .selectedTextColor = {107, 66, 38},
+  .titleTextColor = {225, 228, 196},
+  .disabledTextColor = {161, 163, 142}
 };
 
 const theme lightTheme = {
-  {210, 210, 210},
-  {33, 97, 160},
-  {33, 33, 33},
-  {21, 101, 192},
-  {255, 255, 255},
-  {170, 170, 170}
+  .backgroundColor = {210, 210, 210},
+  .headerBackgroundColor = {33, 97, 160},
+  .textColor = {33, 33, 33},
+  .selectedTextColor = {21, 101, 192},
+  .titleTextColor = {255, 255, 255},
+  .disabledTextColor = {170, 170, 170}
 };
 
 const theme forestTheme = {
-  {232, 240, 226},
-  {46, 94, 62},
-  {33, 43, 36},
-  {46, 125, 50},
-  {240, 247, 236},
-  {150, 165, 152}
+  .backgroundColor = {232, 240, 226},
+  .headerBackgroundColor = {46, 94, 62},
+  .textColor = {33, 43, 36},
+  .selectedTextColor = {46, 125, 50},
+  .titleTextColor = {240, 247, 236},
+  .disabledTextColor = {150, 165, 152}
 };
 
 const theme *_theme = &sepiaTheme;
