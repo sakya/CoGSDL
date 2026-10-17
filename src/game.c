@@ -163,8 +163,27 @@ int loadGame(const char* path, game* game, int forListing)
     }
     if (isEmpty(line)) {
       // Skip empty lines
-      ach = NULL;
       continue;
+    }
+
+    // *achievement block: the indented lines after the command are the pre-earned and
+    // (optional) post-earned descriptions (the empty lines are skipped).
+    // As in ChoiceScript the block ends at the first line that is not indented: that line
+    // is a normal line (e.g. a command)
+    if (ach != NULL) {
+      if (line[0] == ' ' || line[0] == '\t') {
+        trim(line);
+        if (ach->preEarnedDescription == NULL) {
+          ach->preEarnedDescription = malloc(strlen(line) + 1);
+          strcpy(ach->preEarnedDescription, line);
+        } else {
+          ach->postEarnedDescription = malloc(strlen(line) + 1);
+          strcpy(ach->postEarnedDescription, line);
+          ach = NULL;
+        }
+        continue;
+      }
+      ach = NULL;
     }
 
     // *scene_list block: the indented lines after the command (the empty lines are skipped).
@@ -252,23 +271,9 @@ int loadGame(const char* path, game* game, int forListing)
     } else if (startsWithWord("*product", line)) {
       // Don't know what's this
     } else {
-      if (ach != NULL) {
-        trim(line);
-        if (ach->preEarnedDescription == NULL) {
-          ach->preEarnedDescription = malloc(strlen(line) + 1);
-          strcpy(ach->preEarnedDescription, line);
-        } else if (ach->postEarnedDescription == NULL) {
-          ach->postEarnedDescription = malloc(strlen(line) + 1);
-          strcpy(ach->postEarnedDescription, line);
-          ach = NULL;
-        } else {
-          ach = NULL;
-        }
-      } else {
-        if (game->startPosition == 0) {
-          logDebug("\tFirst line to interpret=%s", line);
-          game->startPosition = lineStartPosition;
-        }
+      if (game->startPosition == 0) {
+        logDebug("\tFirst line to interpret=%s", line);
+        game->startPosition = lineStartPosition;
       }
     }
   }
