@@ -34,7 +34,8 @@ void playMenuBackSound()
 const text_font_family textFontFamilies[] = {
   { "Cardo", "Cardo" },
   { "Charis SIL", "CharisSIL" },
-  { "Literata", "Literata" }
+  { "Literata", "Literata" },
+  { "Source Serif 4", "SourceSerif4" },
 };
 const int textFontFamiliesCount = sizeof(textFontFamilies) / sizeof(textFontFamilies[0]);
 
