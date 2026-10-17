@@ -11,9 +11,15 @@ static int gamesItemsCount = -1;
 
 /// @brief Set to 1 when the saves of the selected game are shown
 static int slotsPage = 0;
-/// @brief Menu of the saves page: item 0 = new game, 1..SAVE_SLOTS = slot
+/// @brief Saves page: "New game" (fixed at the top), "Load game" title and the slots below it.
+/// Only the slots are scrolled
+static gme_menu newGameMenu;
+static gme_item newGameItem;
+/// @brief Menu of the slots: the id of an item is the slot index
 static gme_menu slotsMenu;
-static gme_item slotsItems[SAVE_SLOTS + 1];
+static gme_item slotsItems[SAVE_SLOTS];
+/// @brief 1 when the selection is in the slots, 0 when it is on "New game"
+static int slotsFocus = 0;
 static char slotsTexts[SAVE_SLOTS][320];
 static char slotsDates[SAVE_SLOTS][64];
 static save_info slots[SAVE_SLOTS];
@@ -74,15 +80,24 @@ static void gs_initGamesMenu()
   gs_freeIcon();
 }
 
+/// @brief Top of the "Load game" title of the saves page
+static int gs_loadTitleY()
+{
+  return newGameMenu.y + gme_itemHeight(&newGameItem) + 10;
+}
+
 /// @brief Build the items of the saves page from slots[]
 static void gs_initSlotsMenu()
 {
+  memset(&newGameItem, 0, sizeof(newGameItem));
+  newGameItem.text = "New game";
+  gme_init(&newGameMenu, &newGameItem, 1);
+  newGameMenu.y = HEADER_HEIGHT + 43;
+
   memset(slotsItems, 0, sizeof(slotsItems));
-  slotsItems[0].id = 0;
-  slotsItems[0].text = "New game";
   for (int i = 0; i < SAVE_SLOTS; i++) {
-    gme_item *item = &slotsItems[i + 1];
-    item->id = i + 1;
+    gme_item *item = &slotsItems[i];
+    item->id = i;
     if (slots[i].used) {
       snprintf(slotsTexts[i], sizeof(slotsTexts[i]), "%i. %s", i + 1, slots[i].name);
       strftime(slotsDates[i], sizeof(slotsDates[i]), "%Y-%m-%d %H:%M", localtime(&slots[i].time));
@@ -97,30 +112,59 @@ static void gs_initSlotsMenu()
     }
     item->text = slotsTexts[i];
   }
-  // Space for the "Load game" title before the first slot
-  slotsItems[1].spaceBefore = sdlTitleHeight() + 10;
 
-  gme_init(&slotsMenu, slotsItems, SAVE_SLOTS + 1);
-  slotsMenu.y = HEADER_HEIGHT + 43;
+  // The slots are below the "Load game" title
+  gme_init(&slotsMenu, slotsItems, SAVE_SLOTS);
+  slotsMenu.y = gs_loadTitleY() + sdlTitleHeight() + 6;
   // Leave space for the error message at the bottom
   slotsMenu.height = _Globals.windowHeight - HEADER_HEIGHT - slotsMenu.y - get_line_height(_Globals.defaultSmallFont) - 6;
+  // Start from "New game"
+  slotsFocus = 0;
+}
+
+/// @brief Check if there is a slot that can be selected before the selected one
+static int gs_hasSlotAbove()
+{
+  for (int i = 0; i < slotsMenu.selectedIdx; i++) {
+    if (!slotsItems[i].disabled)
+      return 1;
+  }
+  return 0;
 }
 
 /// @brief The page with "New game" and the saves of the selected game
 static void gs_drawSlotsPage()
 {
-  switch (gme_handleInput(&slotsMenu)) {
+  // Moving between "New game" and the slots (the two menus are one list)
+  gme_event event = gme_event_none;
+  if (!slotsFocus && _Globals.input[_Keys.KeyDown] == 1) {
+    _Globals.input[_Keys.KeyDown] = 0;
+    if (gme_selectedItem(&slotsMenu) != NULL) {
+      // First slot that can be selected
+      gme_select(&slotsMenu, 0);
+      slotsFocus = 1;
+      playMenuSound();
+    }
+  } else if (slotsFocus && _Globals.input[_Keys.KeyUp] == 1 && !gs_hasSlotAbove()) {
+    _Globals.input[_Keys.KeyUp] = 0;
+    slotsFocus = 0;
+    playMenuSound();
+  } else {
+    event = gme_handleInput(slotsFocus ? &slotsMenu : &newGameMenu);
+  }
+
+  switch (event) {
     case gme_event_selected: {
-      int item = gme_selectedItem(&slotsMenu)->id;
-      if (item == 0) {
+      if (!slotsFocus) {
         // New game: drawGame starts it
         slotsPage = 0;
         _Globals.status = Game;
         return;
       }
 
+      int slot = gme_selectedItem(&slotsMenu)->id;
       pg_init();
-      if (sv_loadGame(item - 1)) {
+      if (sv_loadGame(slot)) {
         slotsPage = 0;
         _Globals.status = Game;
         return;
@@ -151,13 +195,18 @@ static void gs_drawSlotsPage()
   }
   sdlWriteText(_Globals.defaultFont, _theme->textColor, runningGame->title, titleX, y, _Globals.windowWidth - titleX - x, 0);
 
+  // Only the menu with the focus shows the selection
+  const int newGameSelected = newGameMenu.selectedIdx;
+  const int slotSelected = slotsMenu.selectedIdx;
+  if (slotsFocus)
+    newGameMenu.selectedIdx = -1;
+  else
+    slotsMenu.selectedIdx = -1;
+  gme_draw(&newGameMenu);
+  sdlDrawTitle("Load game", x, gs_loadTitleY());
   gme_draw(&slotsMenu);
-
-  // "Load game" title, in the space before the first slot (if not scrolled away)
-  if (slotsMenu.firstIdx == 0) {
-    y = slotsMenu.y + gme_itemHeight(&slotsItems[0]) + slotsMenu.spacing + 5;
-    sdlDrawTitle("Load game", x, y);
-  }
+  newGameMenu.selectedIdx = newGameSelected;
+  slotsMenu.selectedIdx = slotSelected;
 
   if (messageTime > 0 && SDL_GetTicks() - messageTime < 2500)
     sdlWriteText(_Globals.defaultSmallFont, _theme->selectedTextColor, message, x, _Globals.windowHeight - HEADER_HEIGHT - 22, 0, 0);

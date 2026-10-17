@@ -29,7 +29,7 @@ static Uint32 messageTime = 0;
 static enum gm_page messageNextPage = gm_main;
 
 static gme_item mainItems[] = {
-  { .id = gm_item_stats, .text = "Stats" },
+  { .id = gm_item_stats, .text = "Show stats" },
   { .id = gm_item_save, .text = "Save" },
   { .id = gm_item_load, .text = "Load" },
   { .id = gm_item_settings, .text = "Settings" },
