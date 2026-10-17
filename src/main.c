@@ -76,7 +76,7 @@ const theme sepiaTheme = {
 };
 
 const theme lightTheme = {
-  .backgroundColor = {210, 210, 210},
+  .backgroundColor = {250, 250, 250},
   .headerBackgroundColor = {33, 97, 160},
   .textColor = {33, 33, 33},
   .selectedTextColor = {21, 101, 192},
