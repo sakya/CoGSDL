@@ -45,6 +45,10 @@ void sv_startPlayTime(unsigned long long playTime);
 unsigned long long sv_getPlayTime();
 /// @brief Format the description of a save slot: play time and date (e.g. "2h 30m - 2026-10-17 18:30")
 void sv_formatSaveDetails(const save_info *info, char *text, int size);
+/// @brief The used slot with the longest play time (with the same play time the most recent one)
+/// @param slots The SAVE_SLOTS slots
+/// @return The slot index, -1 if no slot is used
+int sv_mostPlayedSlot(const save_info *slots);
 
 /* Used by the interpreter (choicescript.c) */
 

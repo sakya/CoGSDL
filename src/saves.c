@@ -125,6 +125,19 @@ unsigned long long sv_getPlayTime()
   return sv_getPlayTimeMs() / 1000ULL;
 }
 
+int sv_mostPlayedSlot(const save_info *slots)
+{
+  int best = -1;
+  for (int i = 0; i < SAVE_SLOTS; i++) {
+    if (!slots[i].used)
+      continue;
+    if (best < 0 || slots[i].playTime > slots[best].playTime ||
+        (slots[i].playTime == slots[best].playTime && slots[i].time > slots[best].time))
+      best = i;
+  }
+  return best;
+}
+
 void sv_formatSaveDetails(const save_info *info, char *text, int size)
 {
   unsigned long long minutes = info->playTime / 60ULL;

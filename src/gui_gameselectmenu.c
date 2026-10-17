@@ -119,8 +119,15 @@ static void gs_initSlotsMenu()
   slotsMenu.y = gs_loadTitleY() + sdlTitleHeight() + 6;
   // Leave space for the error message at the bottom
   slotsMenu.height = _Globals.windowHeight - HEADER_HEIGHT - slotsMenu.y - get_line_height(_Globals.defaultSmallFont) - 6;
-  // Start from "New game"
-  slotsFocus = 0;
+  // Select the save with the longest play time (the menu is scrolled to show it),
+  // "New game" if there are no saves
+  int best = sv_mostPlayedSlot(slots);
+  if (best >= 0) {
+    gme_select(&slotsMenu, best);
+    slotsFocus = 1;
+  } else {
+    slotsFocus = 0;
+  }
 }
 
 /// @brief Check if there is a slot that can be selected before the selected one

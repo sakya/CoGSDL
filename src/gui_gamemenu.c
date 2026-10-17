@@ -106,8 +106,14 @@ static void gm_enterSlots(enum gm_page slotsPage)
   // Start from the first slot (in the load page the first used one)
   slotsMenu.selectedIdx = -1;
   gm_refreshSlots();
-  if (slotsPage == gm_load && gm_usedSlots() == 0)
-    gm_showMessage("No saved games", gm_main);
+  if (slotsPage == gm_load) {
+    if (gm_usedSlots() == 0) {
+      gm_showMessage("No saved games", gm_main);
+    } else {
+      // Select the save with the longest play time (the menu is scrolled to show it)
+      gme_select(&slotsMenu, sv_mostPlayedSlot(slots));
+    }
+  }
 }
 
 static void gm_doSave()
