@@ -151,7 +151,7 @@ static void gm_drawConfirm(const char *question, const char *detail)
   sdlBlitImage(button_b, 5, FOOTER_BUTTON_Y, 30, 30);
   // Vertically centered in the bottom toolbar
   int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
-  sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "No", 72, y, 0, 0);
+  sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "No", 42, y, 0, 0);
 
   // Yes button
   sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
