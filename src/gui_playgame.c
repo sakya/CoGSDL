@@ -65,6 +65,11 @@ void drawGame()
   }
 
   pg_drawPage();
+
+  // Start (game menu): centered in the footer (the image is 96x64, drawn 45x30).
+  // Only in the game page (pg_drawPage is used by the stats screen too)
+  const int startWidth = 45;
+  sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
 }
 
 void pg_drawPage()
@@ -167,10 +172,6 @@ void pg_drawPage()
     pg_renderPageBreak();
   }
   sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
-
-  // Start (game menu): centered in the footer (the image is 96x64, drawn 45x30)
-  const int startWidth = 45;
-  sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
 }
 
 /// @brief The game state saved while the stats screen is open
