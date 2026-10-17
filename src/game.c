@@ -49,6 +49,44 @@ int isCommand(const char *line, const char command)
   return idx == strlen(c) ? 1 : 0;
 }
 
+/// @brief Add a scene of a *scene_list line to the game
+/// "$product scene" lines are scenes of an in-app purchase: the scene is the second word.
+/// As in ChoiceScript, "startup" is added as first scene if the list does not start with it
+static void game_addScene(game *game, const char *line)
+{
+  char scene[256];
+  size_t len = strlen(line);
+  if (len >= sizeof(scene))
+    len = sizeof(scene) - 1;
+  memcpy(scene, line, len);
+  scene[len] = '\0';
+  trim(scene);
+
+  if (scene[0] == '$') {
+    // Skip "$product" and the spaces after it (without a scene name the line is kept as it is)
+    char *p = scene + 1;
+    while (*p != '\0' && *p != ' ' && *p != '\t')
+      p++;
+    while (*p == ' ' || *p == '\t')
+      p++;
+    if (*p != '\0')
+      memmove(scene, p, strlen(p) + 1);
+  }
+
+  const int maxScenes = (int)(sizeof(game->scenes) / sizeof(game->scenes[0]));
+  if (game->scenesCount == 0 && stricmp(scene, "startup") != 0) {
+    strcpy(game->scenes[0], "startup");
+    game->scenesCount = 1;
+  }
+  if (game->scenesCount >= maxScenes) {
+    logWarning("Reached maximum number of scenes (%i)", maxScenes);
+    return;
+  }
+  snprintf(game->scenes[game->scenesCount], sizeof(game->scenes[0]), "%s", scene);
+  logDebug("\tscene: %s", game->scenes[game->scenesCount]);
+  game->scenesCount++;
+}
+
 int loadGame(const char* path, game* game, int forListing)
 {
   if (game == NULL)
@@ -125,9 +163,19 @@ int loadGame(const char* path, game* game, int forListing)
     }
     if (isEmpty(line)) {
       // Skip empty lines
-      sceneIdx = -1;
       ach = NULL;
       continue;
+    }
+
+    // *scene_list block: the indented lines after the command (the empty lines are skipped).
+    // As in ChoiceScript the block ends at the first line that is not indented: that line
+    // is a normal line (e.g. a command)
+    if (sceneIdx != -1) {
+      if (line[0] == ' ' || line[0] == '\t') {
+        game_addScene(game, line);
+        continue;
+      }
+      sceneIdx = -1;
     }
 
     if (stricmp(line, "*scene_list") == 0) {
@@ -216,16 +264,6 @@ int loadGame(const char* path, game* game, int forListing)
         } else {
           ach = NULL;
         }
-      } else if (sceneIdx != -1) {
-        trim(line);
-        if (startsWithWord("$", line)) {
-          subString(line, game->scenes[sceneIdx], 2, strlen(line) - 2);
-        } else {
-          strcpy(game->scenes[sceneIdx], line);
-        }
-        logDebug("\tscene: %s", game->scenes[sceneIdx]);
-        sceneIdx++;
-        game->scenesCount++;
       } else {
         if (game->startPosition == 0) {
           logDebug("\tFirst line to interpret=%s", line);
