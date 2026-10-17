@@ -1,5 +1,5 @@
 TARGET=CoGSDL
-VERSION=1.5.0
+VERSION=1.6.0
 CFLAGS += -DVERSION=\"$(VERSION)\"
 
 # Miyoo Mini (Onion) build: make PLATFORM=miyoo
