@@ -62,9 +62,10 @@ static void gm_refreshSlots()
     item->id = i;
     if (slots[i].used) {
       snprintf(slotsTexts[i], sizeof(slotsTexts[i]), "%i. %s", i + 1, slots[i].name);
-      strftime(slotsDates[i], sizeof(slotsDates[i]), "%Y-%m-%d %H:%M", localtime(&slots[i].time));
+      // Play time and date of the save
+      sv_formatSaveDetails(&slots[i], slotsDates[i], sizeof(slotsDates[i]));
       item->subText = slotsDates[i];
-      // The date is aligned to the name of the save, after "1. "
+      // The play time and the date are aligned to the name of the save, after "1. "
       char number[16];
       snprintf(number, sizeof(number), "%i. ", i + 1);
       TTF_SizeUTF8(_Globals.defaultFont, number, &item->subTextIndent, NULL);

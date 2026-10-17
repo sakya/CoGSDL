@@ -17,6 +17,8 @@ struct save_info
   char name[256];
   /// @brief Time of the save
   time_t time;
+  /// @brief Play time (seconds): the sum of the time of all the game sessions
+  unsigned long long playTime;
 } typedef save_info;
 
 /// @brief Read the information of a save slot of the running game
@@ -36,6 +38,13 @@ int sv_findLastSave(int *gameIndex, int *slot);
 /// @brief Start the game of the most recent save and load it
 /// @return 1 on success
 int sv_continueLastSave();
+/// @brief Start a game session (the game is started or loaded)
+/// @param playTime The play time of the previous sessions (seconds)
+void sv_startPlayTime(unsigned long long playTime);
+/// @brief Get the play time (seconds): the previous sessions and the current one
+unsigned long long sv_getPlayTime();
+/// @brief Format the description of a save slot: play time and date (e.g. "2h 30m - 2026-10-17 18:30")
+void sv_formatSaveDetails(const save_info *info, char *text, int size);
 
 /* Used by the interpreter (choicescript.c) */
 

@@ -99,6 +99,43 @@ void sv_manageAchieveCommand(const char *text)
 
 #define SAVE_HEADER "CoGSDL save 1"
 
+/* Play time: the sum of the time of all the game sessions. A session starts when the
+ * game is started (or loaded from a save) and ends when the player saves (then a new
+ * session starts) */
+
+/// @brief Play time of the previous sessions (milliseconds)
+static unsigned long long sv_playTimeBase = 0;
+/// @brief Start of the current session (SDL_GetTicks)
+static Uint32 sv_sessionStart = 0;
+
+void sv_startPlayTime(unsigned long long playTime)
+{
+  sv_playTimeBase = playTime * 1000ULL;
+  sv_sessionStart = SDL_GetTicks();
+}
+
+/// @brief Play time in milliseconds
+static unsigned long long sv_getPlayTimeMs()
+{
+  return sv_playTimeBase + (Uint32)(SDL_GetTicks() - sv_sessionStart);
+}
+
+unsigned long long sv_getPlayTime()
+{
+  return sv_getPlayTimeMs() / 1000ULL;
+}
+
+void sv_formatSaveDetails(const save_info *info, char *text, int size)
+{
+  unsigned long long minutes = info->playTime / 60ULL;
+  char date[32];
+  strftime(date, sizeof(date), "%Y-%m-%d %H:%M", localtime(&info->time));
+  if (minutes >= 60)
+    snprintf(text, size, "%lluh %llum - %s", minutes / 60ULL, minutes % 60ULL, date);
+  else
+    snprintf(text, size, "%llum - %s", minutes, date);
+}
+
 /// @brief Append a string, truncated to the buffer size
 static void sv_appendString(char *dst, size_t size, const char *src)
 {
@@ -510,6 +547,8 @@ static int sv_readSaveInfo(const char *path, save_info *info)
     } else if (startsWith("name ", line)) {
       cs_copyString(info->name, sizeof(info->name), line + 5);
       sv_unescape(info->name);
+    } else if (startsWith("playtime ", line)) {
+      info->playTime = strtoull(line + 9, NULL, 10);
     } else if (startsWith("time ", line)) {
       info->time = (time_t)atoll(line + 5);
       break;
@@ -1077,6 +1116,9 @@ int sv_saveGame(int slot)
   cs_sb_append(&sb, "name ", 5);
   sv_sbEscaped(&sb, name);
   cs_sb_append(&sb, "\n", 1);
+  // The play time is before the time: sv_readSaveInfo stops reading at the time
+  unsigned long long playTimeMs = sv_getPlayTimeMs();
+  sv_sbPrintf(&sb, "playtime %llu\n", playTimeMs / 1000ULL);
   sv_sbPrintf(&sb, "time %lld\n", (long long)time(NULL));
   cs_sb_append(&sb, sv_pageSnapshot, strlen(sv_pageSnapshot));
   for (int i = 0; i < sv_checkpointsCount; i++) {
@@ -1103,7 +1145,10 @@ int sv_saveGame(int slot)
     logError("Cannot rename %s to %s", tmpPath, path);
     return 0;
   }
-  logInfo("Game saved in %s (%s)", path, name);
+  // The session ends with the save: the next one starts now
+  sv_playTimeBase = playTimeMs;
+  sv_sessionStart = SDL_GetTicks();
+  logInfo("Game saved in %s (%s), play time %llus", path, name, playTimeMs / 1000ULL);
   return 1;
 }
 
@@ -1391,6 +1436,16 @@ int sv_loadGame(int slot)
     free(content);
     return 0;
   }
+
+  // A new session starts with the play time of the save (0 for the saves without it)
+  unsigned long long playTime = 0;
+  for (int i = 1; i < linesCount - 1; i++) {
+    if (startsWith("playtime ", lines[i])) {
+      playTime = strtoull(lines[i] + 9, NULL, 10);
+      break;
+    }
+  }
+  sv_startPlayTime(playTime);
 
   // The checkpoints are saved with the game
   sv_clearCheckpoints();

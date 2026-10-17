@@ -287,6 +287,8 @@ void pg_init()
   pg_game_status.loopLimit = 1000;
   pg_game_status.labelVisitsCount = 0;
   sv_loadAchievements();
+  // A new game: the first session starts (sv_loadGame sets the play time of the save)
+  sv_startPlayTime(0);
   pg_game_status.fpPosition = runningGame->startPosition;
   pg_game_status.scrollY = 0;
   pg_game_status.textFullyRendered = 0;
