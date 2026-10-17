@@ -107,9 +107,7 @@ void drawGameChoice()
   gc_renderSelected();
   gme_draw(&gc_menu);
 
-  sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
-  sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
-  sdlBlitImage(button_b, _Globals.windowWidth - 70, FOOTER_BUTTON_Y, 30, 30);
+  gu_drawFooter(1, "Select", "Back");
 }
 
 void gc_init()

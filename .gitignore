@@ -11,4 +11,5 @@ CoGSDL
 *.out
 prof_output
 saves/
+/games/*
 settings.cfg

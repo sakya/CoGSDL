@@ -391,4 +391,7 @@ void osk_openNumeric(const char *title, const char *text, int maxLength, osk_val
 int osk_getResult(char *text, size_t size);
 void drawOsk();
 
+/* gui_utils.c */
+void gu_drawFooter(int showPad, const char* messageA, const char* messageB);
+
 #endif

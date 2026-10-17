@@ -34,5 +34,5 @@ void drawAbout()
   y += _Globals.defaultFontHeight;
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "Not affiliated with Choice of Games LLC.", 30, y, 0, 0);
 
-  sdlBlitImage(button_b, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
+  gu_drawFooter(0, NULL, "Back");
 }

@@ -127,15 +127,6 @@ static void gm_doSave()
   }
 }
 
-static void gm_drawFooter(int showA, int showB)
-{
-  if (showA)
-    sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
-  if (showB)
-    sdlBlitImage(button_b, _Globals.windowWidth - 70, FOOTER_BUTTON_Y, 30, 30);
-  sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
-}
-
 static void gm_drawTitle(const char *title, const gme_menu *menu)
 {
   sdlDrawTitle(title, menu->margin + menu->textIndent, HEADER_HEIGHT + 10);
@@ -147,20 +138,7 @@ static void gm_drawConfirm(const char *question, const char *detail)
   if (detail != NULL)
     sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, (char *)detail, 30, HEADER_HEIGHT + 95, _Globals.windowWidth - 40, 0);
 
-  // No button
-  sdlBlitImage(button_b, 5, FOOTER_BUTTON_Y, 30, 30);
-  // Vertically centered in the bottom toolbar
-  int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
-  sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "No", 42, y, 0, 0);
-
-  // Yes button
-  sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
-
-  int width;
-  TTF_MeasureUTF8(_Globals.defaultFont, "Yes", _Globals.windowWidth, &width, NULL);
-  // Vertically centered in the bottom toolbar
-  y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
-  sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "Yes", _Globals.windowWidth - 35 - width - 5, y, 0, 0);
+  gu_drawFooter(0, "Yes", "No");
 }
 
 void drawGameMenu()
@@ -222,7 +200,7 @@ void drawGameMenu()
 
       gm_drawTitle("Game menu", &mainMenu);
       gme_draw(&mainMenu);
-      gm_drawFooter(1, 1);
+      gu_drawFooter(1, "Select", "Back");
       break;
 
     case gm_save:
@@ -253,7 +231,7 @@ void drawGameMenu()
 
       gm_drawTitle(page == gm_save ? "Save game" : "Load game", &slotsMenu);
       gme_draw(&slotsMenu);
-      gm_drawFooter(1, 1);
+      gu_drawFooter(1, "Select", "Back");
       break;
 
     case gm_confirm_overwrite:
@@ -304,7 +282,7 @@ void drawGameMenu()
         return;
       }
       sdlWriteText(_Globals.defaultFont, _theme->selectedTextColor, message, 30, HEADER_HEIGHT + 60, _Globals.windowWidth - 40, 0);
-      gm_drawFooter(1, 0);
+      gu_drawFooter(1, "Ok", NULL);
       break;
   }
 }

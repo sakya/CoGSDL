@@ -92,6 +92,5 @@ void drawMainMenu()
 
   gme_draw(&mm_menu);
 
-  sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
-  sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
+  gu_drawFooter(1, "Select", NULL);
 }

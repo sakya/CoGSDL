@@ -242,6 +242,5 @@ void drawSettings()
     sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", st_menu.margin + st_menu.textIndent, y + 10, 0, 0);
   }
 
-  sdlBlitImage(button_b, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
-  sdlBlitImage(dpad, 5, FOOTER_BUTTON_Y, 30, 30);
+  gu_drawFooter(0, NULL, "Back");
 }
