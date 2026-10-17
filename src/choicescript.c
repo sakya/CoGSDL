@@ -2571,6 +2571,8 @@ void cs_manageCheckPurchaseCommand(const char *text)
     addGameVar(runningGame, boolean, var_name, "true");
     logDebug("check_purchase %s=%s", var_name, "true");
   };
+  // All the products checked are purchased
+  addGameVar(runningGame, boolean, "choice_purchased_everything", "true");
 }
 
 label* cs_get_label(const char *labelName)
