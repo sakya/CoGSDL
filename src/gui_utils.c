@@ -3,7 +3,7 @@
 void gu_drawFooter(int showPad, const char* messageA, const char* messageB)
 {
   if (showPad) {
-    sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
+    sdlBlitImage(showPad == 2 ? dpad : dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
   }
 
   const int centerYText = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);

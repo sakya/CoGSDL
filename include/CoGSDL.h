@@ -392,6 +392,11 @@ int osk_getResult(char *text, size_t size);
 void drawOsk();
 
 /* gui_utils.c */
+
+/// @brief Draws the buttons and text in the footer
+/// @param showPad If == 2 the pad icon is displayed, if > 0 the up/down dpad is displayed
+/// @param messageA If != NULL the button A is displayed with this text
+/// @param messageB If != NULL the button B is displayed with this text
 void gu_drawFooter(int showPad, const char* messageA, const char* messageB);
 
 #endif

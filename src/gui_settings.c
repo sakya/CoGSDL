@@ -242,5 +242,5 @@ void drawSettings()
     sdlWriteText(_Globals.textFont, _theme->textColor, "The quick brown fox", st_menu.margin + st_menu.textIndent, y + 10, 0, 0);
   }
 
-  gu_drawFooter(0, NULL, "Back");
+  gu_drawFooter(2, NULL, "Back");
 }
