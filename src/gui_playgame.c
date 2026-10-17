@@ -7,6 +7,8 @@ void pg_init();
 void pg_dispose();
 void pg_renderText(const char* text, int x, int y, int width, int height, int scrollY);
 int pg_renderPageBreak();
+/// @brief Set to 1 when pg_renderPageBreak draws the message in the footer (reset by pg_drawPage)
+static int pg_pageBreakShown = 0;
 static void pg_computeLineHeight();
 /// @brief Open the on screen keyboard for *input_text
 static void pg_openInputText();
@@ -67,13 +69,17 @@ void drawGame()
   pg_drawPage();
 
   // Start (game menu): centered in the footer (the image is 96x64, drawn 45x30).
-  // Only in the game page (pg_drawPage is used by the stats screen too)
-  const int startWidth = 45;
-  sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
+  // Only in the game page (pg_drawPage is used by the stats screen too) and only without
+  // the page break message (a long message would go under the button)
+  if (!pg_pageBreakShown) {
+    const int startWidth = 45;
+    sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
+  }
 }
 
 void pg_drawPage()
 {
+  pg_pageBreakShown = 0;
   int scrollY = pg_game_status.scrollY;
   if (pg_game_status.canScrollDown) {
     if (_Globals.input[_Keys.KeyDown] == 1) {
@@ -543,6 +549,7 @@ int pg_renderPageBreak()
     // Vertically centered in the bottom toolbar
     const int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
     sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, pg_game_status.pageBreakMessage, _Globals.windowWidth - 35 - width - 5, y, 0, 0);
+    pg_pageBreakShown = 1;
 
     return 1;
   }
