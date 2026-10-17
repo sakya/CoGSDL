@@ -1,4 +1,5 @@
 # CoGSDL
+Unofficial [ChoiceScript](https://www.choiceofgames.com/make-your-own-games/choicescript-intro/) interpreter, built with SDL2.
 
 ## Install on the Miyoo Mini
 To install CoGSDL on the Miyoo Mini:
