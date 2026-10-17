@@ -47,7 +47,7 @@ void drawGameStats()
   }
 
   // Back button
-  sdlBlitImage(button_b, 40, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(button_b, 40, FOOTER_BUTTON_Y, 30, 30);
   // Vertically centered in the bottom toolbar
   const int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
   sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "Back", 72, y, 0, 0);

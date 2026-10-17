@@ -6,6 +6,7 @@ SDL_Surface *button_x = NULL;
 SDL_Surface *button_y = NULL;
 SDL_Surface *button_a = NULL;
 SDL_Surface *button_b = NULL;
+SDL_Surface *button_start = NULL;
 SDL_Surface *dpad = NULL;
 SDL_Surface *dpad_up_down = NULL;
 

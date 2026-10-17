@@ -32,6 +32,10 @@
 #else
   #define HEADER_HEIGHT 30
 #endif
+/// @brief Height of the buttons drawn in the footer (the footer is as high as the header)
+#define FOOTER_BUTTON_SIZE 30
+/// @brief Y of the buttons in the footer: vertically centered
+#define FOOTER_BUTTON_Y (_Globals.windowHeight - HEADER_HEIGHT + (HEADER_HEIGHT - FOOTER_BUTTON_SIZE) / 2)
 
 extern const SDL_Color colorTitleText;
 
@@ -40,6 +44,7 @@ extern SDL_Surface* button_x;
 extern SDL_Surface* button_y;
 extern SDL_Surface* button_a;
 extern SDL_Surface* button_b;
+extern SDL_Surface* button_start;
 extern SDL_Surface* dpad;
 extern SDL_Surface* dpad_up_down;
 

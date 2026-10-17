@@ -130,10 +130,10 @@ static void gm_doSave()
 static void gm_drawFooter(int showA, int showB)
 {
   if (showA)
-    sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
+    sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
   if (showB)
-    sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
+    sdlBlitImage(button_b, _Globals.windowWidth - 70, FOOTER_BUTTON_Y, 30, 30);
+  sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
 }
 
 static void gm_drawTitle(const char *title, const gme_menu *menu)

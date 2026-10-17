@@ -219,9 +219,9 @@ static void gs_drawSlotsPage()
   if (messageTime > 0 && SDL_GetTicks() - messageTime < 2500)
     sdlWriteText(_Globals.defaultSmallFont, _theme->selectedTextColor, message, x, _Globals.windowHeight - HEADER_HEIGHT - 22, 0, 0);
 
-  sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
+  sdlBlitImage(button_b, _Globals.windowWidth - 70, FOOTER_BUTTON_Y, 30, 30);
+  sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
 }
 
 void gameSelectDispose()
@@ -291,7 +291,7 @@ void drawGameSelectMenu()
     }
   }
 
-  sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(button_b, _Globals.windowWidth - 70, _Globals.windowHeight - 30, 30, 30);
-  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
+  sdlBlitImage(button_b, _Globals.windowWidth - 70, FOOTER_BUTTON_Y, 30, 30);
+  sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
 }

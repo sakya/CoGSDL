@@ -447,10 +447,11 @@ void drawOsk()
   }
 
   // Footer
-  sdlBlitImage(dpad, 5, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(dpad, 5, FOOTER_BUTTON_Y, 30, 30);
+  // Help text vertically centered in the footer
   sdlWriteText(_Globals.defaultSmallFont, _theme->titleTextColor,
                osk_numeric ? "B: Delete   Start: OK   Select: Cancel"
                            : "B: Delete   X: Space   Y: Shift   Start: OK   Select: Cancel",
-               45, _Globals.windowHeight - 26, 0, 0);
-  sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
+               45, sdlTextCenterY(_Globals.defaultSmallFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT), 0, 0);
+  sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
 }

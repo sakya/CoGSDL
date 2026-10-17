@@ -180,6 +180,7 @@ void load_images()
   button_y = IMG_Load("images/button_y.png");
   button_a = IMG_Load("images/button_a.png");
   button_b = IMG_Load("images/button_b.png");
+  button_start = IMG_Load("images/button_start.png");
   dpad = IMG_Load("images/dpad.png");
   dpad_up_down = IMG_Load("images/dpad_up_down.png");
 }
@@ -254,6 +255,7 @@ void free_images()
   sdlFreeSurface(button_y);
   sdlFreeSurface(button_a);
   sdlFreeSurface(button_b);
+  sdlFreeSurface(button_start);
   sdlFreeSurface(dpad);
   sdlFreeSurface(dpad_up_down);
 }

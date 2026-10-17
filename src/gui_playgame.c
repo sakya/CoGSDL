@@ -166,7 +166,11 @@ void pg_drawPage()
     strcpy(pg_game_status.pageBreakMessage, "Choice");
     pg_renderPageBreak();
   }
-  sdlBlitImage(dpad_up_down, 5, _Globals.windowHeight - 30, 30, 30);
+  sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
+
+  // Start (game menu): centered in the footer (the image is 96x64, drawn 45x30)
+  const int startWidth = 45;
+  sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
 }
 
 /// @brief The game state saved while the stats screen is open
@@ -531,7 +535,7 @@ void pg_renderText(const char* text, int x, int y, int width, int height, int sc
 int pg_renderPageBreak()
 {
   if (pg_game_status.textFullyRendered) {
-    sdlBlitImage(button_a, _Globals.windowWidth - 35, _Globals.windowHeight - 30, 30, 30);
+    sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
 
     int width;
     TTF_MeasureUTF8(_Globals.defaultFont, pg_game_status.pageBreakMessage, _Globals.windowWidth, &width, NULL);
