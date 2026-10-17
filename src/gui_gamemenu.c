@@ -151,7 +151,7 @@ static void gm_drawConfirm(const char *question, const char *detail)
   // No button
   sdlBlitImage(button_b, 40, FOOTER_BUTTON_Y, 30, 30);
   // Vertically centered in the bottom toolbar
-  const int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
+  int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
   sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "No", 72, y, 0, 0);
 
   // Yes button
@@ -160,7 +160,7 @@ static void gm_drawConfirm(const char *question, const char *detail)
   int width;
   TTF_MeasureUTF8(_Globals.defaultFont, "Yes", _Globals.windowWidth, &width, NULL);
   // Vertically centered in the bottom toolbar
-  const int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
+  y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
   sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "Yes", _Globals.windowWidth - 35 - width - 5, y, 0, 0);
 }
 
