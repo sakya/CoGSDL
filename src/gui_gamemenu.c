@@ -146,10 +146,9 @@ static void gm_drawConfirm(const char *question, const char *detail)
   sdlWriteText(_Globals.defaultFont, _theme->textColor, (char *)question, 30, HEADER_HEIGHT + 60, _Globals.windowWidth - 40, 0);
   if (detail != NULL)
     sdlWriteText(_Globals.defaultSmallFont, _theme->textColor, (char *)detail, 30, HEADER_HEIGHT + 95, _Globals.windowWidth - 40, 0);
-  sdlWriteText(_Globals.defaultFont, _theme->selectedTextColor, "B: No    A: Yes", 30, HEADER_HEIGHT + 140, 0, 0);
 
   // No button
-  sdlBlitImage(button_b, 40, FOOTER_BUTTON_Y, 30, 30);
+  sdlBlitImage(button_b, 5, FOOTER_BUTTON_Y, 30, 30);
   // Vertically centered in the bottom toolbar
   int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
   sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, "No", 72, y, 0, 0);
