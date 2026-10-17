@@ -26,7 +26,7 @@ void drawAbout()
 
   int y = 200;
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "© 2026 Paolo Iommarini - MIT License", 30, y, 0, 0);
-  y += _Globals.defaultFontHeight
+  y += _Globals.defaultFontHeight;
   sdlWriteText(_Globals.defaultFont, _theme->textColor, "https://github.com/sakya/CoGSDL", 30, y, 0, 0);
 
   y += _Globals.defaultFontHeight + 10;
