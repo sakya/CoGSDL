@@ -499,8 +499,87 @@ int sv_getSaveInfo(int slot, save_info *info)
   return sv_readSaveInfo(path, info);
 }
 
+/* The last save (used by "Continue") is written in ./saves/last_save.txt: the time of the
+ * saves cannot be used on the devices without a real time clock (e.g. Miyoo Mini) */
+
+#define LAST_SAVE_HEADER "CoGSDL last save 1"
+#define LAST_SAVE_PATH "./saves/last_save.txt"
+
+/// @brief Write the game folder and the slot of the last save
+static void sv_writeLastSave(const char *gameName, int slot)
+{
+  char tmpPath[64];
+  snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", LAST_SAVE_PATH);
+  FILE *fp = fopen(tmpPath, "wb");
+  if (fp == NULL) {
+    logError("Cannot write %s", tmpPath);
+    return;
+  }
+  int ok = fprintf(fp, "%s\ngame %s\nslot %i\n", LAST_SAVE_HEADER, gameName, slot + 1) > 0;
+  ok = (fclose(fp) == 0) && ok;
+  if (!ok) {
+    logError("Cannot write %s", tmpPath);
+    remove(tmpPath);
+    return;
+  }
+  remove(LAST_SAVE_PATH);
+  if (rename(tmpPath, LAST_SAVE_PATH) != 0)
+    logError("Cannot rename %s to %s", tmpPath, LAST_SAVE_PATH);
+}
+
+/// @brief Read the last save written by sv_writeLastSave
+/// @return 1 if the game is in the list of the games and the slot contains a valid save
+static int sv_readLastSave(int *gameIndex, int *slot)
+{
+  FILE *fp = fopen(LAST_SAVE_PATH, "rb");
+  if (fp == NULL)
+    return 0;
+
+  char line[600];
+  char gameName[512] = "";
+  int slotNumber = 0;
+  int valid = 0;
+  while (fgets(line, sizeof(line), fp)) {
+    line[strcspn(line, "\r\n")] = '\0';
+    if (!valid) {
+      valid = strcmp(line, LAST_SAVE_HEADER) == 0;
+      if (!valid)
+        break;
+    } else if (startsWith("game ", line)) {
+      cs_copyString(gameName, sizeof(gameName), line + 5);
+    } else if (startsWith("slot ", line)) {
+      slotNumber = atoi(line + 5);
+    }
+  }
+  fclose(fp);
+  if (!valid || strlen(gameName) == 0 || slotNumber < 1 || slotNumber > SAVE_SLOTS)
+    return 0;
+
+  // The game folder of the save is compared with the folders of the games
+  for (int g = 0; g < _Globals.gamesCount; g++) {
+    char folder[512];
+    sv_getGameSaveFolder(_Globals.games[g].path, folder, sizeof(folder));
+    if (strcmp(folder + strlen("./saves/"), gameName) != 0)
+      continue;
+
+    char path[600];
+    save_info info;
+    snprintf(path, sizeof(path), "%s/slot%i.sav", folder, slotNumber);
+    if (!sv_readSaveInfo(path, &info))
+      return 0;
+    *gameIndex = g;
+    *slot = slotNumber - 1;
+    return 1;
+  }
+  return 0;
+}
+
 int sv_findLastSave(int *gameIndex, int *slot)
 {
+  if (sv_readLastSave(gameIndex, slot))
+    return 1;
+
+  // No last save (e.g. saves of a previous version): the most recent save by time
   int found = 0;
   time_t lastTime = 0;
   for (int g = 0; g < _Globals.gamesCount; g++) {
@@ -1158,6 +1237,8 @@ int sv_saveGame(int slot)
     logError("Cannot rename %s to %s", tmpPath, path);
     return 0;
   }
+  sv_writeLastSave(gameName, slot);
+
   // The session ends with the save: the next one starts now
   sv_playTimeBase = playTimeMs;
   sv_sessionStart = SDL_GetTicks();
