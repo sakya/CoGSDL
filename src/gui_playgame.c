@@ -67,14 +67,6 @@ void drawGame()
   }
 
   pg_drawPage();
-
-  // Start (game menu): centered in the footer (the image is 96x64, drawn 45x30).
-  // Only in the game page (pg_drawPage is used by the stats screen too) and only without
-  // the page break message (a long message would go under the button)
-  if (!pg_pageBreakShown) {
-    const int startWidth = 45;
-    sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
-  }
 }
 
 void pg_drawPage()
@@ -177,7 +169,12 @@ void pg_drawPage()
     strcpy(pg_game_status.pageBreakMessage, "Choice");
     pg_renderPageBreak();
   }
+
   sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
+  if (!pg_game_status.textFullyRendered) {
+    const int startWidth = 45;
+    sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
+  }
 }
 
 /// @brief The game state saved while the stats screen is open
@@ -542,13 +539,12 @@ void pg_renderText(const char* text, int x, int y, int width, int height, int sc
 int pg_renderPageBreak()
 {
   if (pg_game_status.textFullyRendered) {
-    sdlBlitImage(button_a, _Globals.windowWidth - 35, FOOTER_BUTTON_Y, 30, 30);
+    gu_drawFooter(1, pg_game_status.pageBreakMessage, NULL);
 
-    int width;
-    TTF_MeasureUTF8(_Globals.defaultFont, pg_game_status.pageBreakMessage, _Globals.windowWidth, &width, NULL);
-    // Vertically centered in the bottom toolbar
-    const int y = sdlTextCenterY(_Globals.defaultFont, _Globals.windowHeight - HEADER_HEIGHT, HEADER_HEIGHT);
-    sdlWriteText(_Globals.defaultFont, _theme->titleTextColor, pg_game_status.pageBreakMessage, _Globals.windowWidth - 35 - width - 5, y, 0, 0);
+    if (strlen(pg_game_status.pageBreakMessage) <= 20) {
+      const int startWidth = 45;
+      sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
+    }
     pg_pageBreakShown = 1;
 
     return 1;
