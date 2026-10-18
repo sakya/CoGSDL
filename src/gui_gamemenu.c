@@ -150,22 +150,6 @@ void drawGameMenu()
     mainMenuInitialized = 1;
   }
 
-  if (page == gm_main || page == gm_save || page == gm_load) {
-    if (_Globals.input[_Keys.KeyL1] == 1) {
-      _Globals.input[_Keys.KeyL1] = 0;
-      page = gm_main;
-      _Globals.status = GameStats;
-      return;
-    }
-
-    if (_Globals.input[_Keys.KeyR1] == 1) {
-      _Globals.input[_Keys.KeyR1] = 0;
-      page = gm_main;
-      _Globals.status = Game;
-      return;
-    }
-  }
-
   switch (page) {
     case gm_main:
       switch (gme_handleInput(&mainMenu)) {

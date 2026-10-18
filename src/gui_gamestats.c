@@ -20,18 +20,6 @@ static void gs_close(enum status status)
 
 void drawGameStats()
 {
-  if (_Globals.input[_Keys.KeyL1] == 1) {
-    _Globals.input[_Keys.KeyL1] = 0;
-    gs_close(Game);
-    return;
-  }
-
-  if (_Globals.input[_Keys.KeyR1] == 1) {
-    _Globals.input[_Keys.KeyR1] = 0;
-    gs_close(GameMenu);
-    return;
-  }
-
   if (_Globals.input[_Keys.KeyB] == 1) {
     _Globals.input[_Keys.KeyB] = 0;
     playMenuBackSound();
