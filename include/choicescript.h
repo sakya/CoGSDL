@@ -15,6 +15,7 @@ struct cs_strbuf
 } typedef cs_strbuf;
 
 void cs_clearParams();
+/// @brief Exec the next line(s)
 void cs_exec();
 int cs_indexOfWordEnd(const char *string, const int startFrom);
 void cs_getCommand(const char *line, char *command) ;

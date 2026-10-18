@@ -167,11 +167,11 @@ int pg_isStatsActive();
 /// @brief Manage the input and draw the current page (text, page break, choice button)
 void pg_drawPage();
 
-/// @brief Close the running game and free its memory
 /// @brief Initialize the running game (runningGame) at the start of the first scene
 void pg_init();
 /// @brief Apply the changed settings (text font, size, theme) to the running game: the page is rendered again
 void pg_refreshLayout();
+/// @brief Close the running game and free its memory
 void pg_dispose();
 
 /// @brief State of the running game (interpreter and page)
