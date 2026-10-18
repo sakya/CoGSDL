@@ -138,13 +138,136 @@ void drawFooter()
   SDL_RenderFillRect(_Globals.renderer, &rect);
 }
 
+/* The rotating app icon in the header.
+ * The icon is rotated here instead of using SDL_RenderCopyEx: the software renderer (Miyoo
+ * Mini) places the rotated image at integer coordinates of a bounding box whose size changes
+ * with the angle, so the center moves up to 2 pixels. Here each frame is computed around the
+ * exact center (bilinear sampling, 2x2 supersampling) and drawn without rotation */
+
+#define APP_ICON_SIZE 26
+/// @brief Scale of the source image compared to the drawn icon (for the supersampling)
+#define APP_ICON_SOURCE_SCALE 2
+
+/// @brief The icon scaled to APP_ICON_SIZE * APP_ICON_SOURCE_SCALE (ARGB8888)
+static SDL_Surface *appIconSource = NULL;
+/// @brief The image used to build appIconSource
+static SDL_Surface *appIconSourceOf = NULL;
+/// @brief The rotated icon of the current frame (ARGB8888 pixels)
+static Uint32 appIconPixels[APP_ICON_SIZE * APP_ICON_SIZE];
+static SDL_Texture *appIconTexture = NULL;
+
+/// @brief Prepare the source image and the texture of the icon
+/// @return 0 if the icon cannot be drawn
+static int appIconPrepare()
+{
+  if (app_icon == NULL)
+    return 0;
+  if (appIconSource != NULL && appIconSourceOf == app_icon && appIconTexture != NULL)
+    return 1;
+
+  SDL_FreeSurface(appIconSource);
+  appIconSource = NULL;
+  const int size = APP_ICON_SIZE * APP_ICON_SOURCE_SCALE;
+  SDL_Surface *converted = SDL_ConvertSurfaceFormat(app_icon, SDL_PIXELFORMAT_ARGB8888, 0);
+  if (converted != NULL) {
+    appIconSource = SDL_CreateRGBSurfaceWithFormat(0, size, size, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (appIconSource != NULL && SDL_SoftStretchLinear(converted, NULL, appIconSource, NULL) < 0) {
+      SDL_FreeSurface(appIconSource);
+      appIconSource = NULL;
+    }
+    SDL_FreeSurface(converted);
+  }
+  appIconSourceOf = app_icon;
+  if (appIconSource == NULL) {
+    logWarning("Cannot prepare the app icon: %s", SDL_GetError());
+    return 0;
+  }
+
+  if (appIconTexture == NULL) {
+    appIconTexture = SDL_CreateTexture(_Globals.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, APP_ICON_SIZE, APP_ICON_SIZE);
+    if (appIconTexture == NULL) {
+      logWarning("Cannot create the app icon texture: %s", SDL_GetError());
+      return 0;
+    }
+    SDL_SetTextureBlendMode(appIconTexture, SDL_BLENDMODE_BLEND);
+  }
+  return 1;
+}
+
+/// @brief Bilinear sample of appIconSource (premultiplied alpha), transparent outside the image
+static void appIconSample(float u, float v, float *a, float *r, float *g, float *b)
+{
+  const int size = appIconSource->w;
+  const int x0 = (int)floorf(u);
+  const int y0 = (int)floorf(v);
+  const float fx = u - x0;
+  const float fy = v - y0;
+  for (int j = 0; j < 2; j++) {
+    const int y = y0 + j;
+    if (y < 0 || y >= size)
+      continue;
+    const Uint32 *row = (const Uint32 *)((const Uint8 *)appIconSource->pixels + y * appIconSource->pitch);
+    const float wy = j ? fy : 1.0f - fy;
+    for (int i = 0; i < 2; i++) {
+      const int x = x0 + i;
+      if (x < 0 || x >= size)
+        continue;
+      const float w = wy * (i ? fx : 1.0f - fx);
+      const Uint32 p = row[x];
+      const float pa = (float)(p >> 24) * w;
+      *a += pa;
+      *r += (float)((p >> 16) & 0xFF) * pa;
+      *g += (float)((p >> 8) & 0xFF) * pa;
+      *b += (float)(p & 0xFF) * pa;
+    }
+  }
+}
+
+/// @brief Compute the icon rotated by angle degrees (clockwise) around its center
+static void appIconRotate(double angle)
+{
+  const float rad = (float)(angle * M_PI / 180.0);
+  const float c = cosf(rad);
+  const float s = sinf(rad);
+  const float half = APP_ICON_SIZE / 2.0f;
+  const float scale = APP_ICON_SOURCE_SCALE;
+  const float sub = 1.0f / APP_ICON_SOURCE_SCALE;
+
+  for (int y = 0; y < APP_ICON_SIZE; y++) {
+    for (int x = 0; x < APP_ICON_SIZE; x++) {
+      float a = 0, r = 0, g = 0, b = 0;
+      // APP_ICON_SOURCE_SCALE x APP_ICON_SOURCE_SCALE samples in the pixel
+      for (int sy = 0; sy < APP_ICON_SOURCE_SCALE; sy++) {
+        for (int sx = 0; sx < APP_ICON_SOURCE_SCALE; sx++) {
+          const float dx = x + (sx + 0.5f) * sub - half;
+          const float dy = y + (sy + 0.5f) * sub - half;
+          // Inverse rotation: the point of the image drawn here
+          const float ix = dx * c + dy * s + half;
+          const float iy = -dx * s + dy * c + half;
+          appIconSample(ix * scale - 0.5f, iy * scale - 0.5f, &a, &r, &g, &b);
+        }
+      }
+      const float samples = APP_ICON_SOURCE_SCALE * APP_ICON_SOURCE_SCALE;
+      Uint32 pixel = 0;
+      if (a > 0) {
+        const Uint32 pa = (Uint32)(a / samples + 0.5f);
+        pixel = ((pa > 255 ? 255 : pa) << 24) |
+                ((Uint32)(r / a + 0.5f) << 16) | ((Uint32)(g / a + 0.5f) << 8) | (Uint32)(b / a + 0.5f);
+      }
+      appIconPixels[y * APP_ICON_SIZE + x] = pixel;
+    }
+  }
+}
+
 void drawAppIcon()
 {
-  SDL_Texture* texture = sdlGetImageTexture(app_icon, 26, 26);
-  SDL_Rect rect = {2, (HEADER_HEIGHT - 26) / 2, 26, 26};
-  SDL_Point center = { 13, 13};
-  SDL_RendererFlip flip = SDL_FLIP_NONE;
-  SDL_RenderCopyEx(_Globals.renderer, texture, NULL, &rect, header_angle, &center, flip);
+  if (appIconPrepare()) {
+    appIconRotate(header_angle);
+    SDL_UpdateTexture(appIconTexture, NULL, appIconPixels, APP_ICON_SIZE * sizeof(Uint32));
+    // Vertically centered in the header
+    SDL_Rect rect = { 2, (HEADER_HEIGHT - APP_ICON_SIZE) / 2, APP_ICON_SIZE, APP_ICON_SIZE };
+    SDL_RenderCopy(_Globals.renderer, appIconTexture, NULL, &rect);
+  }
 
   header_angle += 0.5;
   if (header_angle >= 360)
