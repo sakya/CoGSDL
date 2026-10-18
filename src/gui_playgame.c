@@ -40,6 +40,10 @@ static int image_cache_count = 0;
 static SDL_Surface* text_surface = NULL;
 static int scroll_height;
 
+/// @brief The game state saved while the stats screen is open
+static game_status pg_savedGameStatus;
+static int pg_statsActive = 0;
+
 void drawGame()
 {
   if (_Globals.input[_Keys.KeyStart] == 1) {
@@ -159,15 +163,11 @@ void pg_drawPage()
   }
 
   sdlBlitImage(dpad_up_down, 5, FOOTER_BUTTON_Y, 30, 30);
-  if (!pg_game_status.textFullyRendered) {
+  if (pg_statsActive == 0 && !pg_game_status.textFullyRendered) {
     const int startWidth = 45;
     sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
   }
 }
-
-/// @brief The game state saved while the stats screen is open
-static game_status pg_savedGameStatus;
-static int pg_statsActive = 0;
 
 void pg_freeTextSurface()
 {
@@ -529,7 +529,7 @@ int pg_renderPageBreak()
   if (pg_game_status.textFullyRendered) {
     gu_drawFooter(1, pg_game_status.pageBreakMessage, NULL);
 
-    if (strlen(pg_game_status.pageBreakMessage) <= 20) {
+    if (pg_statsActive == 0 && strlen(pg_game_status.pageBreakMessage) <= 20) {
       const int startWidth = 45;
       sdlBlitImage(button_start, (_Globals.windowWidth - startWidth) / 2, FOOTER_BUTTON_Y, startWidth, FOOTER_BUTTON_SIZE);
     }
