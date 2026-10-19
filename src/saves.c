@@ -142,11 +142,20 @@ void sv_formatSaveDetails(const save_info *info, char *text, int size)
 {
   unsigned long long minutes = info->playTime / 60ULL;
   char date[32];
-  strftime(date, sizeof(date), "%Y-%m-%d %H:%M", localtime(&info->time));
-  if (minutes >= 60)
-    snprintf(text, size, "%lluh %llum - %s", minutes / 60ULL, minutes % 60ULL, date);
-  else
-    snprintf(text, size, "%llum - %s", minutes, date);
+  const struct tm* localTime = localtime(&info->time);
+  if (localTime->tm_year > 1970) {
+    strftime(date, sizeof(date), "%Y-%m-%d %H:%M", localTime);
+    if (minutes >= 60)
+      snprintf(text, size, "%lluh %llum - %s", minutes / 60ULL, minutes % 60ULL, date);
+    else
+      snprintf(text, size, "%llum - %s", minutes, date);
+  } else {
+    // No RTC, skip the time
+    if (minutes >= 60)
+      snprintf(text, size, "%lluh %llum", minutes / 60ULL, minutes % 60ULL);
+    else
+      snprintf(text, size, "%llum", minutes);
+  }
 }
 
 /// @brief Append a string, truncated to the buffer size
