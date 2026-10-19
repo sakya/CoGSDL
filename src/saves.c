@@ -143,7 +143,7 @@ void sv_formatSaveDetails(const save_info *info, char *text, int size)
   unsigned long long minutes = info->playTime / 60ULL;
   char date[32];
   const struct tm* localTime = localtime(&info->time);
-  if (localTime->tm_year > 1970) {
+  if (localTime->tm_year + 1900 > 1970) {
     strftime(date, sizeof(date), "%Y-%m-%d %H:%M", localTime);
     if (minutes >= 60)
       snprintf(text, size, "%lluh %llum - %s", minutes / 60ULL, minutes % 60ULL, date);
