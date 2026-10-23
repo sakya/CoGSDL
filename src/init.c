@@ -140,7 +140,7 @@ int init()
     // The renderer of the Miyoo SDL2 port (MI_GFX) can only copy textures to the screen:
     // no clear, no rectangles, no blending, no rotation. Draw everything with the SDL
     // software renderer on a surface and copy the whole frame to the screen (presentFrame)
-    _Globals.screenRenderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    _Globals.screenRenderer = SDL_CreateRenderer(_Globals.window, -1, SDL_RENDERER_ACCELERATED);
     if (_Globals.screenRenderer == NULL) {
       logError("\tSDL_CreateRenderer Fail: %s", SDL_GetError());
       return -1;
